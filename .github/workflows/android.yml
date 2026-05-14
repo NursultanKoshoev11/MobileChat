@@ -33,6 +33,13 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Ensure Android wrapper files exist
+        run: flutter create --platforms=android --project-name mobile_chat .
+
+      - name: Restore project Android configuration
+        run: |
+          git checkout -- android/settings.gradle android/build.gradle android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/debug/AndroidManifest.xml android/app/src/main/kotlin/com/nursultankoshoev/mobilechat/MainActivity.kt android/app/src/main/res/values/styles.xml android/app/src/main/res/values/colors.xml android/app/src/main/res/drawable/launch_background.xml android/app/src/main/res/drawable/ic_launcher_foreground.xml android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
