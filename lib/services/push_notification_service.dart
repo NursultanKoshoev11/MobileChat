@@ -9,6 +9,7 @@ class PushNotificationService {
 
   final ApiClient api;
   final FirebaseMessaging messaging = FirebaseMessaging.instance;
+  bool _tokenRefreshListenerStarted = false;
 
   Future<void> registerDevice() async {
     try {
@@ -16,6 +17,8 @@ class PushNotificationService {
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
       await api.registerPushToken(token: token, platform: _platformName());
+      if (_tokenRefreshListenerStarted) return;
+      _tokenRefreshListenerStarted = true;
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         if (newToken.isEmpty) return;
         await api.registerPushToken(token: newToken, platform: _platformName());
