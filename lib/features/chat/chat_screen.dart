@@ -21,47 +21,83 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final messageController = TextEditingController();
+  final scrollController = ScrollController();
   late final RealtimeClient realtime;
   StreamSubscription<RealtimeEvent>? realtimeSubscription;
   final List<ChatMessage> messages = [];
   bool loading = true;
   bool sending = false;
+  bool loadingOlder = false;
+  bool hasMoreOlder = true;
   String? error;
 
   @override
   void initState() {
     super.initState();
     realtime = RealtimeClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    scrollController.addListener(handleScroll);
     loadInitialMessages();
     connectRealtime();
   }
 
   @override
   void dispose() {
+    scrollController.removeListener(handleScroll);
+    scrollController.dispose();
     realtimeSubscription?.cancel();
     realtime.dispose();
     messageController.dispose();
     super.dispose();
   }
 
+  void handleScroll() {
+    if (!scrollController.hasClients || loadingOlder || !hasMoreOlder || messages.isEmpty) return;
+    final position = scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 160) {
+      loadOlderMessages();
+    }
+  }
+
   Future<void> loadInitialMessages() async {
     setState(() {
       loading = true;
       error = null;
+      hasMoreOlder = true;
     });
     try {
-      final loaded = await widget.api.fetchMessages(widget.group.id);
+      final loaded = await widget.api.fetchMessages(widget.group.id, limit: 50);
       if (!mounted) return;
       setState(() {
         messages
           ..clear()
           ..addAll(loaded.reversed);
+        hasMoreOlder = loaded.length == 50;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> loadOlderMessages() async {
+    if (messages.isEmpty || loadingOlder || !hasMoreOlder) return;
+    setState(() => loadingOlder = true);
+    try {
+      final oldest = messages.first.createdAt;
+      final older = await widget.api.fetchMessages(widget.group.id, limit: 50, before: oldest);
+      if (!mounted) return;
+      setState(() {
+        final newItems = older.reversed.where((message) => !messages.any((item) => item.id == message.id)).toList();
+        messages.insertAll(0, newItems);
+        hasMoreOlder = older.length == 50;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => loadingOlder = false);
     }
   }
 
@@ -225,10 +261,17 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
     return ListView.builder(
+      controller: scrollController,
       reverse: true,
       padding: const EdgeInsets.all(12),
-      itemCount: messages.length,
+      itemCount: messages.length + (loadingOlder ? 1 : 0),
       itemBuilder: (context, index) {
+        if (loadingOlder && index == messages.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          );
+        }
         final message = messages[messages.length - 1 - index];
         return MessageBubble(message: message, mine: message.senderId == widget.user.id);
       },
