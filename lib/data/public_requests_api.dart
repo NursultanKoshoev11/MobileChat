@@ -53,6 +53,10 @@ class PublicRequestsApi {
     return PublicRequestComment.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<void> deleteComment(String commentId) async {
+    await _send('DELETE', '/api/requests/comments/$commentId');
+  }
+
   Future<void> updateStatus({required String requestId, required String status}) async {
     await _send('POST', '/api/requests/$requestId/status', body: {'status': status});
   }
