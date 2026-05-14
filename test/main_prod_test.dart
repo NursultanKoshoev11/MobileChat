@@ -13,10 +13,9 @@ void main() {
     expect(compactTime(time), '07:05');
   });
 
-  test('AppSession serializes and deserializes', () {
+  test('AppSession serializes and deserializes current session model', () {
     final session = AppSession(
       accessToken: 'access-token',
-      refreshToken: 'refresh-token',
       user: UserProfile(
         id: 'U-TEST',
         email: 'test@example.com',
@@ -27,7 +26,6 @@ void main() {
 
     final restored = AppSession.fromJson(session.toJson());
     expect(restored.accessToken, 'access-token');
-    expect(restored.refreshToken, 'refresh-token');
     expect(restored.user.id, 'U-TEST');
     expect(restored.user.email, 'test@example.com');
     expect(restored.user.displayName, 'Tester');
