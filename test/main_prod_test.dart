@@ -1,0 +1,54 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_chat/main_prod.dart';
+
+void main() {
+  test('avatarText returns first uppercase character', () {
+    expect(avatarText('mobile'), 'M');
+    expect(avatarText(' Chat'), 'C');
+    expect(avatarText(''), '?');
+  });
+
+  test('compactTime formats hour and minute', () {
+    final time = DateTime(2026, 5, 14, 7, 5);
+    expect(compactTime(time), '07:05');
+  });
+
+  test('AppSession serializes and deserializes', () {
+    final session = AppSession(
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: UserProfile(
+        id: 'U-TEST',
+        email: 'test@example.com',
+        displayName: 'Tester',
+        createdAt: DateTime.parse('2026-05-14T00:00:00Z'),
+      ),
+    );
+
+    final restored = AppSession.fromJson(session.toJson());
+    expect(restored.accessToken, 'access-token');
+    expect(restored.refreshToken, 'refresh-token');
+    expect(restored.user.id, 'U-TEST');
+    expect(restored.user.email, 'test@example.com');
+    expect(restored.user.displayName, 'Tester');
+  });
+
+  test('ChatGroup parses role and visibility', () {
+    final group = ChatGroup.fromJson({
+      'id': 'G-TEST',
+      'title': 'Test Group',
+      'description': 'Description',
+      'visibility': 'private',
+      'owner_id': 'U-OWNER',
+      'member_count': 3,
+      'invite_code': 'ABC123',
+      'my_role': 'admin',
+      'created_at': '2026-05-14T00:00:00Z',
+    });
+
+    expect(group.isPublic, isFalse);
+    expect(group.canInvite, isTrue);
+    expect(group.inviteCode, 'ABC123');
+    expect(group.memberCount, 3);
+  });
+}
