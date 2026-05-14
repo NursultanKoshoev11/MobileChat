@@ -22,6 +22,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late final PublicRequestsApi requestsApi;
   late Future<List<PublicRequest>> requestsFuture;
 
+  bool get canModerate => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +49,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> vote(PublicRequest request, String voteType) async {
     try {
-      if (voteType == 'support') {
+      if (request.myVote == voteType) {
+        await requestsApi.clearVote(request.id);
+      } else if (voteType == 'support') {
         await requestsApi.support(request.id);
       } else {
         await requestsApi.oppose(request.id);
@@ -62,7 +66,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> openDetails(PublicRequest request) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request),
+        builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate),
       ),
     );
     await refresh();
@@ -163,9 +167,17 @@ class PublicRequestCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    OutlinedButton.icon(onPressed: onSupport, icon: const Icon(Icons.thumb_up_alt_outlined), label: Text('${request.supportCount}')),
+                    OutlinedButton.icon(
+                      onPressed: onSupport,
+                      icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined),
+                      label: Text('${request.supportCount}'),
+                    ),
                     const SizedBox(width: 8),
-                    OutlinedButton.icon(onPressed: onOppose, icon: const Icon(Icons.thumb_down_alt_outlined), label: Text('${request.opposeCount}')),
+                    OutlinedButton.icon(
+                      onPressed: onOppose,
+                      icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined),
+                      label: Text('${request.opposeCount}'),
+                    ),
                     const Spacer(),
                     Text('${request.commentCount} comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
                   ],
@@ -255,10 +267,11 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
 }
 
 class PublicRequestDetailsScreen extends StatefulWidget {
-  const PublicRequestDetailsScreen({super.key, required this.api, required this.request});
+  const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate});
 
   final PublicRequestsApi api;
   final PublicRequest request;
+  final bool canModerate;
 
   @override
   State<PublicRequestDetailsScreen> createState() => _PublicRequestDetailsScreenState();
@@ -267,11 +280,14 @@ class PublicRequestDetailsScreen extends StatefulWidget {
 class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen> {
   final commentController = TextEditingController();
   late Future<List<PublicRequestComment>> commentsFuture;
+  late String status;
   bool sending = false;
+  bool updatingStatus = false;
 
   @override
   void initState() {
     super.initState();
+    status = widget.request.status;
     commentsFuture = widget.api.listComments(widget.request.id);
   }
 
@@ -284,6 +300,21 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   Future<void> refresh() async {
     setState(() => commentsFuture = widget.api.listComments(widget.request.id));
     await commentsFuture;
+  }
+
+  Future<void> changeStatus(String value) async {
+    setState(() => updatingStatus = true);
+    try {
+      await widget.api.updateStatus(requestId: widget.request.id, status: value);
+      if (!mounted) return;
+      setState(() => status = value);
+      showAppSnack(context, 'Status updated.');
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => updatingStatus = false);
+    }
   }
 
   Future<void> sendComment() async {
@@ -304,6 +335,23 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final requestWithLocalStatus = PublicRequest(
+      id: widget.request.id,
+      groupId: widget.request.groupId,
+      authorId: widget.request.authorId,
+      authorName: widget.request.authorName,
+      requestType: widget.request.requestType,
+      title: widget.request.title,
+      body: widget.request.body,
+      status: status,
+      supportCount: widget.request.supportCount,
+      opposeCount: widget.request.opposeCount,
+      commentCount: widget.request.commentCount,
+      myVote: widget.request.myVote,
+      createdAt: widget.request.createdAt,
+      updatedAt: widget.request.updatedAt,
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Request details')),
       body: Column(
@@ -314,7 +362,24 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  PublicRequestCard(request: widget.request, onTap: () {}, onSupport: () {}, onOppose: () {}),
+                  PublicRequestCard(request: requestWithLocalStatus, onTap: () {}, onSupport: () {}, onOppose: () {}),
+                  if (widget.canModerate) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: status,
+                      decoration: const InputDecoration(labelText: 'Admin status'),
+                      items: const [
+                        DropdownMenuItem(value: 'new', child: Text('New')),
+                        DropdownMenuItem(value: 'under_review', child: Text('Under review')),
+                        DropdownMenuItem(value: 'accepted', child: Text('Accepted')),
+                        DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
+                        DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+                      ],
+                      onChanged: updatingStatus ? null : (value) {
+                        if (value != null && value != status) changeStatus(value);
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
