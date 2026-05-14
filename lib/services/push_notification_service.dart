@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import '../data/api_client.dart';
 
@@ -21,9 +22,15 @@ class PushNotificationService {
       _tokenRefreshListenerStarted = true;
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         if (newToken.isEmpty) return;
-        await api.registerPushToken(token: newToken, platform: _platformName());
+        try {
+          await api.registerPushToken(token: newToken, platform: _platformName());
+        } catch (error) {
+          _debugLog('FCM token refresh registration failed: $error');
+        }
       });
-    } catch (_) {}
+    } catch (error) {
+      _debugLog('FCM registration skipped: $error');
+    }
   }
 
   Future<void> unregisterDevice() async {
@@ -31,12 +38,18 @@ class PushNotificationService {
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
       await api.deletePushToken(token: token, platform: _platformName());
-    } catch (_) {}
+    } catch (error) {
+      _debugLog('FCM token cleanup skipped: $error');
+    }
   }
 
   String _platformName() {
     if (Platform.isAndroid) return 'android';
     if (Platform.isIOS) return 'ios';
     return 'unknown';
+  }
+
+  void _debugLog(String message) {
+    if (kDebugMode) debugPrint(message);
   }
 }
