@@ -7,6 +7,11 @@ $ErrorActionPreference = "Stop"
 Write-Host "Flutter version:" -ForegroundColor Cyan
 flutter --version
 
+if (!(Test-Path "android\gradlew.bat")) {
+    Write-Host "Android Gradle wrapper is missing. Generating Android platform files..." -ForegroundColor Yellow
+    flutter create --platforms=android --project-name mobile_chat .
+}
+
 Write-Host "Installing packages..." -ForegroundColor Cyan
 flutter pub get
 
