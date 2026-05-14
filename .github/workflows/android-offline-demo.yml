@@ -64,6 +64,9 @@ jobs:
       - name: Patch offline login to open immediately
         run: python3 scripts/patch_offline_login.py
 
+      - name: Patch offline Read buttons
+        run: python3 scripts/patch_offline_read_buttons.py
+
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
