@@ -2,9 +2,6 @@ name: Android Offline Demo APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -62,8 +59,7 @@ jobs:
           cat android/app/src/main/AndroidManifest.xml
 
       - name: Patch offline login to open immediately
-        run: |
-          python3 scripts/patch_offline_login.py
+        run: python3 scripts/patch_offline_login.py
 
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
