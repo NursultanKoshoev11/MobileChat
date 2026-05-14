@@ -6,6 +6,7 @@ import '../../data/models.dart';
 import '../../shared/ui_helpers.dart';
 import '../chat/chat_screen.dart';
 import '../invitations/invitations_screen.dart';
+import '../public_requests/public_requests_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key, required this.api, required this.session, required this.onLogout});
@@ -72,6 +73,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void openGroup(ChatGroup group) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ChatScreen(api: widget.api, user: widget.session.user, group: group)),
+    );
+  }
+
+  void openPublicRequests(ChatGroup group) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)),
     );
   }
 
@@ -142,7 +149,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               itemCount: groups.length,
-              itemBuilder: (context, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index])),
+              itemBuilder: (context, index) => GroupTile(
+                group: groups[index],
+                onTap: () => openGroup(groups[index]),
+                onRequests: () => openPublicRequests(groups[index]),
+              ),
             );
           },
         ),
@@ -152,10 +163,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
 }
 
 class GroupTile extends StatelessWidget {
-  const GroupTile({super.key, required this.group, required this.onTap});
+  const GroupTile({super.key, required this.group, required this.onTap, required this.onRequests});
 
   final ChatGroup group;
   final VoidCallback onTap;
+  final VoidCallback onRequests;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +201,16 @@ class GroupTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: MobileChatTheme.textMuted),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'chat') onTap();
+                    if (value == 'requests') onRequests();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'chat', child: Text('Open announcements')),
+                    PopupMenuItem(value: 'requests', child: Text('Public requests')),
+                  ],
+                ),
               ],
             ),
           ),
