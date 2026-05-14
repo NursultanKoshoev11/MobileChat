@@ -369,15 +369,22 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   final commentController = TextEditingController();
   late Future<List<PublicRequestComment>> commentsFuture;
   late String status;
+  late int supportCount;
+  late int opposeCount;
+  String? myVote;
   bool sending = false;
   bool updatingStatus = false;
 
   bool get canComment => widget.request.interactionMode == 'discussion';
+  bool get canVote => widget.request.interactionMode != 'read_only';
 
   @override
   void initState() {
     super.initState();
     status = widget.request.status;
+    supportCount = widget.request.supportCount;
+    opposeCount = widget.request.opposeCount;
+    myVote = widget.request.myVote;
     commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []);
   }
 
@@ -391,6 +398,37 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     if (!canComment) return;
     setState(() => commentsFuture = widget.api.listComments(widget.request.id));
     await commentsFuture;
+  }
+
+  Future<void> vote(String value) async {
+    if (!canVote) return;
+    try {
+      final previousVote = myVote;
+      if (previousVote == value) {
+        await widget.api.clearVote(widget.request.id);
+        setState(() {
+          if (value == 'support') supportCount--;
+          if (value == 'oppose') opposeCount--;
+          myVote = null;
+        });
+      } else {
+        if (value == 'support') {
+          await widget.api.support(widget.request.id);
+        } else {
+          await widget.api.oppose(widget.request.id);
+        }
+        setState(() {
+          if (previousVote == 'support') supportCount--;
+          if (previousVote == 'oppose') opposeCount--;
+          if (value == 'support') supportCount++;
+          if (value == 'oppose') opposeCount++;
+          myVote = value;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnack(context, e.toString());
+    }
   }
 
   Future<void> changeStatus(String value) async {
@@ -438,7 +476,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final requestWithLocalStatus = PublicRequest(
+    final requestWithLocalState = PublicRequest(
       id: widget.request.id,
       groupId: widget.request.groupId,
       authorId: widget.request.authorId,
@@ -448,10 +486,10 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
       title: widget.request.title,
       body: widget.request.body,
       status: status,
-      supportCount: widget.request.supportCount,
-      opposeCount: widget.request.opposeCount,
+      supportCount: supportCount < 0 ? 0 : supportCount,
+      opposeCount: opposeCount < 0 ? 0 : opposeCount,
       commentCount: widget.request.commentCount,
-      myVote: widget.request.myVote,
+      myVote: myVote,
       createdAt: widget.request.createdAt,
       updatedAt: widget.request.updatedAt,
     );
@@ -466,7 +504,12 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  PublicRequestCard(request: requestWithLocalStatus, onRead: () {}),
+                  PublicRequestCard(
+                    request: requestWithLocalState,
+                    onRead: () {},
+                    onSupport: canVote ? () => vote('support') : null,
+                    onOppose: canVote ? () => vote('oppose') : null,
+                  ),
                   if (widget.canModerate) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
