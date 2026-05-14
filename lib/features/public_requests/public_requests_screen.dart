@@ -374,6 +374,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   String? myVote;
   bool sending = false;
   bool updatingStatus = false;
+  bool hidingPost = false;
 
   bool get canComment => widget.request.interactionMode == 'discussion';
   bool get canVote => widget.request.interactionMode != 'read_only';
@@ -446,6 +447,32 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     }
   }
 
+  Future<void> hidePost() async {
+    final shouldHide = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hide post?'),
+        content: const Text('This post will disappear from the group feed. This action is available only to admins and owners.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Hide')),
+        ],
+      ),
+    );
+    if (shouldHide != true || hidingPost) return;
+    setState(() => hidingPost = true);
+    try {
+      await widget.api.hideRequest(widget.request.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => hidingPost = false);
+    }
+  }
+
   Future<void> deleteComment(PublicRequestComment comment) async {
     try {
       await widget.api.deleteComment(comment.id);
@@ -495,7 +522,17 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Read post')),
+      appBar: AppBar(
+        title: const Text('Read post'),
+        actions: [
+          if (widget.canModerate)
+            IconButton(
+              tooltip: 'Hide post',
+              onPressed: hidingPost ? null : hidePost,
+              icon: hidingPost ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.visibility_off_outlined),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
@@ -525,6 +562,12 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                       onChanged: updatingStatus ? null : (value) {
                         if (value != null && value != status) changeStatus(value);
                       },
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: hidingPost ? null : hidePost,
+                      icon: const Icon(Icons.visibility_off_outlined),
+                      label: const Text('Hide post'),
                     ),
                   ],
                   const SizedBox(height: 12),
