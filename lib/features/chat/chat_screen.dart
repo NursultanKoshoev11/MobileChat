@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
+import '../../data/realtime_client.dart';
 import '../../shared/ui_helpers.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -18,24 +21,65 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final messageController = TextEditingController();
-  late Future<List<ChatMessage>> messagesFuture;
+  late final RealtimeClient realtime;
+  StreamSubscription<RealtimeEvent>? realtimeSubscription;
+  final List<ChatMessage> messages = [];
+  bool loading = true;
   bool sending = false;
+  String? error;
 
   @override
   void initState() {
     super.initState();
-    messagesFuture = widget.api.fetchMessages(widget.group.id);
+    realtime = RealtimeClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    loadInitialMessages();
+    connectRealtime();
   }
 
   @override
   void dispose() {
+    realtimeSubscription?.cancel();
+    realtime.dispose();
     messageController.dispose();
     super.dispose();
   }
 
+  Future<void> loadInitialMessages() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final loaded = await widget.api.fetchMessages(widget.group.id);
+      if (!mounted) return;
+      setState(() {
+        messages
+          ..clear()
+          ..addAll(loaded.reversed);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> connectRealtime() async {
+    realtimeSubscription = realtime.events.listen((event) {
+      final message = event.message;
+      if (event.groupId == widget.group.id && message != null) {
+        final exists = messages.any((item) => item.id == message.id);
+        if (!exists && mounted) {
+          setState(() => messages.add(message));
+        }
+      }
+    });
+    await realtime.connectToGroup(widget.group.id);
+  }
+
   Future<void> refresh() async {
-    setState(() => messagesFuture = widget.api.fetchMessages(widget.group.id));
-    await messagesFuture;
+    await loadInitialMessages();
   }
 
   Future<void> send() async {
@@ -43,9 +87,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || sending) return;
     setState(() => sending = true);
     try {
-      await widget.api.sendMessage(groupId: widget.group.id, text: text);
+      final message = await widget.api.sendMessage(groupId: widget.group.id, text: text);
       messageController.clear();
-      await refresh();
+      if (!messages.any((item) => item.id == message.id)) {
+        setState(() => messages.add(message));
+      }
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());
@@ -124,40 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: refresh,
-              child: FutureBuilder<List<ChatMessage>>(
-                future: messagesFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
-                  }
-                  final messages = snapshot.data ?? const [];
-                  if (messages.isEmpty) {
-                    return ListView(
-                      padding: const EdgeInsets.all(24),
-                      children: const [
-                        SizedBox(height: 120),
-                        Icon(Icons.chat_bubble_outline_rounded, size: 72, color: MobileChatTheme.primary),
-                        SizedBox(height: 16),
-                        Text('No messages yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-                        SizedBox(height: 8),
-                        Text('Start the group conversation.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
-                      ],
-                    );
-                  }
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[messages.length - 1 - index];
-                      return MessageBubble(message: message, mine: message.senderId == widget.user.id);
-                    },
-                  );
-                },
-              ),
+              child: buildMessages(),
             ),
           ),
           SafeArea(
@@ -192,6 +205,33 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget buildMessages() {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (error != null) return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: error!)]);
+    if (messages.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: const [
+          SizedBox(height: 120),
+          Icon(Icons.chat_bubble_outline_rounded, size: 72, color: MobileChatTheme.primary),
+          SizedBox(height: 16),
+          Text('No messages yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+          SizedBox(height: 8),
+          Text('Start the group conversation.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+        ],
+      );
+    }
+    return ListView.builder(
+      reverse: true,
+      padding: const EdgeInsets.all(12),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[messages.length - 1 - index];
+        return MessageBubble(message: message, mine: message.senderId == widget.user.id);
+      },
     );
   }
 }
