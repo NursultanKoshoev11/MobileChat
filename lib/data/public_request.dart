@@ -5,6 +5,7 @@ class PublicRequest {
     required this.authorId,
     required this.authorName,
     required this.requestType,
+    required this.interactionMode,
     required this.title,
     required this.body,
     required this.status,
@@ -21,6 +22,7 @@ class PublicRequest {
   final String authorId;
   final String authorName;
   final String requestType;
+  final String interactionMode;
   final String title;
   final String body;
   final String status;
@@ -41,6 +43,7 @@ class PublicRequest {
       authorId: json['author_id'] as String,
       authorName: json['author_name'] as String? ?? 'User',
       requestType: json['request_type'] as String? ?? 'idea',
+      interactionMode: json['interaction_mode'] as String? ?? 'discussion',
       title: json['title'] as String,
       body: json['body'] as String,
       status: json['status'] as String? ?? 'new',
