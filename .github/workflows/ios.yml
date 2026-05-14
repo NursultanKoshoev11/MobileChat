@@ -22,7 +22,7 @@ permissions:
 jobs:
   build-ios-simulator:
     name: Build unsigned iOS simulator app
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout repository
@@ -33,6 +33,9 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Show Flutter doctor
         run: flutter doctor -v
@@ -81,7 +84,7 @@ jobs:
 
   build-signed-ipa:
     name: Build signed iPhone IPA
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Check signing secrets
@@ -109,6 +112,10 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Show Xcode version
+        if: steps.signing.outputs.ready == 'true'
+        run: xcodebuild -version
 
       - name: Show Flutter doctor
         if: steps.signing.outputs.ready == 'true'
