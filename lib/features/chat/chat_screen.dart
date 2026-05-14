@@ -31,6 +31,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool hasMoreOlder = true;
   String? error;
 
+  bool get canPublishAnnouncement => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
+
   @override
   void initState() {
     super.initState();
@@ -120,7 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> send() async {
     final text = messageController.text.trim();
-    if (text.isEmpty || sending) return;
+    if (text.isEmpty || sending || !canPublishAnnouncement) return;
     setState(() => sending = true);
     try {
       final message = await widget.api.sendMessage(groupId: widget.group.id, text: text);
@@ -174,7 +176,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Text(widget.group.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
-                    '${widget.group.isPublic ? 'Public' : 'Invite only'} · ${widget.group.memberCount} members',
+                    '${widget.group.isPublic ? 'Public' : 'Invite only'} · announcements',
                     style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12),
                   ),
                 ],
@@ -203,43 +205,62 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               child: SelectableText('Invite code: ${widget.group.inviteCode}'),
             ),
+          if (!canPublishAnnouncement)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Text(
+                'Only administrators can publish official announcements. Use Public requests to share ideas, complaints, problems, or requirements.',
+                style: TextStyle(color: MobileChatTheme.textStrong),
+              ),
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: refresh,
               child: buildMessages(),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Color(0x0D000000), blurRadius: 18, offset: Offset(0, -8))],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: messageController,
-                      minLines: 1,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(hintText: 'Message'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: sending ? null : send,
-                    icon: sending
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.send_rounded),
-                  ),
-                ],
+          if (canPublishAnnouncement) buildAnnouncementComposer(),
+        ],
+      ),
+    );
+  }
+
+  Widget buildAnnouncementComposer() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Color(0x0D000000), blurRadius: 18, offset: Offset(0, -8))],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: messageController,
+                minLines: 1,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(hintText: 'Official announcement'),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: sending ? null : send,
+              icon: sending
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.campaign_rounded),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -252,11 +273,11 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.all(24),
         children: const [
           SizedBox(height: 120),
-          Icon(Icons.chat_bubble_outline_rounded, size: 72, color: MobileChatTheme.primary),
+          Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
           SizedBox(height: 16),
-          Text('No messages yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+          Text('No announcements yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
           SizedBox(height: 8),
-          Text('Start the group conversation.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+          Text('Official announcements from administrators will appear here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
         ],
       );
     }
@@ -304,7 +325,7 @@ class MessageBubble extends StatelessWidget {
             if (!mine)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
-                child: Text('${message.senderName} · ${message.senderId}', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
+                child: Text('${message.senderName} · official', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
               ),
             Text(message.text, style: const TextStyle(color: MobileChatTheme.textStrong)),
             const SizedBox(height: 4),
