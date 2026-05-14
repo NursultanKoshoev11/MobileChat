@@ -1,0 +1,86 @@
+name: Android Offline Demo APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [offline-demo]
+
+permissions:
+  contents: read
+
+jobs:
+  build-offline-demo:
+    name: Build offline demo APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: offline-demo
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter doctor
+        run: flutter doctor -v
+
+      - name: Ensure Android wrapper files exist
+        run: flutter create --platforms=android --project-name mobile_chat .
+
+      - name: Restore project Android configuration
+        run: |
+          git checkout -- \
+            android/settings.gradle \
+            android/build.gradle \
+            android/app/build.gradle \
+            android/app/proguard-rules.pro \
+            android/app/src/main/AndroidManifest.xml \
+            android/app/src/debug/AndroidManifest.xml \
+            android/app/src/main/kotlin/com/nursultankoshoev/mobilechat/MainActivity.kt \
+            android/app/src/main/res/values/styles.xml \
+            android/app/src/main/res/values/colors.xml \
+            android/app/src/main/res/drawable/launch_background.xml \
+            android/app/src/main/res/drawable/ic_launcher_foreground.xml \
+            android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
+      - name: Create Android local.properties
+        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze offline entrypoint
+        run: flutter analyze lib/main_offline.dart test/widget_test.dart
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build offline debug APK
+        run: flutter build apk --debug -t lib/main_offline.dart
+
+      - name: Prepare offline APK artifact
+        run: |
+          mkdir -p build-artifacts
+          cp build/app/outputs/flutter-apk/app-debug.apk build-artifacts/MobileChat-offline-demo.apk
+          sha256sum build-artifacts/MobileChat-offline-demo.apk > build-artifacts/MobileChat-offline-demo.sha256.txt
+          ls -lah build-artifacts
+
+      - name: Upload offline APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MobileChat-offline-demo-apk
+          path: |
+            build-artifacts/MobileChat-offline-demo.apk
+            build-artifacts/MobileChat-offline-demo.sha256.txt
+          if-no-files-found: error
+          retention-days: 14
