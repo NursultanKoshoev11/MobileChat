@@ -72,6 +72,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> vote(PublicRequest request, String voteType) async {
+    if (request.interactionMode == 'read_only') return;
     try {
       if (request.myVote == voteType) {
         await requestsApi.clearVote(request.id);
@@ -99,11 +100,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Public requests')),
+      appBar: AppBar(title: Text(widget.group.title)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: createRequest,
-        icon: const Icon(Icons.add_comment_rounded),
-        label: const Text('New request'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New post'),
       ),
       body: Column(
         children: [
@@ -128,20 +129,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 future: requestsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError) {
-                    return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
-                  }
+                  if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
                   final requests = snapshot.data ?? const [];
                   if (requests.isEmpty) {
                     return ListView(
                       padding: const EdgeInsets.all(24),
                       children: [
                         const SizedBox(height: 120),
-                        const Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
+                        const Icon(Icons.feed_outlined, size: 72, color: MobileChatTheme.primary),
                         const SizedBox(height: 16),
                         Text(emptyTitleForFilter(filter), textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
-                        const Text('People can publish ideas, complaints, problems, or requirements here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                        const Text('Posts, announcements, complaints, ideas, and polls will appear here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
                       ],
                     );
                   }
@@ -152,9 +151,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                       final request = requests[index];
                       return PublicRequestCard(
                         request: request,
-                        onTap: () => openDetails(request),
-                        onSupport: () => vote(request, 'support'),
-                        onOppose: () => vote(request, 'oppose'),
+                        onRead: () => openDetails(request),
+                        onSupport: request.interactionMode == 'read_only' ? null : () => vote(request, 'support'),
+                        onOppose: request.interactionMode == 'read_only' ? null : () => vote(request, 'oppose'),
                       );
                     },
                   );
@@ -168,20 +167,22 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   String emptyTitleForFilter(String value) {
-    if (value == 'popular') return 'No popular requests yet';
-    if (value == 'resolved') return 'No resolved requests yet';
-    if (value == 'mine') return 'You have not created requests yet';
-    return 'No public requests yet';
+    if (value == 'popular') return 'No popular posts yet';
+    if (value == 'resolved') return 'No resolved posts yet';
+    if (value == 'mine') return 'You have not created posts yet';
+    return 'No posts yet';
   }
 }
 
 class PublicRequestCard extends StatelessWidget {
-  const PublicRequestCard({super.key, required this.request, required this.onTap, required this.onSupport, required this.onOppose});
+  const PublicRequestCard({super.key, required this.request, required this.onRead, this.onSupport, this.onOppose});
 
   final PublicRequest request;
-  final VoidCallback onTap;
-  final VoidCallback onSupport;
-  final VoidCallback onOppose;
+  final VoidCallback onRead;
+  final VoidCallback? onSupport;
+  final VoidCallback? onOppose;
+
+  bool get canVote => request.interactionMode != 'read_only';
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +192,7 @@ class PublicRequestCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          onTap: onTap,
+          onTap: onRead,
           borderRadius: BorderRadius.circular(22),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -200,11 +201,9 @@ class PublicRequestCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(999)),
-                      child: Text(request.requestType, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
-                    ),
+                    _ChipLabel(text: request.requestType),
+                    const SizedBox(width: 8),
+                    _ChipLabel(text: modeLabel(request.interactionMode)),
                     const Spacer(),
                     Text(request.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
                   ],
@@ -218,19 +217,15 @@ class PublicRequestCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: onSupport,
-                      icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined),
-                      label: Text('${request.supportCount}'),
-                    ),
+                    FilledButton.tonal(onPressed: onRead, child: const Text('Read')),
                     const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: onOppose,
-                      icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined),
-                      label: Text('${request.opposeCount}'),
-                    ),
+                    if (canVote) ...[
+                      OutlinedButton.icon(onPressed: onSupport, icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${request.supportCount}')),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(onPressed: onOppose, icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${request.opposeCount}')),
+                    ],
                     const Spacer(),
-                    Text('${request.commentCount} comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
+                    if (request.interactionMode == 'discussion') Text('${request.commentCount} comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
                   ],
                 ),
               ],
@@ -238,6 +233,27 @@ class PublicRequestCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  String modeLabel(String value) {
+    if (value == 'read_only') return 'Read only';
+    if (value == 'vote_only') return 'Vote only';
+    return 'Discussion';
+  }
+}
+
+class _ChipLabel extends StatelessWidget {
+  const _ChipLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(999)),
+      child: Text(text, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
     );
   }
 }
@@ -255,7 +271,8 @@ class CreatePublicRequestSheet extends StatefulWidget {
 class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   final titleController = TextEditingController();
   final bodyController = TextEditingController();
-  String type = 'suggestion';
+  String type = 'announcement';
+  String interactionMode = 'read_only';
   bool loading = false;
   String? error;
 
@@ -272,7 +289,13 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
       error = null;
     });
     try {
-      await widget.api.createRequest(groupId: widget.group.id, type: type, title: titleController.text.trim(), body: bodyController.text.trim());
+      await widget.api.createRequest(
+        groupId: widget.group.id,
+        type: type,
+        interactionMode: interactionMode,
+        title: titleController.text.trim(),
+        body: bodyController.text.trim(),
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -286,32 +309,46 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('New public request', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: type,
-            decoration: const InputDecoration(labelText: 'Type'),
-            items: const [
-              DropdownMenuItem(value: 'suggestion', child: Text('Suggestion')),
-              DropdownMenuItem(value: 'complaint', child: Text('Complaint')),
-              DropdownMenuItem(value: 'requirement', child: Text('Requirement')),
-              DropdownMenuItem(value: 'problem', child: Text('Problem')),
-              DropdownMenuItem(value: 'idea', child: Text('Idea')),
-            ],
-            onChanged: loading ? null : (value) => setState(() => type = value ?? 'suggestion'),
-          ),
-          const SizedBox(height: 12),
-          TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
-          const SizedBox(height: 12),
-          TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: const InputDecoration(labelText: 'Description')),
-          if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-          const SizedBox(height: 16),
-          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Publishing...' : 'Publish request')),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('New post', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: type,
+              decoration: const InputDecoration(labelText: 'Post type'),
+              items: const [
+                DropdownMenuItem(value: 'announcement', child: Text('Announcement')),
+                DropdownMenuItem(value: 'suggestion', child: Text('Suggestion')),
+                DropdownMenuItem(value: 'complaint', child: Text('Complaint')),
+                DropdownMenuItem(value: 'requirement', child: Text('Requirement')),
+                DropdownMenuItem(value: 'problem', child: Text('Problem')),
+                DropdownMenuItem(value: 'idea', child: Text('Idea')),
+              ],
+              onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: interactionMode,
+              decoration: const InputDecoration(labelText: 'Interaction mode'),
+              items: const [
+                DropdownMenuItem(value: 'read_only', child: Text('Text only')),
+                DropdownMenuItem(value: 'vote_only', child: Text('Voting only')),
+                DropdownMenuItem(value: 'discussion', child: Text('Discussion with comments')),
+              ],
+              onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only'),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+            const SizedBox(height: 12),
+            TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: const InputDecoration(labelText: 'Description')),
+            if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
+            const SizedBox(height: 16),
+            FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Publishing...' : 'Publish')),
+          ],
+        ),
       ),
     );
   }
@@ -335,11 +372,13 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   bool sending = false;
   bool updatingStatus = false;
 
+  bool get canComment => widget.request.interactionMode == 'discussion';
+
   @override
   void initState() {
     super.initState();
     status = widget.request.status;
-    commentsFuture = widget.api.listComments(widget.request.id);
+    commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []);
   }
 
   @override
@@ -349,6 +388,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   }
 
   Future<void> refresh() async {
+    if (!canComment) return;
     setState(() => commentsFuture = widget.api.listComments(widget.request.id));
     await commentsFuture;
   }
@@ -382,7 +422,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
 
   Future<void> sendComment() async {
     final body = commentController.text.trim();
-    if (body.isEmpty || sending) return;
+    if (body.isEmpty || sending || !canComment) return;
     setState(() => sending = true);
     try {
       await widget.api.addComment(requestId: widget.request.id, body: body);
@@ -404,6 +444,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
       authorId: widget.request.authorId,
       authorName: widget.request.authorName,
       requestType: widget.request.requestType,
+      interactionMode: widget.request.interactionMode,
       title: widget.request.title,
       body: widget.request.body,
       status: status,
@@ -416,7 +457,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Request details')),
+      appBar: AppBar(title: const Text('Read post')),
       body: Column(
         children: [
           Expanded(
@@ -425,7 +466,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  PublicRequestCard(request: requestWithLocalStatus, onTap: () {}, onSupport: () {}, onOppose: () {}),
+                  PublicRequestCard(request: requestWithLocalStatus, onRead: () {}),
                   if (widget.canModerate) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -444,51 +485,58 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                     ),
                   ],
                   const SizedBox(height: 12),
-                  Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  FutureBuilder<List<PublicRequestComment>>(
-                    future: commentsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                      if (snapshot.hasError) return ErrorBanner(message: snapshot.error.toString());
-                      final comments = snapshot.data ?? const [];
-                      if (comments.isEmpty) return const Text('No comments yet.', style: TextStyle(color: MobileChatTheme.textMuted));
-                      return Column(
-                        children: comments
-                            .map((comment) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(comment.authorName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  subtitle: Text(comment.body),
-                                  trailing: widget.canModerate
-                                      ? IconButton(
-                                          tooltip: 'Delete comment',
-                                          onPressed: () => deleteComment(comment),
-                                          icon: const Icon(Icons.delete_outline_rounded),
-                                        )
-                                      : null,
-                                ))
-                            .toList(),
-                      );
-                    },
-                  ),
+                  if (widget.request.interactionMode == 'read_only')
+                    const Text('This post is read-only.', style: TextStyle(color: MobileChatTheme.textMuted))
+                  else if (widget.request.interactionMode == 'vote_only')
+                    const Text('This post accepts votes only. Comments are disabled.', style: TextStyle(color: MobileChatTheme.textMuted))
+                  else ...[
+                    Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    FutureBuilder<List<PublicRequestComment>>(
+                      future: commentsFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                        if (snapshot.hasError) return ErrorBanner(message: snapshot.error.toString());
+                        final comments = snapshot.data ?? const [];
+                        if (comments.isEmpty) return const Text('No comments yet.', style: TextStyle(color: MobileChatTheme.textMuted));
+                        return Column(
+                          children: comments
+                              .map((comment) => ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(comment.authorName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                    subtitle: Text(comment.body),
+                                    trailing: widget.canModerate
+                                        ? IconButton(
+                                            tooltip: 'Delete comment',
+                                            onPressed: () => deleteComment(comment),
+                                            icon: const Icon(Icons.delete_outline_rounded),
+                                          )
+                                        : null,
+                                  ))
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  Expanded(child: TextField(controller: commentController, decoration: const InputDecoration(hintText: 'Add comment'))),
-                  const SizedBox(width: 8),
-                  IconButton.filled(onPressed: sending ? null : sendComment, icon: const Icon(Icons.send_rounded)),
-                ],
+          if (canComment)
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                color: Colors.white,
+                child: Row(
+                  children: [
+                    Expanded(child: TextField(controller: commentController, decoration: const InputDecoration(hintText: 'Add comment'))),
+                    const SizedBox(width: 8),
+                    IconButton.filled(onPressed: sending ? null : sendComment, icon: const Icon(Icons.send_rounded)),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
