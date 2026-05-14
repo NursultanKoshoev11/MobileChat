@@ -31,10 +31,10 @@ class DemoStore extends ChangeNotifier {
   ];
 
   final List<DemoPost> posts = [
-    DemoPost(id: 'p-water', groupId: 'g-city', author: 'City Admin', type: 'announcement', mode: 'read_only', title: 'Water maintenance notice', body: 'Water maintenance is planned tonight from 22:00 to 03:00. Please store enough water in advance.', status: 'new'),
-    DemoPost(id: 'p-bins', groupId: 'g-city', author: 'Aibek', type: 'suggestion', mode: 'vote_only', title: 'Add more trash bins near the park', body: 'The park gets crowded on weekends. More trash bins will keep the area cleaner.', status: 'under_review', support: 18, oppose: 2),
-    DemoPost(id: 'p-light', groupId: 'g-road', author: 'Meerim', type: 'complaint', mode: 'discussion', title: 'Broken street light near school', body: 'The street light near the school entrance is broken. It is difficult to walk there in the evening.', status: 'new', support: 23, oppose: 1),
-    DemoPost(id: 'p-meeting', groupId: 'g-school', author: 'Admin', type: 'announcement', mode: 'discussion', title: 'Parent meeting on Friday', body: 'Please confirm whether you can attend the parent meeting this Friday at 18:00.', status: 'new', support: 11),
+    DemoPost(id: 'p-water', groupId: 'g-city', author: 'City Admin', type: 'announcement', mode: PostMode.readOnly, title: 'Water maintenance notice', body: 'Water maintenance is planned tonight from 22:00 to 03:00. Please store enough water in advance.', status: 'new'),
+    DemoPost(id: 'p-bins', groupId: 'g-city', author: 'Aibek', type: 'suggestion', mode: PostMode.voteOnly, title: 'Add more trash bins near the park', body: 'The park gets crowded on weekends. More trash bins will keep the area cleaner.', status: 'under_review', support: 18, oppose: 2),
+    DemoPost(id: 'p-light', groupId: 'g-road', author: 'Meerim', type: 'complaint', mode: PostMode.discussion, title: 'Broken street light near school', body: 'The street light near the school entrance is broken. It is difficult to walk there in the evening.', status: 'new', support: 23, oppose: 1),
+    DemoPost(id: 'p-meeting', groupId: 'g-school', author: 'Admin', type: 'announcement', mode: PostMode.discussion, title: 'Parent meeting on Friday', body: 'Please confirm whether you can attend the parent meeting this Friday at 18:00.', status: 'new', support: 11),
   ];
 
   final List<DemoComment> comments = [
@@ -51,12 +51,34 @@ class DemoStore extends ChangeNotifier {
   }
 
   void createGroup(String title, String description, String visibility) {
-    groups.insert(0, DemoGroup(id: 'g-${DateTime.now().microsecondsSinceEpoch}', title: title.trim().isEmpty ? 'New local group' : title.trim(), description: description.trim(), visibility: visibility, role: 'owner', members: 1));
+    groups.insert(
+      0,
+      DemoGroup(
+        id: 'g-${DateTime.now().microsecondsSinceEpoch}',
+        title: title.trim().isEmpty ? 'New local group' : title.trim(),
+        description: description.trim(),
+        visibility: visibility,
+        role: 'owner',
+        members: 1,
+      ),
+    );
     notifyListeners();
   }
 
-  void createPost(String groupId, String type, String mode, String title, String body) {
-    posts.insert(0, DemoPost(id: 'p-${DateTime.now().microsecondsSinceEpoch}', groupId: groupId, author: displayName, type: type, mode: mode, title: title.trim().isEmpty ? 'New local post' : title.trim(), body: body.trim().isEmpty ? 'Local demo description.' : body.trim(), status: 'new'));
+  void createPost({required String groupId, required String type, required PostMode mode, required String title, required String body}) {
+    posts.insert(
+      0,
+      DemoPost(
+        id: 'p-${DateTime.now().microsecondsSinceEpoch}',
+        groupId: groupId,
+        author: displayName,
+        type: type,
+        mode: mode,
+        title: title.trim().isEmpty ? 'New local post' : title.trim(),
+        body: body.trim().isEmpty ? 'Local demo description.' : body.trim(),
+        status: 'new',
+      ),
+    );
     notifyListeners();
   }
 
@@ -104,6 +126,32 @@ class DemoStore extends ChangeNotifier {
 
 final demo = DemoStore();
 
+enum PostMode { readOnly, voteOnly, discussion }
+
+extension PostModeText on PostMode {
+  String get storageValue {
+    switch (this) {
+      case PostMode.readOnly:
+        return 'read_only';
+      case PostMode.voteOnly:
+        return 'vote_only';
+      case PostMode.discussion:
+        return 'discussion';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case PostMode.readOnly:
+        return 'Read only';
+      case PostMode.voteOnly:
+        return 'Vote only';
+      case PostMode.discussion:
+        return 'Discussion';
+    }
+  }
+}
+
 class DemoGroup {
   DemoGroup({required this.id, required this.title, required this.description, required this.visibility, required this.role, required this.members});
   final String id;
@@ -122,15 +170,15 @@ class DemoPost {
   final String groupId;
   final String author;
   final String type;
-  final String mode;
+  final PostMode mode;
   final String title;
   final String body;
   String status;
   int support;
   int oppose;
   bool hidden;
-  bool get canVote => mode != 'read_only';
-  bool get canComment => mode == 'discussion';
+  bool get canVote => mode == PostMode.voteOnly || mode == PostMode.discussion;
+  bool get canComment => mode == PostMode.discussion;
 }
 
 class DemoComment {
@@ -332,7 +380,7 @@ class _PostsScreenState extends State<PostsScreen> {
       appBar: AppBar(title: Text(widget.group.title)),
       body: Column(children: [
         SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 6), scrollDirection: Axis.horizontal, child: SegmentedButton<String>(segments: const [ButtonSegment(value: 'newest', label: Text('Newest')), ButtonSegment(value: 'popular', label: Text('Popular')), ButtonSegment(value: 'resolved', label: Text('Resolved'))], selected: {filter}, onSelectionChanged: (value) => setState(() => filter = value.first))),
-        Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), itemCount: posts.length, itemBuilder: (_, index) => PostCard(post: posts[index], group: widget.group))),
+        Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), itemCount: posts.length, itemBuilder: (_, index) => FeedPostCard(post: posts[index], group: widget.group))),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: createPost, icon: const Icon(Icons.add_rounded), label: const Text('New post')),
     );
@@ -342,7 +390,7 @@ class _PostsScreenState extends State<PostsScreen> {
     final title = TextEditingController();
     final body = TextEditingController();
     String type = widget.group.canModerate ? 'announcement' : 'suggestion';
-    String mode = 'discussion';
+    PostMode mode = PostMode.discussion;
     await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true, builder: (context) => StatefulBuilder(builder: (context, setSheetState) {
       return Padding(
         padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
@@ -351,13 +399,13 @@ class _PostsScreenState extends State<PostsScreen> {
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Post type'), items: [if (widget.group.canModerate) const DropdownMenuItem(value: 'announcement', child: Text('Announcement')), const DropdownMenuItem(value: 'suggestion', child: Text('Suggestion')), const DropdownMenuItem(value: 'complaint', child: Text('Complaint')), const DropdownMenuItem(value: 'requirement', child: Text('Requirement')), const DropdownMenuItem(value: 'problem', child: Text('Problem')), const DropdownMenuItem(value: 'idea', child: Text('Idea'))], onChanged: (value) => setSheetState(() => type = value ?? 'suggestion')),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(value: mode, decoration: const InputDecoration(labelText: 'Interaction mode'), items: const [DropdownMenuItem(value: 'read_only', child: Text('Text only')), DropdownMenuItem(value: 'vote_only', child: Text('Voting only')), DropdownMenuItem(value: 'discussion', child: Text('Discussion with comments'))], onChanged: (value) => setSheetState(() => mode = value ?? 'discussion')),
+          DropdownButtonFormField<PostMode>(value: mode, decoration: const InputDecoration(labelText: 'Interaction mode'), items: const [DropdownMenuItem(value: PostMode.readOnly, child: Text('Text only')), DropdownMenuItem(value: PostMode.voteOnly, child: Text('Voting only')), DropdownMenuItem(value: PostMode.discussion, child: Text('Discussion with comments'))], onChanged: (value) => setSheetState(() => mode = value ?? PostMode.discussion)),
           const SizedBox(height: 12),
           TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
           TextField(controller: body, minLines: 4, maxLines: 8, decoration: const InputDecoration(labelText: 'Description')),
           const SizedBox(height: 16),
-          FilledButton(onPressed: () { demo.createPost(widget.group.id, type, mode, title.text, body.text); Navigator.pop(context); }, child: const Text('Publish locally')),
+          FilledButton(onPressed: () { demo.createPost(groupId: widget.group.id, type: type, mode: mode, title: title.text, body: body.text); Navigator.pop(context); }, child: const Text('Publish locally')),
         ])),
       );
     }));
@@ -366,8 +414,8 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 }
 
-class PostCard extends StatelessWidget {
-  const PostCard({super.key, required this.post, required this.group});
+class FeedPostCard extends StatelessWidget {
+  const FeedPostCard({super.key, required this.post, required this.group});
   final DemoPost post;
   final DemoGroup group;
 
@@ -380,23 +428,66 @@ class PostCard extends StatelessWidget {
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(post: post, group: group))),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [ChipLabel(text: post.type), const SizedBox(width: 8), ChipLabel(text: post.mode == 'read_only' ? 'Read only' : post.mode == 'vote_only' ? 'Vote only' : 'Discussion'), const Spacer(), Text(post.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700))]),
-              const SizedBox(height: 10),
-              Text(post.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              Text(post.body, maxLines: 3, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 10),
-              Text('By ${post.author}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
-              const SizedBox(height: 12),
-              Row(children: [FilledButton.tonal(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(post: post, group: group))), child: const Text('Read')), const SizedBox(width: 8), if (post.canVote) ...[OutlinedButton.icon(onPressed: () => demo.vote(post, 'support'), icon: Icon(myVote == 'support' ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${post.support}')), const SizedBox(width: 8), OutlinedButton.icon(onPressed: () => demo.vote(post, 'oppose'), icon: Icon(myVote == 'oppose' ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${post.oppose}'))], const Spacer(), if (post.canComment) Text('$commentCount comments', style: const TextStyle(color: MobileChatTheme.textMuted))]),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [ChipLabel(text: post.type), const SizedBox(width: 8), ChipLabel(text: post.mode.label), const Spacer(), Text(post.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700))]),
+            const SizedBox(height: 10),
+            Text(post.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(post.body, maxLines: 3, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 10),
+            Text('By ${post.author}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
+            const SizedBox(height: 12),
+            Row(children: [
+              if (post.canComment) FilledButton.tonal(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(post: post, group: group))), child: const Text('Read')),
+              if (post.canComment) const SizedBox(width: 8),
+              if (post.canVote) ...[
+                OutlinedButton.icon(onPressed: () => demo.vote(post, 'support'), icon: Icon(myVote == 'support' ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${post.support}')),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(onPressed: () => demo.vote(post, 'oppose'), icon: Icon(myVote == 'oppose' ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${post.oppose}')),
+              ],
+              const Spacer(),
+              if (post.canComment) Text('$commentCount comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
             ]),
-          ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class DetailsPostCard extends StatelessWidget {
+  const DetailsPostCard({super.key, required this.post});
+  final DemoPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final myVote = demo.votes[post.id];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [ChipLabel(text: post.type), const SizedBox(width: 8), ChipLabel(text: post.mode.label), const Spacer(), Text(post.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700))]),
+            const SizedBox(height: 10),
+            Text(post.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(post.body),
+            const SizedBox(height: 10),
+            Text('By ${post.author}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
+            if (post.canVote) ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                OutlinedButton.icon(onPressed: () => demo.vote(post, 'support'), icon: Icon(myVote == 'support' ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${post.support}')),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(onPressed: () => demo.vote(post, 'oppose'), icon: Icon(myVote == 'oppose' ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${post.oppose}')),
+              ]),
+            ],
+          ]),
         ),
       ),
     );
@@ -437,12 +528,15 @@ class _DetailsScreenState extends State<DetailsScreen> {
       appBar: AppBar(title: const Text('Read post'), actions: [if (widget.group.canModerate) IconButton(onPressed: () { demo.hidePost(widget.post); Navigator.pop(context); }, icon: const Icon(Icons.visibility_off_outlined))]),
       body: Column(children: [
         Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
-          PostCard(post: widget.post, group: widget.group),
+          DetailsPostCard(post: widget.post),
           if (widget.group.canModerate) DropdownButtonFormField<String>(value: widget.post.status, decoration: const InputDecoration(labelText: 'Admin status'), items: const [DropdownMenuItem(value: 'new', child: Text('New')), DropdownMenuItem(value: 'under_review', child: Text('Under review')), DropdownMenuItem(value: 'accepted', child: Text('Accepted')), DropdownMenuItem(value: 'rejected', child: Text('Rejected')), DropdownMenuItem(value: 'resolved', child: Text('Resolved'))], onChanged: (value) { if (value != null) demo.updateStatus(widget.post, value); }),
           const SizedBox(height: 12),
-          if (widget.post.mode == 'read_only') const Text('This post is read-only.', style: TextStyle(color: MobileChatTheme.textMuted)) else if (widget.post.mode == 'vote_only') const Text('This post accepts votes only. Comments are disabled.', style: TextStyle(color: MobileChatTheme.textMuted)) else ...[Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 8), if (comments.isEmpty) const Text('No comments yet.', style: TextStyle(color: MobileChatTheme.textMuted)), ...comments.map((c) => ListTile(contentPadding: EdgeInsets.zero, title: Text(c.author, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(c.body)))],
+          Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          if (comments.isEmpty) const Text('No comments yet.', style: TextStyle(color: MobileChatTheme.textMuted)),
+          ...comments.map((c) => ListTile(contentPadding: EdgeInsets.zero, title: Text(c.author, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(c.body))),
         ])),
-        if (widget.post.canComment) SafeArea(top: false, child: Container(padding: const EdgeInsets.all(10), color: Colors.white, child: Row(children: [Expanded(child: TextField(controller: comment, decoration: const InputDecoration(hintText: 'Add local comment'))), const SizedBox(width: 8), IconButton.filled(onPressed: () { demo.addComment(widget.post, comment.text); comment.clear(); }, icon: const Icon(Icons.send_rounded))]))),
+        SafeArea(top: false, child: Container(padding: const EdgeInsets.all(10), color: Colors.white, child: Row(children: [Expanded(child: TextField(controller: comment, decoration: const InputDecoration(hintText: 'Add local comment'))), const SizedBox(width: 8), IconButton.filled(onPressed: () { demo.addComment(widget.post, comment.text); comment.clear(); }, icon: const Icon(Icons.send_rounded))]))),
       ]),
     );
   }
