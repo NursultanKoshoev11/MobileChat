@@ -43,6 +43,14 @@ class ApiClient {
     return session;
   }
 
+  Future<void> registerPushToken({required String token, required String platform}) async {
+    await _post('/api/push/register', {'token': token, 'platform': platform});
+  }
+
+  Future<void> deletePushToken({required String token, required String platform}) async {
+    await _request('DELETE', '/api/push/token', body: {'token': token, 'platform': platform});
+  }
+
   Future<List<ChatGroup>> fetchGroups() async {
     final response = await _get('/api/groups');
     return (response as List<dynamic>).map((item) => ChatGroup.fromJson(item as Map<String, dynamic>)).toList();
@@ -125,9 +133,14 @@ class ApiClient {
     }
 
     try {
-      final response = method == 'GET'
-          ? await http.get(uri, headers: headers).timeout(_timeout)
-          : await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      late final http.Response response;
+      if (method == 'GET') {
+        response = await http.get(uri, headers: headers).timeout(_timeout);
+      } else if (method == 'DELETE') {
+        response = await http.delete(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      } else {
+        response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      }
 
       if (response.statusCode == 401 && auth && !retrying) {
         final refreshed = await _refreshSession();
