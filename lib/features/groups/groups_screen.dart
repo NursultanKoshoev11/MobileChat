@@ -5,6 +5,7 @@ import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../shared/ui_helpers.dart';
 import '../chat/chat_screen.dart';
+import '../invitations/invitations_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key, required this.api, required this.session, required this.onLogout});
@@ -61,6 +62,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  Future<void> openInvitations() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)),
+    );
+    await refresh();
+  }
+
   void openGroup(ChatGroup group) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ChatScreen(api: widget.api, user: widget.session.user, group: group)),
@@ -73,7 +81,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
-          IconButton(onPressed: joinByCode, icon: const Icon(Icons.key_rounded)),
+          IconButton(
+            tooltip: 'Invitations',
+            onPressed: openInvitations,
+            icon: const Icon(Icons.mark_email_unread_outlined),
+          ),
+          IconButton(
+            tooltip: 'Join by code',
+            onPressed: joinByCode,
+            icon: const Icon(Icons.key_rounded),
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'create') createGroup();
