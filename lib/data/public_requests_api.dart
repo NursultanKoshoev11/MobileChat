@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
+import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
 
@@ -38,6 +39,10 @@ class PublicRequestsApi {
     await _send('POST', '/api/requests/$requestId/oppose');
   }
 
+  Future<void> clearVote(String requestId) async {
+    await _send('DELETE', '/api/requests/$requestId/vote');
+  }
+
   Future<List<PublicRequestComment>> listComments(String requestId) async {
     final response = await _send('GET', '/api/requests/$requestId/comments');
     return (response as List<dynamic>).map((item) => PublicRequestComment.fromJson(item as Map<String, dynamic>)).toList();
@@ -52,7 +57,13 @@ class PublicRequestsApi {
     await _send('POST', '/api/requests/$requestId/status', body: {'status': status});
   }
 
-  Future<dynamic> _send(String method, String path, {Map<String, String>? query, Map<String, dynamic>? body}) async {
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+    bool retrying = false,
+  }) async {
     final session = await sessionStore.read();
     if (session == null) throw const ApiException('Session expired. Please sign in again.');
 
@@ -63,9 +74,21 @@ class PublicRequestsApi {
     };
 
     try {
-      final response = method == 'GET'
-          ? await http.get(uri, headers: headers).timeout(_timeout)
-          : await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      late final http.Response response;
+      if (method == 'GET') {
+        response = await http.get(uri, headers: headers).timeout(_timeout);
+      } else if (method == 'DELETE') {
+        response = await http.delete(uri, headers: headers).timeout(_timeout);
+      } else {
+        response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      }
+
+      if (response.statusCode == 401 && !retrying) {
+        final refreshed = await _refreshSession();
+        if (refreshed) {
+          return _send(method, path, query: query, body: body, retrying: true);
+        }
+      }
       return _decode(response);
     } on TimeoutException {
       throw const ApiException('Connection timed out. Please try again.');
@@ -73,6 +96,28 @@ class PublicRequestsApi {
       if (error is ApiException) rethrow;
       throw ApiException('Network error: $error');
     }
+  }
+
+  Future<bool> _refreshSession() async {
+    final session = await sessionStore.read();
+    if (session == null || session.refreshToken.isEmpty) return false;
+
+    final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
+    final response = await http
+        .post(
+          uri,
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh_token': session.refreshToken}),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      await sessionStore.clear();
+      return false;
+    }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    await sessionStore.save(AppSession.fromJson(decoded));
+    return true;
   }
 
   dynamic _decode(http.Response response) {
