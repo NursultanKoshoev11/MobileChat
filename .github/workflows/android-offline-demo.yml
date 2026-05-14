@@ -2,11 +2,6 @@ name: Android Offline Demo APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/offline-demo-build-request.txt
 
 permissions:
   contents: read
