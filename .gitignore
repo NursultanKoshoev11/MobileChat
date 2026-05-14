@@ -27,3 +27,11 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Android local and signing secrets
+android/local.properties
+android/key.properties
+android/app/google-services.json
+android/keystores/
+*.jks
+*.keystore
