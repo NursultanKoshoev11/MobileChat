@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'group_invitation.dart';
 import 'models.dart';
 import 'session_store.dart';
 
@@ -72,6 +73,19 @@ class ApiClient {
 
   Future<void> inviteUserById({required String groupId, required String targetUserId}) async {
     await _post('/api/groups/$groupId/invite-user', {'target_user_id': targetUserId});
+  }
+
+  Future<List<GroupInvitation>> fetchInvitations() async {
+    final response = await _get('/api/invites');
+    return (response as List<dynamic>).map((item) => GroupInvitation.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> acceptInvitation(String inviteId) async {
+    await _post('/api/invites/$inviteId/accept', {});
+  }
+
+  Future<void> declineInvitation(String inviteId) async {
+    await _post('/api/invites/$inviteId/decline', {});
   }
 
   Future<List<ChatMessage>> fetchMessages(String groupId, {int limit = 50, DateTime? before}) async {
