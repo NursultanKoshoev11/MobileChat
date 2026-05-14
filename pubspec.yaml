@@ -1,5 +1,5 @@
 name: mobile_chat
-version: 0.3.0+3
+version: 0.4.0+4
 publish_to: none
 
 description: Flutter group chat app for Android and iOS.
@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   flutter_secure_storage: ^9.2.2
+  web_socket_channel: ^3.0.1
 
 flutter:
   uses-material-design: true
