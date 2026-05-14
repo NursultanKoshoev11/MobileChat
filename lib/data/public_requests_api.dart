@@ -58,6 +58,10 @@ class PublicRequestsApi {
     await _send('DELETE', '/api/requests/comments/$commentId');
   }
 
+  Future<void> hideRequest(String requestId) async {
+    await _send('POST', '/api/requests/$requestId/hide');
+  }
+
   Future<void> updateStatus({required String requestId, required String status}) async {
     await _send('POST', '/api/requests/$requestId/status', body: {'status': status});
   }
