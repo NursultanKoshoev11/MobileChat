@@ -3,18 +3,19 @@ name: Android Offline Demo APK
 on:
   workflow_dispatch:
   push:
-    branches: [offline-demo]
+    branches:
+      - offline-demo
 
 permissions:
   contents: read
 
 jobs:
   build-offline-demo:
-    name: Build offline demo APK
+    name: Build offline demo APK from offline-demo branch
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout offline-demo branch
         uses: actions/checkout@v4
         with:
           ref: offline-demo
@@ -23,7 +24,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -37,21 +38,31 @@ jobs:
       - name: Ensure Android wrapper files exist
         run: flutter create --platforms=android --project-name mobile_chat .
 
-      - name: Restore project Android configuration
+      - name: Restore Android project files
         run: |
-          git checkout -- \
-            android/settings.gradle \
-            android/build.gradle \
-            android/app/build.gradle \
-            android/app/proguard-rules.pro \
-            android/app/src/main/AndroidManifest.xml \
-            android/app/src/debug/AndroidManifest.xml \
-            android/app/src/main/kotlin/com/nursultankoshoev/mobilechat/MainActivity.kt \
-            android/app/src/main/res/values/styles.xml \
-            android/app/src/main/res/values/colors.xml \
-            android/app/src/main/res/drawable/launch_background.xml \
-            android/app/src/main/res/drawable/ic_launcher_foreground.xml \
-            android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          git checkout -- android/settings.gradle
+          git checkout -- android/build.gradle
+          git checkout -- android/app/build.gradle
+          git checkout -- android/app/proguard-rules.pro
+          git checkout -- android/app/src/main/AndroidManifest.xml
+          git checkout -- android/app/src/debug/AndroidManifest.xml
+          git checkout -- android/app/src/main/kotlin/com/nursultankoshoev/mobilechat/MainActivity.kt
+          git checkout -- android/app/src/main/res/values/styles.xml
+          git checkout -- android/app/src/main/res/values/colors.xml
+          git checkout -- android/app/src/main/res/drawable/launch_background.xml
+          git checkout -- android/app/src/main/res/drawable/ic_launcher_foreground.xml
+          git checkout -- android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
+      - name: Prepare offline Android manifest
+        run: |
+          sed -i '/android.permission.INTERNET/d' android/app/src/main/AndroidManifest.xml
+          sed -i '/android.permission.ACCESS_NETWORK_STATE/d' android/app/src/main/AndroidManifest.xml
+          sed -i '/android.permission.POST_NOTIFICATIONS/d' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="MobileChat"/android:label="MobileChat Offline"/g' android/app/src/main/AndroidManifest.xml
+          cat android/app/src/main/AndroidManifest.xml
+
+      - name: Patch offline login to open immediately
+        run: python3 scripts/patch_offline_login.py
 
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
@@ -59,23 +70,23 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze offline entrypoint
+      - name: Analyze offline app
         run: flutter analyze lib/main_offline.dart test/widget_test.dart
 
-      - name: Run Flutter tests
+      - name: Run tests
         run: flutter test
 
-      - name: Build offline debug APK
+      - name: Build offline APK
         run: flutter build apk --debug -t lib/main_offline.dart
 
-      - name: Prepare offline APK artifact
+      - name: Prepare APK artifact
         run: |
           mkdir -p build-artifacts
           cp build/app/outputs/flutter-apk/app-debug.apk build-artifacts/MobileChat-offline-demo.apk
           sha256sum build-artifacts/MobileChat-offline-demo.apk > build-artifacts/MobileChat-offline-demo.sha256.txt
           ls -lah build-artifacts
 
-      - name: Upload offline APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MobileChat-offline-demo-apk
