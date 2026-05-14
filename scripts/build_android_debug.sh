@@ -6,6 +6,11 @@ API_BASE_URL="${1:-http://10.0.2.2:8080}"
 echo "Flutter version:"
 flutter --version
 
+if [[ ! -f "android/gradlew" ]]; then
+  echo "Android Gradle wrapper is missing. Generating Android platform files..."
+  flutter create --platforms=android --project-name mobile_chat .
+fi
+
 echo "Installing packages..."
 flutter pub get
 
