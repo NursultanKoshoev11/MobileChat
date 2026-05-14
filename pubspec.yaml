@@ -1,8 +1,8 @@
 name: mobile_chat
-version: 0.1.0+1
+version: 0.2.0+2
 publish_to: none
 
-description: Telegram-style cross-platform group chat app without private chats.
+description: Flutter group chat app for Android and iOS.
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
