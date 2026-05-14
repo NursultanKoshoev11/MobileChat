@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
 import '../features/groups/groups_screen.dart';
+import '../services/push_notification_service.dart';
 import 'theme.dart';
 
 class MobileChatApp extends StatefulWidget {
@@ -22,20 +23,31 @@ class _MobileChatAppState extends State<MobileChatApp> {
 
   final SessionStore sessionStore = const SessionStore();
   late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
+  late final PushNotificationService pushNotifications = PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
 
   @override
   void initState() {
     super.initState();
-    bootFuture = sessionStore.read();
+    bootFuture = _boot();
+  }
+
+  Future<AppSession?> _boot() async {
+    final session = await sessionStore.read();
+    if (session != null) {
+      await pushNotifications.registerDevice();
+    }
+    return session;
   }
 
   Future<void> setSession(AppSession session) async {
     await sessionStore.save(session);
+    await pushNotifications.registerDevice();
     setState(() => bootFuture = Future.value(session));
   }
 
   Future<void> logout() async {
+    await pushNotifications.unregisterDevice();
     await sessionStore.clear();
     setState(() => bootFuture = Future.value(null));
   }
