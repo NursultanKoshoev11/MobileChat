@@ -20,9 +20,15 @@ class PushNotificationService {
         if (newToken.isEmpty) return;
         await api.registerPushToken(token: newToken, platform: _platformName());
       });
-    } catch (_) {
-      // Push notifications are best-effort. The app must keep working if FCM is not configured yet.
-    }
+    } catch (_) {}
+  }
+
+  Future<void> unregisterDevice() async {
+    try {
+      final token = await messaging.getToken();
+      if (token == null || token.isEmpty) return;
+      await api.deletePushToken(token: token, platform: _platformName());
+    } catch (_) {}
   }
 
   String _platformName() {
