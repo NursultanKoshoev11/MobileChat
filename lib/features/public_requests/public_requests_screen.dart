@@ -317,6 +317,18 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     }
   }
 
+  Future<void> deleteComment(PublicRequestComment comment) async {
+    try {
+      await widget.api.deleteComment(comment.id);
+      await refresh();
+      if (!mounted) return;
+      showAppSnack(context, 'Comment deleted.');
+    } catch (e) {
+      if (!mounted) return;
+      showAppSnack(context, e.toString());
+    }
+  }
+
   Future<void> sendComment() async {
     final body = commentController.text.trim();
     if (body.isEmpty || sending) return;
@@ -396,6 +408,13 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(comment.authorName, style: const TextStyle(fontWeight: FontWeight.w800)),
                                   subtitle: Text(comment.body),
+                                  trailing: widget.canModerate
+                                      ? IconButton(
+                                          tooltip: 'Delete comment',
+                                          onPressed: () => deleteComment(comment),
+                                          icon: const Icon(Icons.delete_outline_rounded),
+                                        )
+                                      : null,
                                 ))
                             .toList(),
                       );
