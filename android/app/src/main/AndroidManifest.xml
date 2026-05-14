@@ -5,7 +5,7 @@
 
     <application
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher_foreground"
         android:label="MobileChat"
         android:usesCleartextTraffic="false">
         <activity
