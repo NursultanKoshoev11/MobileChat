@@ -1,0 +1,12 @@
+# Copy this file to android/local.properties on your local machine.
+# Do not commit android/local.properties.
+
+# Windows example:
+# flutter.sdk=C:\\src\\flutter
+
+# macOS/Linux example:
+# flutter.sdk=/Users/your-user/development/flutter
+
+flutter.sdk=/absolute/path/to/flutter
+flutter.versionName=0.5.0
+flutter.versionCode=5
