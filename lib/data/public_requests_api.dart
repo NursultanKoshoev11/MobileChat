@@ -15,9 +15,10 @@ class PublicRequestsApi {
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
 
-  Future<PublicRequest> createRequest({required String groupId, required String type, required String title, required String body}) async {
+  Future<PublicRequest> createRequest({required String groupId, required String type, required String interactionMode, required String title, required String body}) async {
     final response = await _send('POST', '/api/groups/$groupId/requests', body: {
       'request_type': type,
+      'interaction_mode': interactionMode,
       'title': title,
       'body': body,
     });
