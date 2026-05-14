@@ -4,7 +4,6 @@ import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../shared/ui_helpers.dart';
-import '../chat/chat_screen.dart';
 import '../invitations/invitations_screen.dart';
 import '../public_requests/public_requests_screen.dart';
 
@@ -71,12 +70,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   void openGroup(ChatGroup group) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ChatScreen(api: widget.api, user: widget.session.user, group: group)),
-    );
-  }
-
-  void openPublicRequests(ChatGroup group) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)),
     );
@@ -152,7 +145,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
               itemBuilder: (context, index) => GroupTile(
                 group: groups[index],
                 onTap: () => openGroup(groups[index]),
-                onRequests: () => openPublicRequests(groups[index]),
               ),
             );
           },
@@ -163,11 +155,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
 }
 
 class GroupTile extends StatelessWidget {
-  const GroupTile({super.key, required this.group, required this.onTap, required this.onRequests});
+  const GroupTile({super.key, required this.group, required this.onTap});
 
   final ChatGroup group;
   final VoidCallback onTap;
-  final VoidCallback onRequests;
 
   @override
   Widget build(BuildContext context) {
@@ -197,20 +188,11 @@ class GroupTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(group.description.isEmpty ? 'No description yet' : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MobileChatTheme.textMuted)),
                       const SizedBox(height: 8),
-                      Text('${group.isPublic ? 'Public' : 'Invite only'} · ${group.memberCount} members', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
+                      Text('${group.isPublic ? 'Public' : 'Invite only'} · ${group.memberCount} members · post feed', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
                     ],
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'chat') onTap();
-                    if (value == 'requests') onRequests();
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'chat', child: Text('Open announcements')),
-                    PopupMenuItem(value: 'requests', child: Text('Public requests')),
-                  ],
-                ),
+                const Icon(Icons.chevron_right_rounded),
               ],
             ),
           ),
