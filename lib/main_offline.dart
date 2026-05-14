@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'app/theme.dart';
 
+const String adminDemoPhone = '+996000000000';
+const String adminDemoPhoneDigits = '996000000000';
+const String demoOtpCode = '1111';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const OfflineDemoApp());
@@ -21,13 +25,55 @@ class OfflineDemoApp extends StatelessWidget {
   }
 }
 
+final demo = DemoStore();
+
+enum DemoRole { user, admin }
+
+enum PostMode { readOnly, voteOnly, discussion }
+
+extension PostModeText on PostMode {
+  String get label {
+    switch (this) {
+      case PostMode.readOnly:
+        return 'Text only';
+      case PostMode.voteOnly:
+        return 'Voting only';
+      case PostMode.discussion:
+        return 'Discussion';
+    }
+  }
+}
+
 class DemoStore extends ChangeNotifier {
-  String displayName = 'Demo User';
+  String currentPhone = '+996555000111';
+  String currentName = 'Demo User';
+  DemoRole role = DemoRole.user;
 
   final List<DemoGroup> groups = [
     DemoGroup(id: 'g-city', title: 'City Announcements', description: 'Official city updates and public feedback.', visibility: 'public', role: 'owner', members: 1240),
     DemoGroup(id: 'g-road', title: 'Road Problems', description: 'Report road, traffic, and street light problems.', visibility: 'public', role: 'member', members: 842),
     DemoGroup(id: 'g-school', title: 'School Parents', description: 'Invite-only parent community.', visibility: 'private', role: 'admin', members: 96),
+  ];
+
+  final List<GroupCreationRequest> groupRequests = [
+    GroupCreationRequest(
+      id: 'r-demo-1',
+      applicantName: 'Bakyt Asanov',
+      position: 'Deputy mayor',
+      organizationName: 'Tokmok City Hall',
+      organizationType: 'City government',
+      region: 'Tokmok',
+      officialPhone: '+996312000000',
+      officialEmail: 'info@tokmok.gov.kg',
+      website: 'tokmok.gov.kg',
+      groupTitle: 'Tokmok City Announcements',
+      groupDescription: 'Official announcements and public feedback for Tokmok residents.',
+      reason: 'We need one verified channel for city announcements, citizen proposals, complaints, and voting.',
+      documents: 'Official letter, staff ID, city hall seal',
+      status: RequestStatus.pending,
+      createdByPhone: '+996555000111',
+      createdAt: DateTime.now().subtract(const Duration(hours: 6)),
+    ),
   ];
 
   final List<DemoPost> posts = [
@@ -45,23 +91,55 @@ class DemoStore extends ChangeNotifier {
 
   final Map<String, String> votes = {};
 
-  void login(String name) {
-    displayName = name.trim().isEmpty ? 'Demo User' : name.trim();
+  void login({required String phone, required String name, required DemoRole nextRole}) {
+    currentPhone = phone.trim().isEmpty ? '+996555000111' : phone.trim();
+    currentName = name.trim().isEmpty ? 'Demo User' : name.trim();
+    role = nextRole;
     notifyListeners();
   }
 
-  void createGroup(String title, String description, String visibility) {
+  void logout() {
+    role = DemoRole.user;
+    currentPhone = '+996555000111';
+    currentName = 'Demo User';
+    notifyListeners();
+  }
+
+  void submitGroupRequest(GroupCreationRequest request) {
+    groupRequests.insert(0, request);
+    notifyListeners();
+  }
+
+  void approveRequest(GroupCreationRequest request) {
+    if (request.status == RequestStatus.approved) return;
+    request.status = RequestStatus.approved;
+    request.adminComment = 'Approved in offline demo.';
+    request.reviewedAt = DateTime.now();
     groups.insert(
       0,
       DemoGroup(
         id: 'g-${DateTime.now().microsecondsSinceEpoch}',
-        title: title.trim().isEmpty ? 'New local group' : title.trim(),
-        description: description.trim(),
-        visibility: visibility,
+        title: request.groupTitle,
+        description: request.groupDescription,
+        visibility: 'public',
         role: 'owner',
         members: 1,
       ),
     );
+    notifyListeners();
+  }
+
+  void rejectRequest(GroupCreationRequest request, String reason) {
+    request.status = RequestStatus.rejected;
+    request.adminComment = reason.trim().isEmpty ? 'Rejected in offline demo.' : reason.trim();
+    request.reviewedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  void needMoreInfo(GroupCreationRequest request, String reason) {
+    request.status = RequestStatus.needsMoreInfo;
+    request.adminComment = reason.trim().isEmpty ? 'Please add more documents.' : reason.trim();
+    request.reviewedAt = DateTime.now();
     notifyListeners();
   }
 
@@ -71,7 +149,7 @@ class DemoStore extends ChangeNotifier {
       DemoPost(
         id: 'p-${DateTime.now().microsecondsSinceEpoch}',
         groupId: groupId,
-        author: displayName,
+        author: currentName,
         type: type,
         mode: mode,
         title: title.trim().isEmpty ? 'New local post' : title.trim(),
@@ -101,7 +179,7 @@ class DemoStore extends ChangeNotifier {
 
   void addComment(DemoPost post, String body) {
     if (!post.canComment || body.trim().isEmpty) return;
-    comments.add(DemoComment(postId: post.id, author: displayName, body: body.trim()));
+    comments.add(DemoComment(postId: post.id, author: currentName, body: body.trim()));
     notifyListeners();
   }
 
@@ -113,42 +191,6 @@ class DemoStore extends ChangeNotifier {
   void hidePost(DemoPost post) {
     post.hidden = true;
     notifyListeners();
-  }
-
-  void reset() {
-    for (final post in posts) {
-      post.hidden = false;
-    }
-    votes.clear();
-    notifyListeners();
-  }
-}
-
-final demo = DemoStore();
-
-enum PostMode { readOnly, voteOnly, discussion }
-
-extension PostModeText on PostMode {
-  String get storageValue {
-    switch (this) {
-      case PostMode.readOnly:
-        return 'read_only';
-      case PostMode.voteOnly:
-        return 'vote_only';
-      case PostMode.discussion:
-        return 'discussion';
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case PostMode.readOnly:
-        return 'Read only';
-      case PostMode.voteOnly:
-        return 'Vote only';
-      case PostMode.discussion:
-        return 'Discussion';
-    }
   }
 }
 
@@ -188,6 +230,65 @@ class DemoComment {
   final String body;
 }
 
+enum RequestStatus { pending, approved, rejected, needsMoreInfo }
+
+extension RequestStatusText on RequestStatus {
+  String get label {
+    switch (this) {
+      case RequestStatus.pending:
+        return 'Pending';
+      case RequestStatus.approved:
+        return 'Approved';
+      case RequestStatus.rejected:
+        return 'Rejected';
+      case RequestStatus.needsMoreInfo:
+        return 'Need more info';
+    }
+  }
+}
+
+class GroupCreationRequest {
+  GroupCreationRequest({
+    required this.id,
+    required this.applicantName,
+    required this.position,
+    required this.organizationName,
+    required this.organizationType,
+    required this.region,
+    required this.officialPhone,
+    required this.officialEmail,
+    required this.website,
+    required this.groupTitle,
+    required this.groupDescription,
+    required this.reason,
+    required this.documents,
+    required this.status,
+    required this.createdByPhone,
+    required this.createdAt,
+    this.adminComment,
+    this.reviewedAt,
+  });
+
+  final String id;
+  final String applicantName;
+  final String position;
+  final String organizationName;
+  final String organizationType;
+  final String region;
+  final String officialPhone;
+  final String officialEmail;
+  final String website;
+  final String groupTitle;
+  final String groupDescription;
+  final String reason;
+  final String documents;
+  final String createdByPhone;
+  final DateTime createdAt;
+  RequestStatus status;
+  String? adminComment;
+  DateTime? reviewedAt;
+}
+
 class OfflineLoginScreen extends StatefulWidget {
   const OfflineLoginScreen({super.key});
 
@@ -196,19 +297,35 @@ class OfflineLoginScreen extends StatefulWidget {
 }
 
 class _OfflineLoginScreenState extends State<OfflineLoginScreen> {
-  final phone = TextEditingController(text: '+996');
+  final phone = TextEditingController(text: '+996555000111');
   final name = TextEditingController(text: 'Demo User');
+  final code = TextEditingController(text: demoOtpCode);
 
   @override
   void dispose() {
     phone.dispose();
     name.dispose();
+    code.dispose();
     super.dispose();
   }
 
   void enterDemo() {
-    demo.login(name.text);
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const GroupsScreen()));
+    if (code.text.trim() != demoOtpCode) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demo code is 1111')));
+      return;
+    }
+    final digits = phone.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final role = digits == adminDemoPhoneDigits ? DemoRole.admin : DemoRole.user;
+    demo.login(phone: phone.text, name: name.text, nextRole: role);
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => role == DemoRole.admin ? const AdminPanelScreen() : const GroupsScreen()));
+  }
+
+  void fillAdmin() {
+    setState(() {
+      phone.text = adminDemoPhone;
+      name.text = 'Platform Admin';
+      code.text = demoOtpCode;
+    });
   }
 
   @override
@@ -228,13 +345,19 @@ class _OfflineLoginScreenState extends State<OfflineLoginScreen> {
                   const SizedBox(height: 22),
                   Text('Offline Demo', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
-                  const Text('No internet. No server. Enter a phone number and open the local demo immediately.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
-                  const SizedBox(height: 24),
+                  const Text('No internet. No server. Test admin number opens Admin Panel.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                  const SizedBox(height: 12),
+                  Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(16)), child: Text('Admin test number: $adminDemoPhone\nDemo SMS code: $demoOtpCode', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800))),
+                  const SizedBox(height: 20),
                   TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Mobile number', prefixIcon: Icon(Icons.phone_iphone_rounded))),
+                  const SizedBox(height: 12),
+                  TextField(controller: code, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'SMS code', prefixIcon: Icon(Icons.sms_outlined))),
                   const SizedBox(height: 12),
                   TextField(controller: name, decoration: const InputDecoration(labelText: 'Display name', prefixIcon: Icon(Icons.person_outline_rounded))),
                   const SizedBox(height: 18),
                   FilledButton.icon(onPressed: enterDemo, icon: const Icon(Icons.login_rounded), label: const Text('Enter offline demo')),
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: fillAdmin, child: const Text('Fill admin test number')),
                 ]),
               ),
             ),
@@ -273,37 +396,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Widget build(BuildContext context) {
     final groups = demo.groups.where((g) => query.isEmpty || g.title.toLowerCase().contains(query.toLowerCase()) || g.description.toLowerCase().contains(query.toLowerCase())).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Groups'), actions: [IconButton(onPressed: demo.reset, icon: const Icon(Icons.restart_alt_rounded)), IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded))]),
+      appBar: AppBar(title: const Text('Groups'), actions: [IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyRequestsScreen())), icon: const Icon(Icons.assignment_outlined), tooltip: 'My requests'), IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded), tooltip: 'Log out')]),
       body: Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), child: TextField(onChanged: (value) => setState(() => query = value), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search groups'))),
         Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), itemCount: groups.length, itemBuilder: (_, index) => GroupTile(group: groups[index]))),
       ]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: createGroup, icon: const Icon(Icons.add_rounded), label: const Text('New group')),
+      floatingActionButton: FloatingActionButton.extended(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RequestGroupScreen())), icon: const Icon(Icons.verified_user_outlined), label: const Text('Request group')),
     );
-  }
-
-  Future<void> createGroup() async {
-    final title = TextEditingController();
-    final description = TextEditingController();
-    String visibility = 'public';
-    await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true, builder: (context) => StatefulBuilder(builder: (context, setSheetState) {
-      return Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Create local group', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          TextField(controller: title, decoration: const InputDecoration(labelText: 'Group name')),
-          const SizedBox(height: 12),
-          TextField(controller: description, decoration: const InputDecoration(labelText: 'Description')),
-          const SizedBox(height: 12),
-          SegmentedButton<String>(segments: const [ButtonSegment(value: 'public', label: Text('Public')), ButtonSegment(value: 'private', label: Text('Invite only'))], selected: {visibility}, onSelectionChanged: (value) => setSheetState(() => visibility = value.first)),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: () { demo.createGroup(title.text, description.text, visibility); Navigator.pop(context); }, child: const Text('Create')),
-        ]),
-      );
-    }));
-    title.dispose();
-    description.dispose();
   }
 }
 
@@ -339,6 +438,291 @@ class GroupTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class RequestGroupScreen extends StatefulWidget {
+  const RequestGroupScreen({super.key});
+
+  @override
+  State<RequestGroupScreen> createState() => _RequestGroupScreenState();
+}
+
+class _RequestGroupScreenState extends State<RequestGroupScreen> {
+  final fullName = TextEditingController();
+  final position = TextEditingController();
+  final organization = TextEditingController();
+  final organizationType = TextEditingController(text: 'City government');
+  final region = TextEditingController();
+  final officialPhone = TextEditingController();
+  final officialEmail = TextEditingController();
+  final website = TextEditingController();
+  final groupTitle = TextEditingController();
+  final groupDescription = TextEditingController();
+  final reason = TextEditingController();
+  final documents = TextEditingController(text: 'Official letter, staff ID, organization seal');
+
+  @override
+  void dispose() {
+    fullName.dispose();
+    position.dispose();
+    organization.dispose();
+    organizationType.dispose();
+    region.dispose();
+    officialPhone.dispose();
+    officialEmail.dispose();
+    website.dispose();
+    groupTitle.dispose();
+    groupDescription.dispose();
+    reason.dispose();
+    documents.dispose();
+    super.dispose();
+  }
+
+  void submit() {
+    final request = GroupCreationRequest(
+      id: 'r-${DateTime.now().microsecondsSinceEpoch}',
+      applicantName: fullName.text.trim().isEmpty ? demo.currentName : fullName.text.trim(),
+      position: position.text.trim().isEmpty ? 'Representative' : position.text.trim(),
+      organizationName: organization.text.trim().isEmpty ? 'Demo Organization' : organization.text.trim(),
+      organizationType: organizationType.text.trim().isEmpty ? 'Government organization' : organizationType.text.trim(),
+      region: region.text.trim().isEmpty ? 'Demo region' : region.text.trim(),
+      officialPhone: officialPhone.text.trim().isEmpty ? demo.currentPhone : officialPhone.text.trim(),
+      officialEmail: officialEmail.text.trim().isEmpty ? 'official@example.gov' : officialEmail.text.trim(),
+      website: website.text.trim(),
+      groupTitle: groupTitle.text.trim().isEmpty ? 'Official demo group' : groupTitle.text.trim(),
+      groupDescription: groupDescription.text.trim().isEmpty ? 'Official local group requested in offline demo.' : groupDescription.text.trim(),
+      reason: reason.text.trim().isEmpty ? 'Need official communication with residents.' : reason.text.trim(),
+      documents: documents.text.trim().isEmpty ? 'Not provided in demo.' : documents.text.trim(),
+      status: RequestStatus.pending,
+      createdByPhone: demo.currentPhone,
+      createdAt: DateTime.now(),
+    );
+    demo.submitGroupRequest(request);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request sent to admin panel.')));
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Request official group')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('Fill information so platform admins can verify the organization before creating an official group.', style: TextStyle(color: MobileChatTheme.textMuted)),
+        const SizedBox(height: 16),
+        _field(fullName, 'Full name'),
+        _field(position, 'Position'),
+        _field(organization, 'Organization name'),
+        _field(organizationType, 'Organization type'),
+        _field(region, 'City / region'),
+        _field(officialPhone, 'Official phone'),
+        _field(officialEmail, 'Official email'),
+        _field(website, 'Official website'),
+        _field(groupTitle, 'Requested group title'),
+        _field(groupDescription, 'Group description', lines: 3),
+        _field(reason, 'Reason for creating group', lines: 4),
+        _field(documents, 'Documents / proof', lines: 3),
+        const SizedBox(height: 16),
+        FilledButton.icon(onPressed: submit, icon: const Icon(Icons.send_rounded), label: const Text('Send request')),
+      ]),
+    );
+  }
+
+  Widget _field(TextEditingController controller, String label, {int lines = 1}) {
+    return Padding(padding: const EdgeInsets.only(bottom: 12), child: TextField(controller: controller, minLines: lines, maxLines: lines, decoration: InputDecoration(labelText: label)));
+  }
+}
+
+class MyRequestsScreen extends StatefulWidget {
+  const MyRequestsScreen({super.key});
+
+  @override
+  State<MyRequestsScreen> createState() => _MyRequestsScreenState();
+}
+
+class _MyRequestsScreenState extends State<MyRequestsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    demo.addListener(refresh);
+  }
+
+  @override
+  void dispose() {
+    demo.removeListener(refresh);
+    super.dispose();
+  }
+
+  void refresh() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final requests = demo.groupRequests.where((r) => r.createdByPhone == demo.currentPhone).toList();
+    return Scaffold(
+      appBar: AppBar(title: const Text('My requests')),
+      body: requests.isEmpty ? const Center(child: Text('No requests yet.')) : ListView.builder(padding: const EdgeInsets.all(16), itemCount: requests.length, itemBuilder: (_, index) => RequestCard(request: requests[index], adminView: false)),
+    );
+  }
+}
+
+class AdminPanelScreen extends StatefulWidget {
+  const AdminPanelScreen({super.key});
+
+  @override
+  State<AdminPanelScreen> createState() => _AdminPanelScreenState();
+}
+
+class _AdminPanelScreenState extends State<AdminPanelScreen> {
+  @override
+  void initState() {
+    super.initState();
+    demo.addListener(refresh);
+  }
+
+  @override
+  void dispose() {
+    demo.removeListener(refresh);
+    super.dispose();
+  }
+
+  void refresh() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingCount = demo.groupRequests.where((r) => r.status == RequestStatus.pending).length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Admin Panel'), actions: [IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded))]),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Signed in as admin', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('Phone: ${demo.currentPhone}', style: const TextStyle(color: MobileChatTheme.textMuted)),
+          const SizedBox(height: 10),
+          Text('$pendingCount pending group request(s)', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800)),
+        ])),
+        const SizedBox(height: 16),
+        Text('Group creation requests', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        if (demo.groupRequests.isEmpty) const Text('No requests yet.', style: TextStyle(color: MobileChatTheme.textMuted)),
+        ...demo.groupRequests.map((request) => RequestCard(request: request, adminView: true)),
+        const SizedBox(height: 16),
+        Text('Existing groups', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        ...demo.groups.map((group) => GroupTile(group: group)),
+      ]),
+    );
+  }
+}
+
+class RequestCard extends StatelessWidget {
+  const RequestCard({super.key, required this.request, required this.adminView});
+  final GroupCreationRequest request;
+  final bool adminView;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RequestDetailsScreen(request: request, adminView: adminView))),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [ChipLabel(text: request.status.label), const Spacer(), const Icon(Icons.chevron_right_rounded)]),
+              const SizedBox(height: 10),
+              Text(request.groupTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              const SizedBox(height: 4),
+              Text(request.organizationName, style: const TextStyle(color: MobileChatTheme.textMuted)),
+              const SizedBox(height: 8),
+              Text('${request.applicantName} · ${request.position}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              if (request.adminComment != null) ...[
+                const SizedBox(height: 8),
+                Text('Admin comment: ${request.adminComment}', style: const TextStyle(color: MobileChatTheme.textMuted)),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class RequestDetailsScreen extends StatefulWidget {
+  const RequestDetailsScreen({super.key, required this.request, required this.adminView});
+  final GroupCreationRequest request;
+  final bool adminView;
+
+  @override
+  State<RequestDetailsScreen> createState() => _RequestDetailsScreenState();
+}
+
+class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
+  final comment = TextEditingController();
+
+  @override
+  void dispose() {
+    comment.dispose();
+    super.dispose();
+  }
+
+  void reject() {
+    demo.rejectRequest(widget.request, comment.text);
+    Navigator.pop(context);
+  }
+
+  void needMoreInfo() {
+    demo.needMoreInfo(widget.request, comment.text);
+    Navigator.pop(context);
+  }
+
+  void approve() {
+    demo.approveRequest(widget.request);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.request;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Request details')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [ChipLabel(text: r.status.label), const Spacer(), Text(r.createdAt.toLocal().toString().split('.').first, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12))]),
+          const SizedBox(height: 12),
+          _line('Requested group', r.groupTitle),
+          _line('Description', r.groupDescription),
+          _line('Applicant', r.applicantName),
+          _line('Position', r.position),
+          _line('Organization', r.organizationName),
+          _line('Organization type', r.organizationType),
+          _line('Region', r.region),
+          _line('Official phone', r.officialPhone),
+          _line('Official email', r.officialEmail),
+          _line('Website', r.website.isEmpty ? 'Not provided' : r.website),
+          _line('Reason', r.reason),
+          _line('Documents / proof', r.documents),
+          if (r.adminComment != null) _line('Admin comment', r.adminComment!),
+        ])),
+        if (widget.adminView && r.status == RequestStatus.pending) ...[
+          const SizedBox(height: 16),
+          TextField(controller: comment, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Admin comment / reason')),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: approve, icon: const Icon(Icons.check_rounded), label: const Text('Approve and create group')),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: needMoreInfo, icon: const Icon(Icons.info_outline_rounded), label: const Text('Need more info')),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: reject, icon: const Icon(Icons.close_rounded), label: const Text('Reject')),
+        ],
+      ]),
+    );
+  }
+
+  Widget _line(String label, String value) {
+    return Padding(padding: const EdgeInsets.only(bottom: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)), const SizedBox(height: 2), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]));
   }
 }
 
@@ -457,43 +841,6 @@ class FeedPostCard extends StatelessWidget {
   }
 }
 
-class DetailsPostCard extends StatelessWidget {
-  const DetailsPostCard({super.key, required this.post});
-  final DemoPost post;
-
-  @override
-  Widget build(BuildContext context) {
-    final myVote = demo.votes[post.id];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [ChipLabel(text: post.type), const SizedBox(width: 8), ChipLabel(text: post.mode.label), const Spacer(), Text(post.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700))]),
-            const SizedBox(height: 10),
-            Text(post.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(post.body),
-            const SizedBox(height: 10),
-            Text('By ${post.author}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
-            if (post.canVote) ...[
-              const SizedBox(height: 12),
-              Row(children: [
-                OutlinedButton.icon(onPressed: () => demo.vote(post, 'support'), icon: Icon(myVote == 'support' ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${post.support}')),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(onPressed: () => demo.vote(post, 'oppose'), icon: Icon(myVote == 'oppose' ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${post.oppose}')),
-              ]),
-            ],
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
 class DetailsScreen extends StatefulWidget {
   const DetailsScreen({super.key, required this.post, required this.group});
   final DemoPost post;
@@ -528,7 +875,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       appBar: AppBar(title: const Text('Read post'), actions: [if (widget.group.canModerate) IconButton(onPressed: () { demo.hidePost(widget.post); Navigator.pop(context); }, icon: const Icon(Icons.visibility_off_outlined))]),
       body: Column(children: [
         Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
-          DetailsPostCard(post: widget.post),
+          FeedPostCard(post: widget.post, group: widget.group),
           if (widget.group.canModerate) DropdownButtonFormField<String>(value: widget.post.status, decoration: const InputDecoration(labelText: 'Admin status'), items: const [DropdownMenuItem(value: 'new', child: Text('New')), DropdownMenuItem(value: 'under_review', child: Text('Under review')), DropdownMenuItem(value: 'accepted', child: Text('Accepted')), DropdownMenuItem(value: 'rejected', child: Text('Rejected')), DropdownMenuItem(value: 'resolved', child: Text('Resolved'))], onChanged: (value) { if (value != null) demo.updateStatus(widget.post, value); }),
           const SizedBox(height: 12),
           Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
