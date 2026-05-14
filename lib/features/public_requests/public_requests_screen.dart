@@ -21,6 +21,7 @@ class PublicRequestsScreen extends StatefulWidget {
 class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late final PublicRequestsApi requestsApi;
   late Future<List<PublicRequest>> requestsFuture;
+  String filter = 'newest';
 
   bool get canModerate => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
 
@@ -28,12 +29,35 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void initState() {
     super.initState();
     requestsApi = PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
-    requestsFuture = requestsApi.listRequests(widget.group.id);
+    requestsFuture = loadRequests();
+  }
+
+  Future<List<PublicRequest>> loadRequests() async {
+    final requests = await requestsApi.listRequests(widget.group.id, mineOnly: filter == 'mine');
+    final filtered = List<PublicRequest>.from(requests);
+    if (filter == 'popular') {
+      filtered.sort((a, b) => (b.supportCount - b.opposeCount).compareTo(a.supportCount - a.opposeCount));
+    } else if (filter == 'resolved') {
+      filtered
+        ..retainWhere((request) => request.status == 'resolved' || request.status == 'accepted')
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } else {
+      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return filtered;
   }
 
   Future<void> refresh() async {
-    setState(() => requestsFuture = requestsApi.listRequests(widget.group.id));
+    setState(() => requestsFuture = loadRequests());
     await requestsFuture;
+  }
+
+  void changeFilter(String value) {
+    if (filter == value) return;
+    setState(() {
+      filter = value;
+      requestsFuture = loadRequests();
+    });
   }
 
   Future<void> createRequest() async {
@@ -81,46 +105,73 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         icon: const Icon(Icons.add_comment_rounded),
         label: const Text('New request'),
       ),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<List<PublicRequest>>(
-          future: requestsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-            if (snapshot.hasError) {
-              return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
-            }
-            final requests = snapshot.data ?? const [];
-            if (requests.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: const [
-                  SizedBox(height: 120),
-                  Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
-                  SizedBox(height: 16),
-                  Text('No public requests yet', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                  SizedBox(height: 8),
-                  Text('People can publish ideas, complaints, problems, or requirements here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
-                ],
-              );
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-              itemCount: requests.length,
-              itemBuilder: (context, index) {
-                final request = requests[index];
-                return PublicRequestCard(
-                  request: request,
-                  onTap: () => openDetails(request),
-                  onSupport: () => vote(request, 'support'),
-                  onOppose: () => vote(request, 'oppose'),
-                );
-              },
-            );
-          },
-        ),
+      body: Column(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'newest', label: Text('Newest')),
+                ButtonSegment(value: 'popular', label: Text('Popular')),
+                ButtonSegment(value: 'resolved', label: Text('Resolved')),
+                ButtonSegment(value: 'mine', label: Text('Mine')),
+              ],
+              selected: {filter},
+              onSelectionChanged: (value) => changeFilter(value.first),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: refresh,
+              child: FutureBuilder<List<PublicRequest>>(
+                future: requestsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  if (snapshot.hasError) {
+                    return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
+                  }
+                  final requests = snapshot.data ?? const [];
+                  if (requests.isEmpty) {
+                    return ListView(
+                      padding: const EdgeInsets.all(24),
+                      children: [
+                        const SizedBox(height: 120),
+                        const Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
+                        const SizedBox(height: 16),
+                        Text(emptyTitleForFilter(filter), textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        const Text('People can publish ideas, complaints, problems, or requirements here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                    itemCount: requests.length,
+                    itemBuilder: (context, index) {
+                      final request = requests[index];
+                      return PublicRequestCard(
+                        request: request,
+                        onTap: () => openDetails(request),
+                        onSupport: () => vote(request, 'support'),
+                        onOppose: () => vote(request, 'oppose'),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  String emptyTitleForFilter(String value) {
+    if (value == 'popular') return 'No popular requests yet';
+    if (value == 'resolved') return 'No resolved requests yet';
+    if (value == 'mine') return 'You have not created requests yet';
+    return 'No public requests yet';
   }
 }
 
