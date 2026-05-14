@@ -1,0 +1,3 @@
+Offline demo APK build trigger.
+
+This file exists only to trigger GitHub Actions builds for the offline demo APK.
