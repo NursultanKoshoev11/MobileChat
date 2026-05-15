@@ -3,8 +3,7 @@ from pathlib import Path
 path = Path("lib/main_offline.dart")
 text = path.read_text()
 
-text = text.replace(
-"""void main() {
+old_root = """void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const OfflineDemoApp());
 }
@@ -24,8 +23,8 @@ class OfflineDemoApp extends StatelessWidget {
 }
 
 final demo = DemoStore();
-""",
-"""void main() {
+"""
+new_root = """void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const OfflineDemoApp());
 }
@@ -83,93 +82,80 @@ class ThemeToggleButton extends StatelessWidget {
   }
 }
 
-class AppCard extends StatelessWidget {
-  const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(16)});
+final BorderRadius _cardRadius = BorderRadius.circular(22);
 
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Material(
-      color: colors.surface,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: colors.border),
-          boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 18, offset: const Offset(0, 8))],
-        ),
-        child: child,
-      ),
-    );
-  }
+BoxDecoration appCardDecoration(BuildContext context, {double radius = 22}) {
+  final colors = context.appColors;
+  return BoxDecoration(
+    color: colors.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: colors.border),
+    boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 18, offset: const Offset(0, 8))],
+  );
 }
-""")
 
-# App bars: add theme toggle next to existing actions where possible.
+final demo = DemoStore();
+"""
+if old_root in text and "darkTheme: MobileChatTheme.dark" not in text:
+    text = text.replace(old_root, new_root)
+
+# Add theme toggles to main screens.
 text = text.replace(
-"""appBar: AppBar(title: const Text('Groups'), actions: [IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyRequestsScreen())), icon: const Icon(Icons.assignment_outlined), tooltip: 'My requests'), IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded), tooltip: 'Log out')]),""",
-"""appBar: AppBar(title: const Text('Groups'), actions: [const ThemeToggleButton(), IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyRequestsScreen())), icon: const Icon(Icons.assignment_outlined), tooltip: 'My requests'), IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded), tooltip: 'Log out')]),""")
-
+    "appBar: AppBar(title: const Text('Groups'), actions: [IconButton(",
+    "appBar: AppBar(title: const Text('Groups'), actions: [const ThemeToggleButton(), IconButton(",
+)
 text = text.replace(
-"""appBar: AppBar(title: const Text('Admin Panel'), actions: [IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded))]),""",
-"""appBar: AppBar(title: const Text('Admin Panel'), actions: [const ThemeToggleButton(), IconButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OfflineLoginScreen())), icon: const Icon(Icons.logout_rounded))]),""")
-
+    "appBar: AppBar(title: const Text('Admin Panel'), actions: [IconButton(",
+    "appBar: AppBar(title: const Text('Admin Panel'), actions: [const ThemeToggleButton(), IconButton(",
+)
 text = text.replace(
-"""appBar: AppBar(title: Text(widget.group.title)),""",
-"""appBar: AppBar(title: Text(widget.group.title), actions: const [ThemeToggleButton()]),""")
-
+    "appBar: AppBar(title: Text(widget.group.title)),",
+    "appBar: AppBar(title: Text(widget.group.title), actions: const [ThemeToggleButton()]),",
+)
 text = text.replace(
-"""appBar: AppBar(title: const Text('Read post'), actions:""",
-"""appBar: AppBar(title: const Text('Read post'), actions: [const ThemeToggleButton(),""")
+    "appBar: AppBar(title: const Text('Read post'), actions: [if (widget.group.canModerate)",
+    "appBar: AppBar(title: const Text('Read post'), actions: [const ThemeToggleButton(), if (widget.group.canModerate)",
+)
 
-# Fix potential double bracket introduced above for Read post actions.
-text = text.replace("""actions: [const ThemeToggleButton(), [if""", """actions: [const ThemeToggleButton(), if""")
-
-# Login card and admin notice colors.
+# Login card: background/card contrast.
 text = text.replace(
-"""decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(32), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 16))]),""",
-"""decoration: BoxDecoration(color: context.appColors.surface, borderRadius: BorderRadius.circular(32), border: Border.all(color: context.appColors.border), boxShadow: [BoxShadow(color: context.appColors.shadow, blurRadius: 28, offset: const Offset(0, 16))]),""")
-
+    "decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(32), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 16))]),",
+    "decoration: appCardDecoration(context, radius: 32),",
+)
 text = text.replace(
-"""const Text('No internet. No server. Test admin number opens Admin Panel.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),""",
-"""Text('No internet. No server. Test admin number opens Admin Panel.', textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),""")
-
+    "const Text('No internet. No server. Test admin number opens Admin Panel.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),",
+    "Text('No internet. No server. Test admin number opens Admin Panel.', textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),",
+)
 text = text.replace(
-"""Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(16)), child: Text('Admin test number: $adminDemoPhone\\nDemo SMS code: $demoOtpCode', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800))),""",
-"""Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(16), border: Border.all(color: context.appColors.border)), child: const Text('Admin test number: $adminDemoPhone\\nDemo SMS code: $demoOtpCode', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.primary, fontWeight: FontWeight.w800))),""")
-
-# Add theme toggle in login screen controls before main enter button if not present.
+    "Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(16)), child: Text('Admin test number: $adminDemoPhone\\nDemo SMS code: $demoOtpCode', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800))),",
+    "Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(16), border: Border.all(color: context.appColors.border)), child: const Text('Admin test number: $adminDemoPhone\\nDemo SMS code: $demoOtpCode', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.primary, fontWeight: FontWeight.w800))),",
+)
 text = text.replace(
-"""const SizedBox(height: 18),
-                  FilledButton.icon(onPressed: enterDemo,""",
-"""const SizedBox(height: 18),
-                  Align(alignment: Alignment.center, child: const ThemeToggleButton()),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(onPressed: enterDemo,""")
+    "const SizedBox(height: 18),\n                  FilledButton.icon(onPressed: enterDemo,",
+    "const SizedBox(height: 18),\n                  const Align(alignment: Alignment.center, child: ThemeToggleButton()),\n                  const SizedBox(height: 8),\n                  FilledButton.icon(onPressed: enterDemo,",
+)
 
-# Replace common hard-coded surfaces.
-text = text.replace("""color: Colors.white,""", """color: context.appColors.surface,""")
-text = text.replace("""color: const Color(0xFFEFF6FF)""", """color: context.appColors.chipBackground""")
-text = text.replace("""color: MobileChatTheme.textMuted""", """color: context.appColors.textMuted""")
-text = text.replace("""color: MobileChatTheme.primaryDark""", """color: MobileChatTheme.primary""")
+# Cards and foreground surfaces. These exact patterns are inside build methods, so context is valid.
+text = text.replace("Material(\n        color: Colors.white,", "Material(\n        color: context.appColors.surface,")
+text = text.replace("decoration: BoxDecoration(color: Colors.white, borderRadius:", "decoration: BoxDecoration(color: context.appColors.surface, borderRadius:")
+text = text.replace("color: Colors.white, child: Row", "color: context.appColors.surface, child: Row")
+text = text.replace("color: const Color(0xFFEFF6FF)", "color: context.appColors.chipBackground")
 
-# The global replacement can break const widgets with context in const constructors; fix known const TextStyle patterns.
-text = text.replace("""style: const TextStyle(color: context.appColors.textMuted""", """style: TextStyle(color: context.appColors.textMuted""")
-text = text.replace("""style: const TextStyle(color: MobileChatTheme.primary""", """style: const TextStyle(color: MobileChatTheme.primary""")
-text = text.replace("""style: const TextStyle(color: context.appColors.textMuted, fontSize: 12""", """style: TextStyle(color: context.appColors.textMuted, fontSize: 12""")
-text = text.replace("""style: const TextStyle(color: context.appColors.textMuted, fontWeight:""", """style: TextStyle(color: context.appColors.textMuted, fontWeight:""")
-text = text.replace("""style: const TextStyle(color: context.appColors.textMuted))""", """style: TextStyle(color: context.appColors.textMuted))""")
+# Important muted text colors that are not const-only widgets.
+text = text.replace("color: MobileChatTheme.textMuted", "color: context.appColors.textMuted")
+text = text.replace("style: const TextStyle(color: context.appColors.textMuted", "style: TextStyle(color: context.appColors.textMuted")
+text = text.replace("style: const TextStyle(color: MobileChatTheme.primary", "style: const TextStyle(color: MobileChatTheme.primary")
 
-# Add borders to Material cards by wrapping their child Padding with Container where not easy is too risky; at least Material color changes.
+# Keep icon foreground white. Do not replace it with theme surface.
+text = text.replace("Icon(Icons.wifi_off_rounded, color: context.appColors.surface,", "Icon(Icons.wifi_off_rounded, color: Colors.white,")
 
+# Safety checks.
 if "darkTheme: MobileChatTheme.dark" not in text:
     raise SystemExit("Theme mode patch failed")
 if "ThemeToggleButton" not in text:
     raise SystemExit("Theme toggle patch failed")
+if "Icon(Icons.wifi_off_rounded, color: context.appColors.surface" in text:
+    raise SystemExit("Icon color was patched incorrectly")
 
 path.write_text(text)
-print("Offline theme patch applied.")
+print("Offline light/dark theme patch applied safely.")
