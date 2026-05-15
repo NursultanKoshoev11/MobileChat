@@ -23,18 +23,34 @@ class GroupsScreen extends StatefulWidget {
 
 class _GroupsScreenState extends State<GroupsScreen> {
   late Future<List<ChatGroup>> groupsFuture;
+  late Future<int> adminRequestsCountFuture;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
   void initState() {
     super.initState();
     groupsFuture = widget.api.fetchGroups();
+    adminRequestsCountFuture = loadAdminRequestsCount();
+  }
+
+  Future<int> loadAdminRequestsCount() async {
+    if (!isAdmin) return 0;
+    try {
+      final requests = await widget.api.fetchAdminGroupCreationRequests(status: 'pending');
+      return requests.length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<void> refresh() async {
-    final next = widget.api.fetchGroups();
-    setState(() => groupsFuture = next);
-    await next;
+    final nextGroups = widget.api.fetchGroups();
+    final nextCount = loadAdminRequestsCount();
+    setState(() {
+      groupsFuture = nextGroups;
+      adminRequestsCountFuture = nextCount;
+    });
+    await Future.wait([nextGroups, nextCount]);
   }
 
   Future<void> createGroup() async {
@@ -88,6 +104,26 @@ class _GroupsScreenState extends State<GroupsScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));
   }
 
+  Future<void> showMainMenu() async {
+    final count = await adminRequestsCountFuture;
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (_) => MainGroupsMenuSheet(
+        isAdmin: isAdmin,
+        adminRequestsCount: count,
+        onJoinByCode: joinByCode,
+        onInvitations: openInvitations,
+        onMyRequests: openGroupRequests,
+        onAdminRequests: openAdminRequests,
+        onLogout: widget.onLogout,
+      ),
+    );
+    await refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
@@ -96,23 +132,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         title: Text(text.groups),
         actions: [
           const AppSettingsButton(),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'join') joinByCode();
-              if (value == 'invites') openInvitations();
-              if (value == 'requests') openGroupRequests();
-              if (value == 'admin') openAdminRequests();
-              if (value == 'logout') widget.onLogout();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'join', child: Text(text.joinByCode)),
-              PopupMenuItem(value: 'invites', child: Text(text.invitations)),
-              PopupMenuItem(value: 'requests', child: Text(isAdmin ? text.myRequests : text.requestGroup)),
-              if (isAdmin) PopupMenuItem(value: 'admin', child: Text(text.adminRequests)),
-              const PopupMenuDivider(),
-              PopupMenuItem(value: 'logout', child: Text(text.logout)),
-            ],
-          ),
+          IconButton(onPressed: showMainMenu, icon: const Icon(Icons.more_vert_rounded), tooltip: text.isKy ? 'Меню' : 'Меню'),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -135,6 +155,94 @@ class _GroupsScreenState extends State<GroupsScreen> {
               itemBuilder: (_, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index])),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class MainGroupsMenuSheet extends StatelessWidget {
+  const MainGroupsMenuSheet({
+    super.key,
+    required this.isAdmin,
+    required this.adminRequestsCount,
+    required this.onJoinByCode,
+    required this.onInvitations,
+    required this.onMyRequests,
+    required this.onAdminRequests,
+    required this.onLogout,
+  });
+
+  final bool isAdmin;
+  final int adminRequestsCount;
+  final VoidCallback onJoinByCode;
+  final VoidCallback onInvitations;
+  final VoidCallback onMyRequests;
+  final VoidCallback onAdminRequests;
+  final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(text.isKy ? 'Меню' : 'Меню', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 12),
+        _MenuTile(icon: Icons.key_rounded, title: text.joinByCode, onTap: () => _closeAndRun(context, onJoinByCode)),
+        _MenuTile(icon: Icons.mark_email_unread_outlined, title: text.invitations, onTap: () => _closeAndRun(context, onInvitations)),
+        _MenuTile(icon: Icons.assignment_outlined, title: isAdmin ? text.myRequests : text.requestGroup, onTap: () => _closeAndRun(context, onMyRequests)),
+        if (isAdmin) _MenuTile(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, badge: adminRequestsCount, onTap: () => _closeAndRun(context, onAdminRequests)),
+        const SizedBox(height: 8),
+        Divider(color: context.appColors.border),
+        _MenuTile(icon: Icons.logout_rounded, title: text.logout, danger: true, onTap: () async {
+          Navigator.pop(context);
+          await onLogout();
+        }),
+      ]),
+    );
+  }
+
+  void _closeAndRun(BuildContext context, VoidCallback action) {
+    Navigator.pop(context);
+    action();
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({required this.icon, required this.title, required this.onTap, this.badge = 0, this.danger = false});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final int badge;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accent = danger ? Colors.redAccent : MobileChatTheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(18), border: Border.all(color: colors.border)),
+          child: Row(children: [
+            Icon(icon, color: accent),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: TextStyle(color: danger ? accent : colors.textStrong, fontWeight: FontWeight.w800))),
+            if (badge > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)),
+                child: Text('$badge', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+              ),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+          ]),
         ),
       ),
     );
