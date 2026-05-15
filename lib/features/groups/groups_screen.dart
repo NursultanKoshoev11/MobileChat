@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
@@ -12,7 +13,6 @@ import '../public_requests/public_requests_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key, required this.api, required this.session, required this.onLogout});
-
   final ApiClient api;
   final AppSession session;
   final Future<void> Function() onLogout;
@@ -23,7 +23,6 @@ class GroupsScreen extends StatefulWidget {
 
 class _GroupsScreenState extends State<GroupsScreen> {
   late Future<List<ChatGroup>> groupsFuture;
-
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
@@ -33,11 +32,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> refresh() async {
-    final nextGroupsFuture = widget.api.fetchGroups();
-    setState(() {
-      groupsFuture = nextGroupsFuture;
-    });
-    await nextGroupsFuture;
+    final next = widget.api.fetchGroups();
+    setState(() => groupsFuture = next);
+    await next;
   }
 
   Future<void> createGroup() async {
@@ -49,13 +46,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       builder: (_) => CreateGroupSheet(api: widget.api),
     );
     if (group != null) {
       await refresh();
-      if (!mounted) return;
-      openGroup(group);
+      if (mounted) openGroup(group);
     }
   }
 
@@ -74,13 +70,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       builder: (_) => JoinByCodeSheet(api: widget.api),
     );
     if (group != null) {
       await refresh();
-      if (!mounted) return;
-      openGroup(group);
+      if (mounted) openGroup(group);
     }
   }
 
@@ -96,46 +91,26 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final user = widget.session.user;
     return Scaffold(
       appBar: AppBar(
         title: Text(text.groups),
         actions: [
-          const LanguageMenuButton(),
-          if (isAdmin)
-            IconButton(
-              tooltip: text.adminRequests,
-              onPressed: openAdminRequests,
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-            ),
-          IconButton(
-            tooltip: text.myRequests,
-            onPressed: openGroupRequests,
-            icon: const Icon(Icons.assignment_outlined),
-          ),
-          IconButton(
-            tooltip: text.invitations,
-            onPressed: openInvitations,
-            icon: const Icon(Icons.mark_email_unread_outlined),
-          ),
-          IconButton(
-            tooltip: text.joinByCode,
-            onPressed: joinByCode,
-            icon: const Icon(Icons.key_rounded),
-          ),
+          const AppSettingsButton(),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'create') createGroup();
+              if (value == 'join') joinByCode();
+              if (value == 'invites') openInvitations();
               if (value == 'requests') openGroupRequests();
-              if (value == 'admin_requests') openAdminRequests();
+              if (value == 'admin') openAdminRequests();
               if (value == 'logout') widget.onLogout();
             },
             itemBuilder: (_) => [
+              PopupMenuItem(value: 'join', child: Text(text.joinByCode)),
+              PopupMenuItem(value: 'invites', child: Text(text.invitations)),
               PopupMenuItem(value: 'requests', child: Text(isAdmin ? text.myRequests : text.requestGroup)),
-              if (isAdmin) PopupMenuItem(value: 'admin_requests', child: Text(text.adminRequests)),
-              if (isAdmin) PopupMenuItem(value: 'create', child: Text(text.createGroup)),
+              if (isAdmin) PopupMenuItem(value: 'admin', child: Text(text.adminRequests)),
               const PopupMenuDivider(),
-              PopupMenuItem(value: 'logout', child: Text('${text.logout} (${user.role})')),
+              PopupMenuItem(value: 'logout', child: Text(text.logout)),
             ],
           ),
         ],
@@ -153,25 +128,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(24), children: [ErrorBanner(message: snapshot.error.toString())]);
             final groups = snapshot.data ?? const [];
-            if (groups.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SizedBox(height: 120),
-                  const Icon(Icons.groups_2_outlined, size: 72, color: MobileChatTheme.primary),
-                  const SizedBox(height: 16),
-                  Text(text.noGroupsYet, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 8),
-                  Text(isAdmin ? text.createGroupOrApprove : text.sendGroupRequestOrJoin, textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
-                  const SizedBox(height: 20),
-                  Center(child: FilledButton(onPressed: createGroup, child: Text(isAdmin ? text.createGroup : text.requestGroup))),
-                ],
-              );
-            }
+            if (groups.isEmpty) return _EmptyGroups(isAdmin: isAdmin, onCreate: createGroup);
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               itemCount: groups.length,
-              itemBuilder: (context, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index])),
+              itemBuilder: (_, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index])),
             );
           },
         ),
@@ -180,56 +141,76 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 }
 
+class _EmptyGroups extends StatelessWidget {
+  const _EmptyGroups({required this.isAdmin, required this.onCreate});
+  final bool isAdmin;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    return ListView(padding: const EdgeInsets.all(24), children: [
+      const SizedBox(height: 120),
+      const Icon(Icons.groups_2_outlined, size: 72, color: MobileChatTheme.primary),
+      const SizedBox(height: 16),
+      Text(text.noGroupsYet, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      Text(isAdmin ? text.createGroupOrApprove : text.sendGroupRequestOrJoin, textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
+      const SizedBox(height: 20),
+      Center(child: FilledButton(onPressed: onCreate, child: Text(isAdmin ? text.createGroup : text.requestGroup))),
+    ]);
+  }
+}
+
 class GroupTile extends StatelessWidget {
   const GroupTile({super.key, required this.group, required this.onTap});
-
   final ChatGroup group;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final visibilityText = group.isPublic ? (text.isKy ? 'Ачык' : 'Открытая') : (text.isKy ? 'Чакыруу менен' : 'По приглашению');
-    final roleText = group.myRole ?? (text.isKy ? 'мүчө' : 'участник');
-    final membersText = text.isKy ? 'мүчө' : 'участников';
+    final colors = context.appColors;
+    final visibility = group.isPublic ? (text.isKy ? 'Ачык' : 'Открытая') : (text.isKy ? 'Чакыруу менен' : 'По приглашению');
+    final role = roleLabel(group.myRole, text);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                CircleAvatar(radius: 26, backgroundColor: group.isPublic ? MobileChatTheme.primary : MobileChatTheme.primaryDark, child: Text(avatarText(group.title), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(group.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(group.description.isEmpty ? (text.isKy ? 'Сүрөттөмө жок' : 'Нет описания') : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MobileChatTheme.textMuted)),
-                    const SizedBox(height: 8),
-                    Text('$visibilityText · ${group.memberCount} $membersText · $roleText', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
-                  ]),
-                ),
-                const Icon(Icons.chevron_right_rounded),
-              ],
-            ),
+            child: Row(children: [
+              CircleAvatar(radius: 26, backgroundColor: group.isPublic ? MobileChatTheme.primary : MobileChatTheme.primaryDark, child: Text(avatarText(group.title), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(group.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(group.description.isEmpty ? (text.isKy ? 'Сүрөттөмө жок' : 'Нет описания') : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted)),
+                const SizedBox(height: 8),
+                Text('$visibility · ${group.memberCount} ${text.isKy ? 'мүчө' : 'участников'} · $role', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
+              ])),
+              Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+            ]),
           ),
         ),
       ),
     );
   }
+
+  String roleLabel(String? role, AppText text) {
+    if (role == 'owner') return text.isKy ? 'ээси' : 'владелец';
+    if (role == 'admin') return text.isKy ? 'админ' : 'админ';
+    return text.isKy ? 'мүчө' : 'участник';
+  }
 }
 
 class CreateGroupSheet extends StatefulWidget {
   const CreateGroupSheet({super.key, required this.api});
-
   final ApiClient api;
-
   @override
   State<CreateGroupSheet> createState() => _CreateGroupSheetState();
 }
@@ -248,11 +229,9 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
     setState(() { loading = true; error = null; });
     try {
       final group = await widget.api.createGroup(title: titleController.text.trim(), description: descriptionController.text.trim(), visibility: visibility);
-      if (!mounted) return;
-      Navigator.of(context).pop(group);
+      if (mounted) Navigator.of(context).pop(group);
     } catch (e) {
-      if (!mounted) return;
-      setState(() => error = e.toString());
+      if (mounted) setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -285,7 +264,6 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   final codeController = TextEditingController();
   bool loading = false;
   String? error;
-
   @override
   void dispose() { codeController.dispose(); super.dispose(); }
 
@@ -293,11 +271,9 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
     setState(() { loading = true; error = null; });
     try {
       final group = await widget.api.joinByInviteCode(codeController.text.trim());
-      if (!mounted) return;
-      Navigator.of(context).pop(group);
+      if (mounted) Navigator.of(context).pop(group);
     } catch (e) {
-      if (!mounted) return;
-      setState(() => error = e.toString());
+      if (mounted) setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
     }
