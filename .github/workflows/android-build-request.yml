@@ -1,0 +1,95 @@
+name: Android Build Request
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/android-build-request.txt'
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'Backend API base URL for the Android build.'
+        required: false
+        default: 'https://acrobat-democrats-wendy-interact.trycloudflare.com'
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Android debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter doctor
+        run: flutter doctor -v
+
+      - name: Ensure Android wrapper files exist
+        run: flutter create --platforms=android --project-name mobile_chat .
+
+      - name: Restore project Android configuration
+        run: |
+          git checkout -- \
+            android/settings.gradle \
+            android/build.gradle \
+            android/app/build.gradle \
+            android/app/proguard-rules.pro \
+            android/app/src/main/AndroidManifest.xml \
+            android/app/src/debug/AndroidManifest.xml \
+            android/app/src/main/kotlin/com/nursultankoshoev/mobilechat/MainActivity.kt \
+            android/app/src/main/res/values/styles.xml \
+            android/app/src/main/res/values/colors.xml \
+            android/app/src/main/res/drawable/launch_background.xml \
+            android/app/src/main/res/drawable/ic_launcher_foreground.xml \
+            android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
+      - name: Create Android local.properties
+        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: |
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://acrobat-democrats-wendy-interact.trycloudflare.com' }}"
+          echo "Building APK with API_BASE_URL=$API_BASE_URL"
+          flutter build apk --debug -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Prepare APK artifact
+        run: |
+          mkdir -p build-artifacts
+          cp build/app/outputs/flutter-apk/app-debug.apk build-artifacts/MobileChat-debug.apk
+          sha256sum build-artifacts/MobileChat-debug.apk > build-artifacts/MobileChat-debug.sha256.txt
+          ls -lah build-artifacts
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MobileChat-debug-apk
+          path: |
+            build-artifacts/MobileChat-debug.apk
+            build-artifacts/MobileChat-debug.sha256.txt
+          if-no-files-found: error
+          retention-days: 14
