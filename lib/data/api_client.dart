@@ -83,6 +83,25 @@ class ApiClient {
     await _post('/api/groups/$groupId/invite-user', {'target_user_id': targetUserId});
   }
 
+  Future<void> inviteUserByPhone({required String groupId, required String mobile}) async {
+    final normalized = mobile.trim().replaceAll(' ', '').replaceAll('-', '').replaceAll('(', '').replaceAll(')', '');
+    try {
+      await _post('/api/groups/$groupId/invite-phone', {'mobile': normalized});
+      return;
+    } on ApiException catch (firstError) {
+      try {
+        await _post('/api/groups/$groupId/invite-user', {
+          'mobile': normalized,
+          'phone': normalized,
+          'target_mobile': normalized,
+        });
+        return;
+      } on ApiException {
+        throw firstError;
+      }
+    }
+  }
+
   Future<List<GroupInvitation>> fetchInvitations() async {
     final response = await _get('/api/invites');
     return (response as List<dynamic>).map((item) => GroupInvitation.fromJson(item as Map<String, dynamic>)).toList();
@@ -203,9 +222,7 @@ class ApiClient {
 
       if (response.statusCode == 401 && auth && !retrying) {
         final refreshed = await _refreshSession();
-        if (refreshed) {
-          return _request(method, path, query: query, body: body, auth: auth, retrying: true);
-        }
+        if (refreshed) return _request(method, path, query: query, body: body, auth: auth, retrying: true);
       }
       return _decode(response);
     } on TimeoutException {
@@ -219,17 +236,9 @@ class ApiClient {
   Future<bool> _refreshSession() async {
     final session = await sessionStore.read();
     if (session == null || session.refreshToken.isEmpty) return false;
-
     final base = Uri.parse(baseUrl);
     final uri = base.replace(path: '/api/auth/refresh');
-    final response = await http
-        .post(
-          uri,
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({'refresh_token': session.refreshToken}),
-        )
-        .timeout(_timeout);
-
+    final response = await http.post(uri, headers: const {'Content-Type': 'application/json'}, body: jsonEncode({'refresh_token': session.refreshToken})).timeout(_timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       await sessionStore.clear();
       return false;
@@ -243,16 +252,13 @@ class ApiClient {
     final body = response.body.trim();
     final decoded = body.isEmpty ? null : jsonDecode(body);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
-    if (decoded is Map<String, dynamic> && decoded['error'] is String) {
-      throw ApiException(decoded['error'] as String);
-    }
+    if (decoded is Map<String, dynamic> && decoded['error'] is String) throw ApiException(decoded['error'] as String);
     throw ApiException('Server error ${response.statusCode}');
   }
 }
 
 class RequestCodeResult {
   const RequestCodeResult({required this.status, required this.accountExists, this.devCode});
-
   final String status;
   final bool accountExists;
   final String? devCode;
