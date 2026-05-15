@@ -20,9 +20,14 @@ String localizedMessage(BuildContext context, String message) {
   final lower = message.toLowerCase();
 
   if (lower.contains('status updated')) return text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.';
+  if (lower.contains('comment deleted')) return text.isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.';
+  if (lower.contains('comment added')) return text.isKy ? 'Комментарий кошулду.' : 'Комментарий добавлен.';
   if (lower.contains('request updated')) return text.isKy ? 'Өтүнүч жаңыртылды.' : 'Заявка обновлена.';
   if (lower.contains('request sent')) return text.isKy ? 'Өтүнүч жөнөтүлдү.' : 'Заявка отправлена.';
   if (lower.contains('post published')) return text.postPublished;
+  if (lower.contains('invitation sent')) return text.isKy ? 'Чакыруу жөнөтүлдү.' : 'Приглашение отправлено.';
+  if (lower.contains('invitation accepted')) return text.isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.';
+  if (lower.contains('invitation declined')) return text.isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.';
   if (lower.contains('session expired')) return text.isKy ? 'Сессия бүттү. Кайра кириңиз.' : 'Сессия истекла. Войдите снова.';
   if (lower.contains('connection timed out')) return text.isKy ? 'Сервер жооп берген жок. Кайра аракет кылыңыз.' : 'Сервер не ответил вовремя. Попробуйте ещё раз.';
   if (lower.contains('network error')) return text.isKy ? 'Тармак катасы. Интернетти же серверди текшериңиз.' : 'Ошибка сети. Проверьте интернет или сервер.';
@@ -38,14 +43,24 @@ String localizedMessage(BuildContext context, String message) {
   if (lower.contains('description must be at most')) return text.isKy ? 'Сүрөттөмө өтө узун.' : 'Описание слишком длинное.';
   if (lower.contains('text is required')) return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
   if (lower.contains('body is required')) return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
+  if (lower.contains('not found')) return text.isKy ? 'Табылган жок.' : 'Не найдено.';
+  if (lower.contains('already')) return text.isKy ? 'Бул аракет мурун эле жасалган.' : 'Это уже выполнено.';
 
   return message;
 }
 
 void showAppSnack(BuildContext context, String message) {
+  final bottomInset = MediaQuery.of(context).viewInsets.bottom;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(localizedMessage(context, message))));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(localizedMessage(context, message)),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 96),
+        duration: const Duration(seconds: 2),
+      ),
+    );
 }
 
 class ErrorBanner extends StatelessWidget {
