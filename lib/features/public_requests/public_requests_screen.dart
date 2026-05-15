@@ -91,38 +91,39 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await refresh();
   }
 
-  void showGroupAccess() {
-    final text = AppLanguageScope.textOf(context);
-    final colors = context.appColors;
-    final code = widget.group.inviteCode ?? '';
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(text.isKy ? 'Топко кирүү' : 'Вход в группу'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(text.isKy ? 'Код менен кирүү' : 'Вход по коду', style: const TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            SelectableText(code.isEmpty ? (text.isKy ? 'Код жок' : 'Кода нет') : code, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            if (code.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                  child: QrImageView(data: code, version: QrVersions.auto, size: 180),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(text.isKy ? 'QR кодду сканерлеп топко кирсе болот.' : 'Можно войти в группу, отсканировав QR-код.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted)),
-            ],
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(text.isKy ? 'Жабуу' : 'Закрыть'))],
-      ),
-    );
+  String get groupAccessCode {
+    final inviteCode = widget.group.inviteCode?.trim() ?? '';
+    if (inviteCode.isNotEmpty) return inviteCode;
+    return widget.group.id.trim();
+  }
+
+  Future<void> showGroupAccess() async {
+    final code = groupAccessCode;
+    debugPrint('[QR] open requested group_id=${widget.group.id} invite_code=${widget.group.inviteCode ?? '<null>'} fallback_code=$code mounted=$mounted');
+    if (!mounted) {
+      debugPrint('[QR] open cancelled: widget is not mounted');
+      return;
+    }
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: false,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        builder: (_) {
+          debugPrint('[QR] bottom sheet builder called with code=$code');
+          return GroupAccessSheet(groupTitle: widget.group.title, code: code);
+        },
+      );
+      debugPrint('[QR] bottom sheet closed normally');
+    } catch (error, stackTrace) {
+      debugPrint('[QR] failed to open bottom sheet: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'QR терезеси ачылган жок.' : 'QR окно не открылось.');
+      }
+    }
   }
 
   Future<void> inviteByPhone() async {
@@ -143,7 +144,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
-          IconButton(onPressed: showGroupAccess, tooltip: text.isKy ? 'Код жана QR' : 'Код и QR', icon: const Icon(Icons.qr_code_rounded)),
+          IconButton(
+            onPressed: showGroupAccess,
+            tooltip: text.isKy ? 'Код жана QR' : 'Код и QR',
+            icon: const Icon(Icons.qr_code_rounded),
+          ),
           if (canInvite) IconButton(onPressed: inviteByPhone, tooltip: text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', icon: const Icon(Icons.person_add_alt_1_rounded)),
           const AppSettingsButton(),
         ],
@@ -185,6 +190,91 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               },
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class GroupAccessSheet extends StatelessWidget {
+  const GroupAccessSheet({super.key, required this.groupTitle, required this.code});
+
+  final String groupTitle;
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    debugPrint('[QR] rendering sheet group=$groupTitle code=$code code_length=${code.length}');
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.border),
+          boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 24, offset: const Offset(0, 12))],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: colors.textMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)))),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(text.isKy ? 'Топко кирүү' : 'Вход в группу', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 22)),
+                  const SizedBox(height: 2),
+                  Text(groupTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              IconButton.filledTonal(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+                tooltip: text.isKy ? 'Жабуу' : 'Закрыть',
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(20), border: Border.all(color: colors.border)),
+              child: Column(children: [
+                Text(text.isKy ? 'Топтун коду' : 'Код группы', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                SelectableText(code, textAlign: TextAlign.center, style: TextStyle(color: colors.textStrong, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE5E7EB))),
+                child: QrImageView(
+                  data: code,
+                  version: QrVersions.auto,
+                  size: 210,
+                  backgroundColor: Colors.white,
+                  errorCorrectionLevel: QrErrorCorrectLevel.M,
+                  errorStateBuilder: (context, error) {
+                    debugPrint('[QR] render error: $error code=$code');
+                    return SizedBox(
+                      width: 210,
+                      height: 210,
+                      child: Center(child: Text(text.isKy ? 'QR түзүлгөн жок' : 'QR не создан', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w800))),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              text.isKy ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз. Ал код менен топко кире алат.' : 'Передайте этот код или QR другому пользователю. Он сможет войти в группу по коду.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600),
+            ),
+          ]),
         ),
       ),
     );
