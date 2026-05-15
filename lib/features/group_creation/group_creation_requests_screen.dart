@@ -34,13 +34,13 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
     await nextFuture;
   }
 
-  Future<void> createRequest() async {
+  Future<void> createRequest({GroupCreationRequest? initialRequest}) async {
     final created = await showModalBottomSheet<GroupCreationRequest>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).cardColor,
-      builder: (_) => CreateGroupRequestSheet(api: widget.api, user: widget.user),
+      builder: (_) => CreateGroupRequestSheet(api: widget.api, user: widget.user, initialRequest: initialRequest),
     );
     if (created != null) {
       await refresh();
@@ -53,7 +53,7 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
       appBar: AppBar(title: Text(text.myRequests), actions: const [AppSettingsButton()]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: createRequest, icon: const Icon(Icons.verified_user_outlined), label: Text(text.requestGroup)),
+      floatingActionButton: FloatingActionButton.extended(onPressed: () => createRequest(), icon: const Icon(Icons.verified_user_outlined), label: Text(text.requestGroup)),
       body: RefreshIndicator(
         onRefresh: refresh,
         child: FutureBuilder<List<GroupCreationRequest>>(
@@ -71,13 +71,27 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
                 const SizedBox(height: 8),
                 Text(text.isKy ? 'Расмий топ керек болсо, өтүнүч жөнөтүңүз.' : 'Отправьте заявку, если вам нужна официальная группа.', textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
                 const SizedBox(height: 20),
-                Center(child: FilledButton(onPressed: createRequest, child: Text(text.requestGroup))),
+                Center(child: FilledButton(onPressed: () => createRequest(), child: Text(text.requestGroup))),
               ]);
             }
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
               itemCount: requests.length,
-              itemBuilder: (context, index) => GroupCreationRequestCard(request: requests[index], number: index + 1),
+              itemBuilder: (context, index) {
+                final request = requests[index];
+                return GroupCreationRequestCard(
+                  request: request,
+                  number: index + 1,
+                  onTap: request.status == 'needs_more_info' ? () => createRequest(initialRequest: request) : null,
+                  actions: request.status == 'needs_more_info'
+                      ? FilledButton.icon(
+                          onPressed: () => createRequest(initialRequest: request),
+                          icon: const Icon(Icons.edit_rounded),
+                          label: Text(text.isKy ? 'Оңдоп кайра жөнөтүү' : 'Изменить и отправить заново'),
+                        )
+                      : null,
+                );
+              },
             );
           },
         ),
@@ -87,11 +101,12 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
 }
 
 class GroupCreationRequestCard extends StatelessWidget {
-  const GroupCreationRequestCard({super.key, required this.request, this.actions, this.number});
+  const GroupCreationRequestCard({super.key, required this.request, this.actions, this.number, this.onTap});
 
   final GroupCreationRequest request;
   final Widget? actions;
   final int? number;
+  final VoidCallback? onTap;
 
   Color get statusColor {
     switch (request.status) {
@@ -128,53 +143,61 @@ class GroupCreationRequestCard extends StatelessWidget {
       child: Material(
         color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              if (number != null) ...[
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                if (number != null) ...[
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)),
+                    child: Text('$number', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)),
-                  child: Text('$number', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(999)),
+                  child: Text(statusText(text), style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12)),
                 ),
-                const SizedBox(width: 8),
+                const Spacer(),
+                Text(request.createdAt?.toLocal().toString().split('.').first ?? '', style: TextStyle(color: colors.textMuted, fontSize: 12)),
+              ]),
+              const SizedBox(height: 10),
+              Text(request.groupTitle, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800, fontSize: 17)),
+              const SizedBox(height: 4),
+              Text(request.organizationName, style: TextStyle(color: colors.textMuted)),
+              const SizedBox(height: 8),
+              Text('${request.applicantName} · ${request.position}', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700)),
+              if (request.groupDescription.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('${text.description}: ${request.groupDescription}', style: TextStyle(color: colors.textStrong)),
               ],
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(999)),
-                child: Text(statusText(text), style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12)),
-              ),
-              const Spacer(),
-              Text(request.createdAt?.toLocal().toString().split('.').first ?? '', style: TextStyle(color: colors.textMuted, fontSize: 12)),
+              if (request.reason.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('${text.isKy ? 'Себеби' : 'Причина'}: ${request.reason}', style: TextStyle(color: colors.textStrong)),
+              ],
+              if (request.adminComment.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: context.appColors.chipBackground, borderRadius: BorderRadius.circular(14)),
+                  child: Text('${text.isKy ? 'Админ комментарийи' : 'Комментарий администратора'}: ${request.adminComment}', style: TextStyle(color: colors.textStrong)),
+                ),
+              ],
+              if (onTap != null) ...[
+                const SizedBox(height: 8),
+                Text(text.isKy ? 'Оңдоо үчүн басыңыз.' : 'Нажмите, чтобы изменить данные.', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
+              ],
+              if (actions != null) ...[const SizedBox(height: 12), actions!],
             ]),
-            const SizedBox(height: 10),
-            Text(request.groupTitle, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800, fontSize: 17)),
-            const SizedBox(height: 4),
-            Text(request.organizationName, style: TextStyle(color: colors.textMuted)),
-            const SizedBox(height: 8),
-            Text('${request.applicantName} · ${request.position}', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700)),
-            if (request.groupDescription.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('${text.description}: ${request.groupDescription}', style: TextStyle(color: colors.textStrong)),
-            ],
-            if (request.reason.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('${text.isKy ? 'Себеби' : 'Причина'}: ${request.reason}', style: TextStyle(color: colors.textStrong)),
-            ],
-            if (request.adminComment.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: context.appColors.chipBackground, borderRadius: BorderRadius.circular(14)),
-                child: Text('${text.isKy ? 'Админ комментарийи' : 'Комментарий администратора'}: ${request.adminComment}', style: TextStyle(color: colors.textStrong)),
-              ),
-            ],
-            if (actions != null) ...[const SizedBox(height: 12), actions!],
-          ]),
+          ),
         ),
       ),
     );
@@ -182,10 +205,11 @@ class GroupCreationRequestCard extends StatelessWidget {
 }
 
 class CreateGroupRequestSheet extends StatefulWidget {
-  const CreateGroupRequestSheet({super.key, required this.api, required this.user});
+  const CreateGroupRequestSheet({super.key, required this.api, required this.user, this.initialRequest});
 
   final ApiClient api;
   final UserProfile user;
+  final GroupCreationRequest? initialRequest;
 
   @override
   State<CreateGroupRequestSheet> createState() => _CreateGroupRequestSheetState();
@@ -210,8 +234,19 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
   @override
   void initState() {
     super.initState();
-    applicant.text = widget.user.displayName;
-    officialPhone.text = widget.user.mobile ?? '';
+    final initial = widget.initialRequest;
+    applicant.text = initial?.applicantName.isNotEmpty == true ? initial!.applicantName : widget.user.displayName;
+    position.text = initial?.position ?? '';
+    organization.text = initial?.organizationName ?? '';
+    organizationType.text = initial?.organizationType ?? '';
+    region.text = initial?.region ?? '';
+    officialPhone.text = initial?.officialPhone.isNotEmpty == true ? initial!.officialPhone : (widget.user.mobile ?? '');
+    officialEmail.text = initial?.officialEmail ?? '';
+    website.text = initial?.website ?? '';
+    title.text = initial?.groupTitle ?? '';
+    description.text = initial?.groupDescription ?? '';
+    reason.text = initial?.reason ?? '';
+    documents.text = initial?.documents ?? '';
   }
 
   @override
@@ -264,11 +299,16 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     if (organizationType.text.isEmpty) organizationType.text = text.isKy ? 'Мамлекеттик уюм' : 'Государственная организация';
+    final isResubmit = widget.initialRequest != null;
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text(text.isKy ? 'Расмий топко өтүнүч' : 'Заявка на официальную группу', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          Text(isResubmit ? (text.isKy ? 'Өтүнүчтү оңдоо' : 'Изменить заявку') : (text.isKy ? 'Расмий топко өтүнүч' : 'Заявка на официальную группу'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          if (widget.initialRequest?.adminComment.isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            InfoBanner(message: '${text.isKy ? 'Админ комментарийи' : 'Комментарий администратора'}: ${widget.initialRequest!.adminComment}'),
+          ],
           const SizedBox(height: 16),
           _field(applicant, text.isKy ? 'Аты-жөнү' : 'ФИО'),
           _field(position, text.isKy ? 'Кызматы' : 'Должность'),
@@ -284,7 +324,7 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
           _field(documents, text.isKy ? 'Документтер / далил' : 'Документы / подтверждение', lines: 3),
           if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
           const SizedBox(height: 16),
-          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Жөнөтүлүп жатат...' : 'Отправляется...') : (text.isKy ? 'Өтүнүч жөнөтүү' : 'Отправить заявку'))),
+          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Жөнөтүлүп жатат...' : 'Отправляется...') : (isResubmit ? (text.isKy ? 'Кайра жөнөтүү' : 'Отправить заново') : (text.isKy ? 'Өтүнүч жөнөтүү' : 'Отправить заявку')))),
         ]),
       ),
     );
