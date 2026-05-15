@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
@@ -93,6 +94,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -103,14 +105,17 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
               child: Container(
                 padding: const EdgeInsets.all(26),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(32),
-                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 28, offset: Offset(0, 16))],
+                  boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 28, offset: const Offset(0, 16))],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Align(alignment: Alignment.centerRight, child: LanguageMenuButton()),
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [ThemeModeButton(), LanguageMenuButton()]),
+                    ),
                     const SizedBox(height: 10),
                     const CircleAvatar(
                       radius: 42,
@@ -127,7 +132,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     Text(
                       text.enterMobileNumber,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: MobileChatTheme.textMuted),
+                      style: TextStyle(color: colors.textMuted),
                     ),
                     const SizedBox(height: 24),
                     TextField(
