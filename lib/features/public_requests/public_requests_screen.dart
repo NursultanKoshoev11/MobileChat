@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
@@ -76,7 +77,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (created == true) {
       await refresh();
       if (!mounted) return;
-      showAppSnack(context, 'Post published.');
+      showAppSnack(context, AppLanguageScope.textOf(context).postPublished);
     }
   }
 
@@ -109,12 +110,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.group.title)),
+      appBar: AppBar(title: Text(widget.group.title), actions: const [LanguageMenuButton()]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: createRequest,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('New post'),
+        label: Text(text.newPost),
       ),
       body: Column(
         children: [
@@ -122,11 +124,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'newest', label: Text('Newest')),
-                ButtonSegment(value: 'popular', label: Text('Popular')),
-                ButtonSegment(value: 'resolved', label: Text('Resolved')),
-                ButtonSegment(value: 'mine', label: Text('Mine')),
+              segments: [
+                ButtonSegment(value: 'newest', label: Text(text.newest)),
+                ButtonSegment(value: 'popular', label: Text(text.popular)),
+                ButtonSegment(value: 'resolved', label: Text(text.resolved)),
+                ButtonSegment(value: 'mine', label: Text(text.mine)),
               ],
               selected: {filter},
               onSelectionChanged: (value) => changeFilter(value.first),
@@ -148,9 +150,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                         const SizedBox(height: 120),
                         const Icon(Icons.feed_outlined, size: 72, color: MobileChatTheme.primary),
                         const SizedBox(height: 16),
-                        Text(emptyTitleForFilter(filter), textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        Text(emptyTitleForFilter(filter, text), textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
-                        const Text('Posts, announcements, complaints, ideas, and polls will appear here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                        Text(text.postsDescription, textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
                       ],
                     );
                   }
@@ -176,11 +178,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-  String emptyTitleForFilter(String value) {
-    if (value == 'popular') return 'No popular posts yet';
-    if (value == 'resolved') return 'No resolved posts yet';
-    if (value == 'mine') return 'You have not created posts yet';
-    return 'No posts yet';
+  String emptyTitleForFilter(String value, AppText text) {
+    if (value == 'popular') return text.noPopularPosts;
+    if (value == 'resolved') return text.noResolvedPosts;
+    if (value == 'mine') return text.noMyPosts;
+    return text.noPostsYet;
   }
 }
 
@@ -198,6 +200,7 @@ class PublicRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -213,9 +216,9 @@ class PublicRequestCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _ChipLabel(text: request.requestType),
+                    _ChipLabel(text: translatedRequestType(request.requestType, text)),
                     const SizedBox(width: 8),
-                    _ChipLabel(text: modeLabel(request.interactionMode)),
+                    _ChipLabel(text: modeLabel(request.interactionMode, text)),
                     const Spacer(),
                     Text(request.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
                   ],
@@ -230,7 +233,7 @@ class PublicRequestCard extends StatelessWidget {
                 Row(
                   children: [
                     if (canOpenDetails) ...[
-                      FilledButton.tonal(onPressed: onRead, child: const Text('Read')),
+                      FilledButton.tonal(onPressed: onRead, child: Text(text.read)),
                       const SizedBox(width: 8),
                     ],
                     if (canVote) ...[
@@ -239,7 +242,7 @@ class PublicRequestCard extends StatelessWidget {
                       OutlinedButton.icon(onPressed: onOppose, icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${request.opposeCount}')),
                     ],
                     const Spacer(),
-                    if (request.interactionMode == 'discussion') Text('${request.commentCount} comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
+                    if (request.interactionMode == 'discussion') Text('${request.commentCount} ${text.comments}', style: const TextStyle(color: MobileChatTheme.textMuted)),
                   ],
                 ),
               ],
@@ -250,10 +253,20 @@ class PublicRequestCard extends StatelessWidget {
     );
   }
 
-  String modeLabel(String value) {
-    if (value == 'read_only') return 'Read only';
-    if (value == 'vote_only') return 'Vote only';
-    return 'Discussion';
+  String translatedRequestType(String value, AppText text) {
+    if (value == 'announcement') return text.announcement;
+    if (value == 'suggestion') return text.suggestion;
+    if (value == 'complaint') return text.complaint;
+    if (value == 'requirement') return text.requirement;
+    if (value == 'problem') return text.problem;
+    if (value == 'idea') return text.idea;
+    return value;
+  }
+
+  String modeLabel(String value, AppText text) {
+    if (value == 'read_only') return text.textOnly;
+    if (value == 'vote_only') return text.votingOnly;
+    return text.discussionWithComments;
   }
 }
 
@@ -328,6 +341,7 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: SingleChildScrollView(
@@ -335,39 +349,39 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('New post', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            Text(text.newPost, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: type,
-              decoration: const InputDecoration(labelText: 'Post type'),
-              items: const [
-                DropdownMenuItem(value: 'announcement', child: Text('Announcement')),
-                DropdownMenuItem(value: 'suggestion', child: Text('Suggestion')),
-                DropdownMenuItem(value: 'complaint', child: Text('Complaint')),
-                DropdownMenuItem(value: 'requirement', child: Text('Requirement')),
-                DropdownMenuItem(value: 'problem', child: Text('Problem')),
-                DropdownMenuItem(value: 'idea', child: Text('Idea')),
+              decoration: InputDecoration(labelText: text.postType),
+              items: [
+                DropdownMenuItem(value: 'announcement', child: Text(text.announcement)),
+                DropdownMenuItem(value: 'suggestion', child: Text(text.suggestion)),
+                DropdownMenuItem(value: 'complaint', child: Text(text.complaint)),
+                DropdownMenuItem(value: 'requirement', child: Text(text.requirement)),
+                DropdownMenuItem(value: 'problem', child: Text(text.problem)),
+                DropdownMenuItem(value: 'idea', child: Text(text.idea)),
               ],
               onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement'),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: interactionMode,
-              decoration: const InputDecoration(labelText: 'Interaction mode'),
-              items: const [
-                DropdownMenuItem(value: 'read_only', child: Text('Text only')),
-                DropdownMenuItem(value: 'vote_only', child: Text('Voting only')),
-                DropdownMenuItem(value: 'discussion', child: Text('Discussion with comments')),
+              decoration: InputDecoration(labelText: text.interactionMode),
+              items: [
+                DropdownMenuItem(value: 'read_only', child: Text(text.textOnly)),
+                DropdownMenuItem(value: 'vote_only', child: Text(text.votingOnly)),
+                DropdownMenuItem(value: 'discussion', child: Text(text.discussionWithComments)),
               ],
               onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only'),
             ),
             const SizedBox(height: 12),
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+            TextField(controller: titleController, decoration: InputDecoration(labelText: text.title)),
             const SizedBox(height: 12),
-            TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: const InputDecoration(labelText: 'Description')),
+            TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
             if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
             const SizedBox(height: 16),
-            FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Publishing...' : 'Publish')),
+            FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
           ],
         ),
       ),
@@ -395,7 +409,6 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   String? myVote;
   bool sending = false;
   bool updatingStatus = false;
-  bool hidingPost = false;
 
   bool get canComment => widget.request.interactionMode == 'discussion';
   bool get canVote => widget.request.interactionMode != 'read_only';
@@ -471,32 +484,6 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     }
   }
 
-  Future<void> hidePost() async {
-    final shouldHide = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hide post?'),
-        content: const Text('This post will disappear from the group feed. This action is available only to admins and owners.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Hide')),
-        ],
-      ),
-    );
-    if (shouldHide != true || hidingPost) return;
-    setState(() => hidingPost = true);
-    try {
-      await widget.api.hideRequest(widget.request.id);
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      showAppSnack(context, e.toString());
-    } finally {
-      if (mounted) setState(() => hidingPost = false);
-    }
-  }
-
   Future<void> deleteComment(PublicRequestComment comment) async {
     try {
       await widget.api.deleteComment(comment.id);
@@ -527,6 +514,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     final requestWithLocalState = PublicRequest(
       id: widget.request.id,
       groupId: widget.request.groupId,
@@ -546,17 +534,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Read post'),
-        actions: [
-          if (widget.canModerate)
-            IconButton(
-              tooltip: 'Hide post',
-              onPressed: hidingPost ? null : hidePost,
-              icon: hidingPost ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.visibility_off_outlined),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: Text(text.readPost), actions: const [LanguageMenuButton()]),
       body: Column(
         children: [
           Expanded(
@@ -576,32 +554,26 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: status,
-                      decoration: const InputDecoration(labelText: 'Admin status'),
-                      items: const [
-                        DropdownMenuItem(value: 'new', child: Text('New')),
-                        DropdownMenuItem(value: 'under_review', child: Text('Under review')),
-                        DropdownMenuItem(value: 'accepted', child: Text('Accepted')),
-                        DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
-                        DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+                      decoration: InputDecoration(labelText: text.adminStatus),
+                      items: [
+                        DropdownMenuItem(value: 'new', child: Text(text.statusNew)),
+                        DropdownMenuItem(value: 'under_review', child: Text(text.statusUnderReview)),
+                        DropdownMenuItem(value: 'accepted', child: Text(text.statusAccepted)),
+                        DropdownMenuItem(value: 'rejected', child: Text(text.statusRejected)),
+                        DropdownMenuItem(value: 'resolved', child: Text(text.statusResolved)),
                       ],
                       onChanged: updatingStatus ? null : (value) {
                         if (value != null && value != status) changeStatus(value);
                       },
                     ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: hidingPost ? null : hidePost,
-                      icon: const Icon(Icons.visibility_off_outlined),
-                      label: const Text('Hide post'),
-                    ),
                   ],
                   const SizedBox(height: 12),
                   if (widget.request.interactionMode == 'read_only')
-                    const Text('This post is read-only.', style: TextStyle(color: MobileChatTheme.textMuted))
+                    Text(text.readOnlyPost, style: const TextStyle(color: MobileChatTheme.textMuted))
                   else if (widget.request.interactionMode == 'vote_only')
-                    const Text('This post accepts votes only. Comments are disabled.', style: TextStyle(color: MobileChatTheme.textMuted))
+                    Text(text.voteOnlyPost, style: const TextStyle(color: MobileChatTheme.textMuted))
                   else ...[
-                    Text('Comments', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    Text(text.comments, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 8),
                     FutureBuilder<List<PublicRequestComment>>(
                       future: commentsFuture,
@@ -609,7 +581,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                         if (snapshot.hasError) return ErrorBanner(message: snapshot.error.toString());
                         final comments = snapshot.data ?? const [];
-                        if (comments.isEmpty) return const Text('No comments yet.', style: TextStyle(color: MobileChatTheme.textMuted));
+                        if (comments.isEmpty) return Text(text.noCommentsYet, style: const TextStyle(color: MobileChatTheme.textMuted));
                         return Column(
                           children: comments
                               .map((comment) => ListTile(
@@ -641,7 +613,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                 color: Colors.white,
                 child: Row(
                   children: [
-                    Expanded(child: TextField(controller: commentController, decoration: const InputDecoration(hintText: 'Add comment'))),
+                    Expanded(child: TextField(controller: commentController, decoration: InputDecoration(hintText: text.addComment))),
                     const SizedBox(width: 8),
                     IconButton.filled(onPressed: sending ? null : sendComment, icon: const Icon(Icons.send_rounded)),
                   ],
