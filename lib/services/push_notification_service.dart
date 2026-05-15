@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,18 +10,22 @@ class PushNotificationService {
   PushNotificationService({required this.api});
 
   final ApiClient api;
-  final FirebaseMessaging messaging = FirebaseMessaging.instance;
   bool _tokenRefreshListenerStarted = false;
 
   Future<void> registerDevice() async {
     try {
+      final messaging = _messagingOrNull();
+      if (messaging == null) return;
+
       await messaging.requestPermission(alert: true, badge: true, sound: true);
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
+
       await api.registerPushToken(token: token, platform: _platformName());
+
       if (_tokenRefreshListenerStarted) return;
       _tokenRefreshListenerStarted = true;
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      messaging.onTokenRefresh.listen((newToken) async {
         if (newToken.isEmpty) return;
         try {
           await api.registerPushToken(token: newToken, platform: _platformName());
@@ -35,11 +40,27 @@ class PushNotificationService {
 
   Future<void> unregisterDevice() async {
     try {
+      final messaging = _messagingOrNull();
+      if (messaging == null) return;
+
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
       await api.deletePushToken(token: token, platform: _platformName());
     } catch (error) {
       _debugLog('FCM token cleanup skipped: $error');
+    }
+  }
+
+  FirebaseMessaging? _messagingOrNull() {
+    try {
+      if (Firebase.apps.isEmpty) {
+        _debugLog('FCM skipped: Firebase is not initialized.');
+        return null;
+      }
+      return FirebaseMessaging.instance;
+    } catch (error) {
+      _debugLog('FCM skipped: $error');
+      return null;
     }
   }
 
