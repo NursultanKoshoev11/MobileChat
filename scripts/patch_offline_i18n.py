@@ -3,11 +3,13 @@ from pathlib import Path
 path = Path("lib/main_offline.dart")
 text = path.read_text()
 
+# This patch intentionally replaces only quoted Dart string literals.
+# It must not replace identifiers such as AdminPanelScreen or enum values in code.
 replacements = {
     # App / login
     "MobileChat Offline Demo": "МобилЧат офлайн демо / МобилЧат офлайн демо",
     "Offline Demo": "Офлайн демо / Офлайн демо",
-    "No internet. No server. Test admin number opens Admin Panel.": "Интернетсиз жана серверсиз. Админ номер админ-панелди ачат. / Без интернета и сервера. Админ-номер открывает админ-панель.",
+    "No internet. No server. Test admin number opens Admin Panel.": "Без интернета и сервера. Админ-номер открывает админ-панель. / Интернетсиз жана серверсиз. Админ номер админ-панелди ачат.",
     "No internet. No server. Enter a phone number and open the local demo immediately.": "Без интернета и сервера. Введите номер и сразу откройте локальное демо. / Интернетсиз жана серверсиз. Номерди киргизип, локалдык демону дароо ачыңыз.",
     "Admin test number: $adminDemoPhone\\nDemo SMS code: $demoOtpCode": "Админ номер: $adminDemoPhone\\nДемо-код: $demoOtpCode",
     "Mobile number": "Номер телефона / Телефон номери",
@@ -69,8 +71,6 @@ replacements = {
     "Representative": "Представитель / Өкүл",
     "Demo Organization": "Демо организация / Демо уюм",
     "Government organization": "Госорган / Мамлекеттик орган",
-    "Demo region": "Демо регион / Демо аймак",
-    "official@example.gov": "official@example.gov",
     "Official demo group": "Официальная демо-группа / Расмий демо топ",
     "Official local group requested in offline demo.": "Официальная локальная группа для офлайн-демо. / Офлайн демо үчүн расмий локалдык топ.",
     "Need official communication with residents.": "Нужна официальная связь с жителями. / Тургундар менен расмий байланыш керек.",
@@ -104,7 +104,6 @@ replacements = {
     "Region": "Регион / Аймак",
     "Website": "Сайт / Сайт",
     "Reason": "Причина / Себеби",
-    "Documents / proof": "Документы / подтверждение / Документтер / тастыктоо",
     "Documents": "Документы / Документтер",
     "Admin comment": "Комментарий админа / Админдин комментарийи",
     "Admin comment / reason": "Комментарий / причина / Комментарий / себеп",
@@ -162,39 +161,30 @@ replacements = {
     "Nursultan": "Нурсултан",
 
     # Post types / modes / statuses
-    "announcement": "объявление / жарыя",
-    "suggestion": "предложение / сунуш",
-    "complaint": "жалоба / арыз",
-    "requirement": "требование / талап",
-    "problem": "проблема / көйгөй",
-    "idea": "идея / идея",
     "Text only": "Только текст / Текст гана",
     "Voting only": "Только голосование / Добуш берүү гана",
     "Discussion with comments": "Обсуждение с комментариями / Комментарий менен талкуу",
     "Discussion": "Обсуждение / Талкуу",
     "Read only": "Только текст / Текст гана",
     "Vote only": "Только голосование / Добуш берүү гана",
-    "new": "новая / жаңы",
-    "under_review": "на проверке / текшерилүүдө",
-    "accepted": "принято / кабыл алынды",
-    "rejected": "отклонено / четке кагылды",
-    "resolved": "решено / чечилди",
     "New": "Новая / Жаңы",
     "Under review": "На проверке / Текшерилүүдө",
     "Accepted": "Принято / Кабыл алынды",
 }
 
 for old, new in replacements.items():
-    text = text.replace(old, new)
+    text = text.replace(f"'{old}'", f"'{new}'")
+    text = text.replace(f'"{old}"', f'"{new}"')
 
-# Safety checks for visible English words that should not remain in common UI/data strings.
 for forbidden in [
-    "Offline Demo", "Admin Panel", "Request group", "Create local group", "Group creation requests",
-    "New post", "Read post", "Display name", "Mobile number", "Interaction mode", "Water maintenance notice",
-    "City Announcements", "Road Problems", "School Parents", "Need more info", "Approve and create group",
+    "'Offline Demo'", "'Admin Panel'", "'Request group'", "'Create local group'",
+    "'Group creation requests'", "'New post'", "'Read post'", "'Display name'",
+    "'Mobile number'", "'Interaction mode'", "'Water maintenance notice'",
+    "'City Announcements'", "'Road Problems'", "'School Parents'", "'Need more info'",
+    "'Approve and create group'",
 ]:
     if forbidden in text:
-        raise SystemExit(f"English text remained after i18n patch: {forbidden}")
+        raise SystemExit(f"English quoted text remained after i18n patch: {forbidden}")
 
 path.write_text(text)
-print("Offline Russian/Kyrgyz text patch applied.")
+print("Offline Russian/Kyrgyz quoted text patch applied safely.")
