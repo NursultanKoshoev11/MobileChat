@@ -21,11 +21,7 @@ class AppAppearanceController extends ChangeNotifier {
 }
 
 class AppAppearanceScope extends InheritedNotifier<AppAppearanceController> {
-  const AppAppearanceScope({
-    super.key,
-    required AppAppearanceController controller,
-    required super.child,
-  }) : super(notifier: controller);
+  const AppAppearanceScope({super.key, required AppAppearanceController controller, required super.child}) : super(notifier: controller);
 
   static AppAppearanceController controllerOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppAppearanceScope>();
@@ -43,10 +39,38 @@ class ThemeModeButton extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final dark = controller.isDark;
     return IconButton(
-      tooltip: dark ? (text.isKy ? 'Жарык тема' : 'Светлая тема') : (text.isKy ? 'Караңгы тема' : 'Тёмная тема'),
+      tooltip: dark ? (text.isKy ? 'Жарык режим' : 'Светлый режим') : (text.isKy ? 'Караңгы режим' : 'Тёмный режим'),
       onPressed: controller.toggleTheme,
       icon: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
       color: MobileChatTheme.primaryDark,
+    );
+  }
+}
+
+class AppSettingsButton extends StatelessWidget {
+  const AppSettingsButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final appearance = AppAppearanceScope.controllerOf(context);
+    final language = AppLanguageScope.controllerOf(context);
+    final text = AppLanguageScope.textOf(context);
+    return PopupMenuButton<String>(
+      tooltip: text.isKy ? 'Жөндөөлөр' : 'Настройки',
+      icon: const Icon(Icons.settings_rounded),
+      onSelected: (value) {
+        if (value == 'light') appearance.setThemeMode(ThemeMode.light);
+        if (value == 'dark') appearance.setThemeMode(ThemeMode.dark);
+        if (value == 'ru') language.setLanguage(AppLanguage.ru);
+        if (value == 'ky') language.setLanguage(AppLanguage.ky);
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(value: 'light', child: Text(text.isKy ? 'Жарык режим' : 'Светлый режим')),
+        PopupMenuItem(value: 'dark', child: Text(text.isKy ? 'Караңгы режим' : 'Тёмный режим')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'ru', child: Text('Русский')),
+        const PopupMenuItem(value: 'ky', child: Text('Кыргызча')),
+      ],
     );
   }
 }
