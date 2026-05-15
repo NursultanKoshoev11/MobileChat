@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
@@ -25,8 +26,11 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
   }
 
   Future<void> refresh() async {
-    setState(() => future = widget.api.fetchMyGroupCreationRequests());
-    await future;
+    final nextFuture = widget.api.fetchMyGroupCreationRequests();
+    setState(() {
+      future = nextFuture;
+    });
+    await nextFuture;
   }
 
   Future<void> createRequest() async {
@@ -39,15 +43,16 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
     );
     if (created != null) {
       await refresh();
-      if (mounted) showAppSnack(context, 'Request sent to platform admins.');
+      if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Өтүнүч админдерге жөнөтүлдү.' : 'Заявка отправлена администраторам.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Group requests')),
-      floatingActionButton: FloatingActionButton.extended(onPressed: createRequest, icon: const Icon(Icons.verified_user_outlined), label: const Text('Request group')),
+      appBar: AppBar(title: Text(text.myRequests), actions: const [LanguageMenuButton()]),
+      floatingActionButton: FloatingActionButton.extended(onPressed: createRequest, icon: const Icon(Icons.verified_user_outlined), label: Text(text.requestGroup)),
       body: RefreshIndicator(
         onRefresh: refresh,
         child: FutureBuilder<List<GroupCreationRequest>>(
@@ -61,11 +66,11 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
                 const SizedBox(height: 120),
                 const Icon(Icons.assignment_outlined, size: 72, color: MobileChatTheme.primary),
                 const SizedBox(height: 16),
-                Text('No requests yet', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                Text(text.isKy ? 'Азырынча өтүнүч жок' : 'Пока нет заявок', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                const Text('Send a request if you represent an organization and need an official group.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                Text(text.isKy ? 'Расмий топ керек болсо, өтүнүч жөнөтүңүз.' : 'Отправьте заявку, если вам нужна официальная группа.', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
                 const SizedBox(height: 20),
-                Center(child: FilledButton(onPressed: createRequest, child: const Text('Request group'))),
+                Center(child: FilledButton(onPressed: createRequest, child: Text(text.requestGroup))),
               ]);
             }
             return ListView.builder(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), itemCount: requests.length, itemBuilder: (context, index) => GroupCreationRequestCard(request: requests[index]));
@@ -91,17 +96,18 @@ class GroupCreationRequestCard extends StatelessWidget {
     }
   }
 
-  String get statusText {
+  String statusText(AppText text) {
     switch (request.status) {
-      case 'approved': return 'Approved';
-      case 'rejected': return 'Rejected';
-      case 'needs_more_info': return 'Need more info';
-      default: return 'Pending';
+      case 'approved': return text.isKy ? 'Бекитилди' : 'Одобрено';
+      case 'rejected': return text.isKy ? 'Четке кагылды' : 'Отклонено';
+      case 'needs_more_info': return text.isKy ? 'Маалымат керек' : 'Нужна информация';
+      default: return text.isKy ? 'Күтүүдө' : 'Ожидает';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -111,7 +117,7 @@ class GroupCreationRequestCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)), child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12))),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)), child: Text(statusText(text), style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12))),
               const Spacer(),
               Text(request.createdAt?.toLocal().toString().split('.').first ?? '', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
             ]),
@@ -121,7 +127,7 @@ class GroupCreationRequestCard extends StatelessWidget {
             Text(request.organizationName, style: const TextStyle(color: MobileChatTheme.textMuted)),
             const SizedBox(height: 8),
             Text('${request.applicantName} · ${request.position}', style: const TextStyle(fontWeight: FontWeight.w700)),
-            if (request.adminComment.isNotEmpty) ...[const SizedBox(height: 8), Text('Admin comment: ${request.adminComment}', style: const TextStyle(color: MobileChatTheme.textMuted))],
+            if (request.adminComment.isNotEmpty) ...[const SizedBox(height: 8), Text('${text.isKy ? 'Админ комментарийи' : 'Комментарий администратора'}: ${request.adminComment}', style: const TextStyle(color: MobileChatTheme.textMuted))],
             if (actions != null) ...[const SizedBox(height: 12), actions!],
           ]),
         ),
@@ -144,7 +150,7 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
   final applicant = TextEditingController();
   final position = TextEditingController();
   final organization = TextEditingController();
-  final organizationType = TextEditingController(text: 'Government organization');
+  final organizationType = TextEditingController();
   final region = TextEditingController();
   final officialPhone = TextEditingController();
   final officialEmail = TextEditingController();
@@ -175,6 +181,7 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
       final created = await widget.api.createGroupCreationRequest(applicantName: applicant.text.trim(), position: position.text.trim(), organizationName: organization.text.trim(), organizationType: organizationType.text.trim(), region: region.text.trim(), officialPhone: officialPhone.text.trim(), officialEmail: officialEmail.text.trim(), website: website.text.trim(), groupTitle: title.text.trim(), groupDescription: description.text.trim(), reason: reason.text.trim(), documents: documents.text.trim());
       if (mounted) Navigator.of(context).pop(created);
     } catch (e) {
+      if (!mounted) return;
       setState(() => error = e.toString());
     } finally {
       if (mounted) setState(() => loading = false);
@@ -183,16 +190,31 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    if (organizationType.text.isEmpty) {
+      organizationType.text = text.isKy ? 'Мамлекеттик уюм' : 'Государственная организация';
+    }
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text('Request official group', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          Text(text.isKy ? 'Расмий топко өтүнүч' : 'Заявка на официальную группу', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 16),
-          _field(applicant, 'Full name'), _field(position, 'Position'), _field(organization, 'Organization name'), _field(organizationType, 'Organization type'), _field(region, 'City / region'), _field(officialPhone, 'Official phone'), _field(officialEmail, 'Official email'), _field(website, 'Website'), _field(title, 'Group title'), _field(description, 'Group description', lines: 2), _field(reason, 'Reason', lines: 3), _field(documents, 'Documents / proof', lines: 3),
+          _field(applicant, text.isKy ? 'Аты-жөнү' : 'ФИО'),
+          _field(position, text.isKy ? 'Кызматы' : 'Должность'),
+          _field(organization, text.isKy ? 'Уюмдун аталышы' : 'Название организации'),
+          _field(organizationType, text.isKy ? 'Уюмдун түрү' : 'Тип организации'),
+          _field(region, text.isKy ? 'Шаар / аймак' : 'Город / регион'),
+          _field(officialPhone, text.isKy ? 'Расмий телефон' : 'Официальный телефон'),
+          _field(officialEmail, text.isKy ? 'Расмий email' : 'Официальный email'),
+          _field(website, text.isKy ? 'Веб-сайт' : 'Сайт'),
+          _field(title, text.isKy ? 'Топтун аталышы' : 'Название группы'),
+          _field(description, text.description, lines: 2),
+          _field(reason, text.isKy ? 'Себеби' : 'Причина', lines: 3),
+          _field(documents, text.isKy ? 'Документтер / далил' : 'Документы / подтверждение', lines: 3),
           if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
           const SizedBox(height: 16),
-          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Sending...' : 'Send request')),
+          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Жөнөтүлүп жатат...' : 'Отправляется...') : (text.isKy ? 'Өтүнүч жөнөтүү' : 'Отправить заявку'))),
         ]),
       ),
     );
