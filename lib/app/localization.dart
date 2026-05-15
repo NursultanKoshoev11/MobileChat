@@ -5,37 +5,12 @@ import 'theme.dart';
 enum AppLanguage { ru, ky }
 
 extension AppLanguageMeta on AppLanguage {
-  String get code {
-    switch (this) {
-      case AppLanguage.ky:
-        return 'ky';
-      case AppLanguage.ru:
-        return 'ru';
-    }
-  }
-
-  String get shortName {
-    switch (this) {
-      case AppLanguage.ky:
-        return 'KG';
-      case AppLanguage.ru:
-        return 'RU';
-    }
-  }
-
-  String get displayName {
-    switch (this) {
-      case AppLanguage.ky:
-        return 'Кыргызча';
-      case AppLanguage.ru:
-        return 'Русский';
-    }
-  }
+  String get shortName => this == AppLanguage.ky ? 'KG' : 'RU';
+  String get displayName => this == AppLanguage.ky ? 'Кыргызча' : 'Русский';
 }
 
 class AppLanguageController extends ChangeNotifier {
   AppLanguage _language = AppLanguage.ru;
-
   AppLanguage get language => _language;
   AppText get text => AppText(_language);
 
@@ -47,11 +22,7 @@ class AppLanguageController extends ChangeNotifier {
 }
 
 class AppLanguageScope extends InheritedNotifier<AppLanguageController> {
-  const AppLanguageScope({
-    super.key,
-    required AppLanguageController controller,
-    required super.child,
-  }) : super(notifier: controller);
+  const AppLanguageScope({super.key, required AppLanguageController controller, required super.child}) : super(notifier: controller);
 
   static AppLanguageController controllerOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppLanguageScope>();
@@ -69,18 +40,16 @@ class LanguageMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = AppLanguageScope.controllerOf(context);
     return PopupMenuButton<AppLanguage>(
-      tooltip: controller.text.language,
+      tooltip: controller.text.languageLabel,
       onSelected: controller.setLanguage,
       itemBuilder: (_) => AppLanguage.values
           .map((language) => PopupMenuItem<AppLanguage>(
                 value: language,
-                child: Row(
-                  children: [
-                    if (language == controller.language) const Icon(Icons.check_rounded, size: 18) else const SizedBox(width: 18),
-                    const SizedBox(width: 8),
-                    Text(language.displayName),
-                  ],
-                ),
+                child: Row(children: [
+                  if (language == controller.language) const Icon(Icons.check_rounded, size: 18) else const SizedBox(width: 18),
+                  const SizedBox(width: 8),
+                  Text(language.displayName),
+                ]),
               ))
           .toList(),
       child: Padding(
@@ -93,14 +62,11 @@ class LanguageMenuButton extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.language_rounded, color: MobileChatTheme.primaryDark, size: 18),
-                const SizedBox(width: 6),
-                Text(controller.language.shortName, style: const TextStyle(fontWeight: FontWeight.w800)),
-              ],
-            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.language_rounded, color: MobileChatTheme.primaryDark, size: 18),
+              const SizedBox(width: 6),
+              Text(controller.language.shortName, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
           ),
         ),
       ),
@@ -109,14 +75,13 @@ class LanguageMenuButton extends StatelessWidget {
 }
 
 class AppText {
-  const AppText(this.language);
+  const AppText(this.currentLanguage);
 
-  final AppLanguage language;
-
-  bool get isKy => language == AppLanguage.ky;
+  final AppLanguage currentLanguage;
+  bool get isKy => currentLanguage == AppLanguage.ky;
 
   String get appTitle => 'MobileChat';
-  String get language => isKy ? 'Тил' : 'Язык';
+  String get languageLabel => isKy ? 'Тил' : 'Язык';
   String get groups => isKy ? 'Топтор' : 'Группы';
   String get adminRequests => isKy ? 'Админ өтүнүчтөрү' : 'Заявки админу';
   String get myRequests => isKy ? 'Менин өтүнүчтөрүм' : 'Мои заявки';
@@ -127,12 +92,11 @@ class AppText {
   String get newGroup => isKy ? 'Жаңы топ' : 'Новая группа';
   String get logout => isKy ? 'Чыгуу' : 'Выйти';
   String get noGroupsYet => isKy ? 'Азырынча топ жок' : 'Пока нет групп';
-  String get createGroupOrApprove => isKy ? 'Топ түзүңүз же колдонуучулардын өтүнүчтөрүн бекитиңиз.' : 'Создайте группу или одобрите заявки пользователей.';
-  String get sendGroupRequestOrJoin => isKy ? 'Расмий топко өтүнүч жөнөтүңүз же чакыруу коду менен кириңиз.' : 'Отправьте заявку на официальную группу или войдите по коду.';
-
+  String get createGroupOrApprove => isKy ? 'Топ түзүңүз же өтүнүчтөрдү бекитиңиз.' : 'Создайте группу или одобрите заявки.';
+  String get sendGroupRequestOrJoin => isKy ? 'Расмий топко өтүнүч жөнөтүңүз же код менен кириңиз.' : 'Отправьте заявку на группу или войдите по коду.';
   String get enterMobileNumber => isKy ? 'Телефон номериңизди жазыңыз. Тест үчүн код: 123.' : 'Введите номер телефона. Для теста используйте код 123.';
   String get mobileNumber => isKy ? 'Телефон номери' : 'Номер телефона';
-  String get code => isKy ? 'Код' : 'Код';
+  String get code => 'Код';
   String get localTestCode => isKy ? 'Тест үчүн 123 жазыңыз' : 'Для теста введите 123';
   String get displayNameNewOnly => isKy ? 'Жаңы аккаунт үчүн аты-жөнү' : 'Имя только для нового аккаунта';
   String get continueText => isKy ? 'Улантуу' : 'Продолжить';
@@ -145,7 +109,6 @@ class AppText {
   String get newAccountHint => isKy ? 'Жаңы аккаунт. Кодду жана аты-жөнүңүздү жазыңыз.' : 'Новый аккаунт. Введите код и имя.';
   String get devSmsAnyCode => isKy ? 'Тест режими: код талаасына 123 жазыңыз.' : 'Тестовый режим: введите 123 в поле кода.';
   String devSmsCode(String code) => isKy ? 'Тест SMS коду: $code' : 'Тестовый SMS-код: $code';
-
   String get newest => isKy ? 'Жаңылары' : 'Новые';
   String get popular => isKy ? 'Популярдуу' : 'Популярные';
   String get resolved => isKy ? 'Чечилген' : 'Решённые';
@@ -155,7 +118,7 @@ class AppText {
   String get noPopularPosts => isKy ? 'Популярдуу жарыя жок' : 'Популярных публикаций нет';
   String get noResolvedPosts => isKy ? 'Чечилген жарыя жок' : 'Решённых публикаций нет';
   String get noMyPosts => isKy ? 'Сиз жарыя түзө элексиз' : 'Вы ещё не создавали публикации';
-  String get postsDescription => isKy ? 'Жарыялар, сунуштар, арыздар, идеялар жана добуш берүүлөр ушул жерде чыгат.' : 'Публикации, предложения, жалобы, идеи и голосования будут здесь.';
+  String get postsDescription => isKy ? 'Жарыялар, сунуштар, арыздар, идеялар ушул жерде чыгат.' : 'Публикации, предложения, жалобы и идеи будут здесь.';
   String get postPublished => isKy ? 'Жарыя кошулду.' : 'Публикация добавлена.';
   String get postType => isKy ? 'Жарыя түрү' : 'Тип публикации';
   String get announcement => isKy ? 'Кулактандыруу' : 'Объявление';
@@ -163,7 +126,7 @@ class AppText {
   String get complaint => isKy ? 'Арыз' : 'Жалоба';
   String get requirement => isKy ? 'Талап' : 'Требование';
   String get problem => isKy ? 'Көйгөй' : 'Проблема';
-  String get idea => isKy ? 'Идея' : 'Идея';
+  String get idea => 'Идея';
   String get interactionMode => isKy ? 'Иштөө режими' : 'Режим взаимодействия';
   String get textOnly => isKy ? 'Текст гана' : 'Только текст';
   String get votingOnly => isKy ? 'Добуш берүү гана' : 'Только голосование';
