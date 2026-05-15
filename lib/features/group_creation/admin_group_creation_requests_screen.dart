@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
@@ -69,7 +70,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: Text(text.adminRequests), actions: const [LanguageMenuButton()]),
+      appBar: AppBar(title: Text(text.adminRequests), actions: const [AppSettingsButton()]),
       body: Column(children: [
         SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -102,7 +103,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
                     const SizedBox(height: 120),
                     const Icon(Icons.admin_panel_settings_outlined, size: 72, color: MobileChatTheme.primary),
                     const SizedBox(height: 16),
-                    Text(text.isKy ? 'Өтүнүч табылган жок' : 'Заявки не найдены', textAlign: TextAlign.center),
+                    Text(text.isKy ? 'Өтүнүч табылган жок' : 'Заявки не найдены', textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textStrong)),
                   ]);
                 }
                 return ListView.builder(
@@ -113,6 +114,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
                     final canReview = request.status == 'pending' || request.status == 'needs_more_info';
                     return GroupCreationRequestCard(
                       request: request,
+                      number: index + 1,
                       actions: canReview
                           ? Wrap(spacing: 8, runSpacing: 8, children: [
                               FilledButton.icon(onPressed: () => review(request, 'approve'), icon: const Icon(Icons.check_rounded), label: Text(text.isKy ? 'Бекитүү' : 'Одобрить')),
