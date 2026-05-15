@@ -18,6 +18,18 @@ String localizedMessage(BuildContext context, String message) {
   final text = AppLanguageScope.textOf(context);
   final lower = message.toLowerCase();
 
+  if (lower.contains('status updated')) {
+    return text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.';
+  }
+  if (lower.contains('request updated')) {
+    return text.isKy ? 'Өтүнүч жаңыртылды.' : 'Заявка обновлена.';
+  }
+  if (lower.contains('request sent')) {
+    return text.isKy ? 'Өтүнүч жөнөтүлдү.' : 'Заявка отправлена.';
+  }
+  if (lower.contains('post published')) {
+    return text.postPublished;
+  }
   if (lower.contains('session expired')) {
     return text.isKy ? 'Сессия бүттү. Кайра кириңиз.' : 'Сессия истекла. Войдите снова.';
   }
