@@ -32,8 +32,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> refresh() async {
-    setState(() => groupsFuture = widget.api.fetchGroups());
-    await groupsFuture;
+    final nextGroupsFuture = widget.api.fetchGroups();
+    setState(() {
+      groupsFuture = nextGroupsFuture;
+    });
+    await nextGroupsFuture;
   }
 
   Future<void> createGroup() async {
