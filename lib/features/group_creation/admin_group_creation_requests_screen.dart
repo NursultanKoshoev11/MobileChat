@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
@@ -43,6 +44,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
   }
 
   Future<void> review(GroupCreationRequest request, String action) async {
+    final text = AppLanguageScope.textOf(context);
     final comment = await showDialog<String>(
       context: context,
       builder: (context) => _AdminCommentDialog(action: action),
@@ -57,7 +59,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
         await widget.api.needMoreInfoForGroupCreationRequest(request.id, adminComment: comment);
       }
       await refresh();
-      if (mounted) showAppSnack(context, 'Request updated.');
+      if (mounted) showAppSnack(context, text.isKy ? 'Өтүнүч жаңыртылды.' : 'Заявка обновлена.');
     } catch (e) {
       if (mounted) showAppSnack(context, e.toString());
     }
@@ -65,19 +67,20 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin requests')),
+      appBar: AppBar(title: Text(text.adminRequests), actions: const [LanguageMenuButton()]),
       body: Column(children: [
         SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'pending', label: Text('Pending')),
-              ButtonSegment(value: 'needs_more_info', label: Text('Need info')),
-              ButtonSegment(value: 'approved', label: Text('Approved')),
-              ButtonSegment(value: 'rejected', label: Text('Rejected')),
-              ButtonSegment(value: '', label: Text('All')),
+            segments: [
+              ButtonSegment(value: 'pending', label: Text(text.isKy ? 'Күтүүдө' : 'Ожидает')),
+              ButtonSegment(value: 'needs_more_info', label: Text(text.isKy ? 'Маалымат керек' : 'Нужна информация')),
+              ButtonSegment(value: 'approved', label: Text(text.isKy ? 'Бекитилген' : 'Одобрено')),
+              ButtonSegment(value: 'rejected', label: Text(text.isKy ? 'Четке кагылган' : 'Отклонено')),
+              ButtonSegment(value: '', label: Text(text.isKy ? 'Баары' : 'Все')),
             ],
             selected: {status},
             onSelectionChanged: (value) {
@@ -95,11 +98,11 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
                 if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(24), children: [ErrorBanner(message: snapshot.error.toString())]);
                 final requests = snapshot.data ?? const [];
                 if (requests.isEmpty) {
-                  return ListView(padding: const EdgeInsets.all(24), children: const [
-                    SizedBox(height: 120),
-                    Icon(Icons.admin_panel_settings_outlined, size: 72, color: MobileChatTheme.primary),
-                    SizedBox(height: 16),
-                    Text('No requests found', textAlign: TextAlign.center),
+                  return ListView(padding: const EdgeInsets.all(24), children: [
+                    const SizedBox(height: 120),
+                    const Icon(Icons.admin_panel_settings_outlined, size: 72, color: MobileChatTheme.primary),
+                    const SizedBox(height: 16),
+                    Text(text.isKy ? 'Өтүнүч табылган жок' : 'Заявки не найдены', textAlign: TextAlign.center),
                   ]);
                 }
                 return ListView.builder(
@@ -112,9 +115,9 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
                       request: request,
                       actions: canReview
                           ? Wrap(spacing: 8, runSpacing: 8, children: [
-                              FilledButton.icon(onPressed: () => review(request, 'approve'), icon: const Icon(Icons.check_rounded), label: const Text('Approve')),
-                              OutlinedButton.icon(onPressed: () => review(request, 'need_info'), icon: const Icon(Icons.info_outline_rounded), label: const Text('Need info')),
-                              OutlinedButton.icon(onPressed: () => review(request, 'reject'), icon: const Icon(Icons.close_rounded), label: const Text('Reject')),
+                              FilledButton.icon(onPressed: () => review(request, 'approve'), icon: const Icon(Icons.check_rounded), label: Text(text.isKy ? 'Бекитүү' : 'Одобрить')),
+                              OutlinedButton.icon(onPressed: () => review(request, 'need_info'), icon: const Icon(Icons.info_outline_rounded), label: Text(text.isKy ? 'Маалымат керек' : 'Нужна информация')),
+                              OutlinedButton.icon(onPressed: () => review(request, 'reject'), icon: const Icon(Icons.close_rounded), label: Text(text.isKy ? 'Четке кагуу' : 'Отклонить')),
                             ])
                           : null,
                     );
@@ -147,22 +150,26 @@ class _AdminCommentDialogState extends State<_AdminCommentDialog> {
     super.dispose();
   }
 
-  String get title {
+  String title(AppText text) {
     switch (widget.action) {
-      case 'approve': return 'Approve request';
-      case 'reject': return 'Reject request';
-      default: return 'Request more info';
+      case 'approve':
+        return text.isKy ? 'Өтүнүчтү бекитүү' : 'Одобрить заявку';
+      case 'reject':
+        return text.isKy ? 'Өтүнүчтү четке кагуу' : 'Отклонить заявку';
+      default:
+        return text.isKy ? 'Кошумча маалымат суроо' : 'Запросить информацию';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return AlertDialog(
-      title: Text(title),
-      content: TextField(controller: controller, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Admin comment')),
+      title: Text(title(text)),
+      content: TextField(controller: controller, minLines: 2, maxLines: 4, decoration: InputDecoration(labelText: text.isKy ? 'Админ комментарийи' : 'Комментарий администратора')),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(text.isKy ? 'Жокко чыгаруу' : 'Отмена')),
+        FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(text.isKy ? 'Сактоо' : 'Сохранить')),
       ],
     );
   }
