@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/localization.dart';
+
 String avatarText(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return '?';
@@ -12,10 +14,63 @@ String compactTime(DateTime time) {
   return '$hour:$minute';
 }
 
+String localizedMessage(BuildContext context, String message) {
+  final text = AppLanguageScope.textOf(context);
+  final lower = message.toLowerCase();
+
+  if (lower.contains('session expired')) {
+    return text.isKy ? 'Сессия бүттү. Кайра кириңиз.' : 'Сессия истекла. Войдите снова.';
+  }
+  if (lower.contains('connection timed out')) {
+    return text.isKy ? 'Сервер жооп берген жок. Кайра аракет кылыңыз.' : 'Сервер не ответил вовремя. Попробуйте ещё раз.';
+  }
+  if (lower.contains('network error')) {
+    return text.isKy ? 'Тармак катасы. Интернетти же серверди текшериңиз.' : 'Ошибка сети. Проверьте интернет или сервер.';
+  }
+  if (lower.contains('server error')) {
+    return text.isKy ? 'Сервер катасы.' : 'Ошибка сервера.';
+  }
+  if (lower.contains('mobile must be in international format')) {
+    return text.isKy ? 'Номерди эл аралык форматта жазыңыз: +996700123456' : 'Введите номер в международном формате: +996700123456';
+  }
+  if (lower.contains('code is required')) {
+    return text.codeRequired;
+  }
+  if (lower.contains('display_name is required')) {
+    return text.displayNameRequiredForNewAccount;
+  }
+  if (lower.contains('display_name must be between')) {
+    return text.isKy ? 'Аты-жөнү 2ден 40 белгиге чейин болушу керек.' : 'Имя должно быть от 2 до 40 символов.';
+  }
+  if (lower.contains('invalid email or password') || lower.contains('invalid credentials')) {
+    return text.isKy ? 'Маалымат туура эмес.' : 'Неверные данные.';
+  }
+  if (lower.contains('unauthorized')) {
+    return text.isKy ? 'Кирүү укугу жок. Кайра кириңиз.' : 'Нет доступа. Войдите снова.';
+  }
+  if (lower.contains('forbidden')) {
+    return text.isKy ? 'Бул аракетке уруксат жок.' : 'Нет разрешения на это действие.';
+  }
+  if (lower.contains('title must be between')) {
+    return text.isKy ? 'Аталыш 3төн 80 белгиге чейин болушу керек.' : 'Название должно быть от 3 до 80 символов.';
+  }
+  if (lower.contains('description must be at most')) {
+    return text.isKy ? 'Сүрөттөмө өтө узун.' : 'Описание слишком длинное.';
+  }
+  if (lower.contains('text is required')) {
+    return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
+  }
+  if (lower.contains('body is required')) {
+    return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
+  }
+
+  return message;
+}
+
 void showAppSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(SnackBar(content: Text(localizedMessage(context, message))));
 }
 
 class ErrorBanner extends StatelessWidget {
@@ -37,7 +92,7 @@ class ErrorBanner extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text(message)),
+          Expanded(child: Text(localizedMessage(context, message))),
         ],
       ),
     );
