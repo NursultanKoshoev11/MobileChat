@@ -43,13 +43,19 @@ class _MobileChatAppState extends State<MobileChatApp> {
   Future<void> setSession(AppSession session) async {
     await sessionStore.save(session);
     await pushNotifications.registerDevice();
-    setState(() => bootFuture = Future.value(session));
+    if (!mounted) return;
+    setState(() {
+      bootFuture = Future.value(session);
+    });
   }
 
   Future<void> logout() async {
     await pushNotifications.unregisterDevice();
     await sessionStore.clear();
-    setState(() => bootFuture = Future.value(null));
+    if (!mounted) return;
+    setState(() {
+      bootFuture = Future.value(null);
+    });
   }
 
   @override
