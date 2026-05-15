@@ -2,13 +2,16 @@ name: Android Offline Demo APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - offline-demo
 
 permissions:
   contents: read
 
 jobs:
   build-offline-demo:
-    name: Build offline demo APK
+    name: Build offline demo APK from offline-demo branch
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +35,7 @@ jobs:
       - name: Show Flutter doctor
         run: flutter doctor -v
 
-      - name: Ensure Android platform files exist
+      - name: Ensure Android wrapper files exist
         run: flutter create --platforms=android --project-name mobile_chat .
 
       - name: Restore Android project files
@@ -60,6 +63,12 @@ jobs:
 
       - name: Patch offline login to open immediately
         run: python3 scripts/patch_offline_login.py
+
+      - name: Patch offline Read buttons
+        run: python3 scripts/patch_offline_read_buttons.py
+
+      - name: Patch offline light and dark theme
+        run: python3 scripts/patch_offline_theme.py
 
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
