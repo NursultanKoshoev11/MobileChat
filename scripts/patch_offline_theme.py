@@ -113,7 +113,6 @@ simple_replacements = {
 for old, new in simple_replacements.items():
     text = text.replace(old, new)
 
-# Remove const from common Text widgets if context.appColors was injected.
 for snippet in [
     "const Text('No requests yet.', style: TextStyle(color: context.appColors.textMuted))",
     "const Text('No comments yet.', style: TextStyle(color: context.appColors.textMuted))",
@@ -131,5 +130,12 @@ if "ThemeToggleButton" not in text:
 path.write_text(text)
 print("Offline light/dark theme patch applied safely.")
 
-# Russian/Kyrgyz text must be applied after theme patch because theme patch adds a few UI strings.
+manifest_path = Path("android/app/src/main/AndroidManifest.xml")
+if manifest_path.exists():
+    manifest = manifest_path.read_text()
+    manifest = manifest.replace('android:label="MobileChat Offline"', 'android:label="МобилЧат офлайн"')
+    manifest = manifest.replace('android:label="MobileChat"', 'android:label="МобилЧат офлайн"')
+    manifest_path.write_text(manifest)
+    print("Offline Android app label localized.")
+
 exec(Path("scripts/patch_offline_i18n.py").read_text(), {"__name__": "__main__"})
