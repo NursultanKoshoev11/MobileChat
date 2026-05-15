@@ -26,16 +26,20 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
   }
 
   Future<void> refresh() async {
-    setState(() => future = widget.api.fetchAdminGroupCreationRequests(status: status));
-    await future;
+    final nextFuture = widget.api.fetchAdminGroupCreationRequests(status: status);
+    setState(() {
+      future = nextFuture;
+    });
+    await nextFuture;
   }
 
   Future<void> changeStatus(String value) async {
+    final nextFuture = widget.api.fetchAdminGroupCreationRequests(status: value);
     setState(() {
       status = value;
-      future = widget.api.fetchAdminGroupCreationRequests(status: status);
+      future = nextFuture;
     });
-    await future;
+    await nextFuture;
   }
 
   Future<void> review(GroupCreationRequest request, String action) async {
@@ -76,7 +80,9 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
               ButtonSegment(value: '', label: Text('All')),
             ],
             selected: {status},
-            onSelectionChanged: (value) => changeStatus(value.first),
+            onSelectionChanged: (value) {
+              changeStatus(value.first);
+            },
           ),
         ),
         Expanded(
