@@ -82,8 +82,6 @@ class ThemeToggleButton extends StatelessWidget {
   }
 }
 
-final BorderRadius _cardRadius = BorderRadius.circular(22);
-
 BoxDecoration appCardDecoration(BuildContext context, {double radius = 22}) {
   final colors = context.appColors;
   return BoxDecoration(
@@ -141,10 +139,16 @@ text = text.replace("decoration: BoxDecoration(color: Colors.white, borderRadius
 text = text.replace("color: Colors.white, child: Row", "color: context.appColors.surface, child: Row")
 text = text.replace("color: const Color(0xFFEFF6FF)", "color: context.appColors.chipBackground")
 
-# Important muted text colors that are not const-only widgets.
+# Important muted text colors.
 text = text.replace("color: MobileChatTheme.textMuted", "color: context.appColors.textMuted")
 text = text.replace("style: const TextStyle(color: context.appColors.textMuted", "style: TextStyle(color: context.appColors.textMuted")
-text = text.replace("style: const TextStyle(color: MobileChatTheme.primary", "style: const TextStyle(color: MobileChatTheme.primary")
+
+# Remove const from Text widgets that now use context.appColors.
+text = text.replace("const Text('No requests yet.', style: TextStyle(color: context.appColors.textMuted))", "Text('No requests yet.', style: TextStyle(color: context.appColors.textMuted))")
+text = text.replace("const Text('No comments yet.', style: TextStyle(color: context.appColors.textMuted))", "Text('No comments yet.', style: TextStyle(color: context.appColors.textMuted))")
+text = text.replace("const Text('Fill information so platform admins can verify the organization before creating an official group.', style: TextStyle(color: context.appColors.textMuted))", "Text('Fill information so platform admins can verify the organization before creating an official group.', style: TextStyle(color: context.appColors.textMuted))")
+text = text.replace("const Text('This post accepts votes only. Comments are disabled.', style: TextStyle(color: context.appColors.textMuted))", "Text('This post accepts votes only. Comments are disabled.', style: TextStyle(color: context.appColors.textMuted))")
+text = text.replace("const Text('This post is read-only.', style: TextStyle(color: context.appColors.textMuted))", "Text('This post is read-only.', style: TextStyle(color: context.appColors.textMuted))")
 
 # Keep icon foreground white. Do not replace it with theme surface.
 text = text.replace("Icon(Icons.wifi_off_rounded, color: context.appColors.surface,", "Icon(Icons.wifi_off_rounded, color: Colors.white,")
@@ -156,6 +160,8 @@ if "ThemeToggleButton" not in text:
     raise SystemExit("Theme toggle patch failed")
 if "Icon(Icons.wifi_off_rounded, color: context.appColors.surface" in text:
     raise SystemExit("Icon color was patched incorrectly")
+if "const Text('No requests yet.', style: TextStyle(color: context.appColors" in text:
+    raise SystemExit("const Text uses context after theme patch")
 
 path.write_text(text)
 print("Offline light/dark theme patch applied safely.")
