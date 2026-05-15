@@ -85,21 +85,7 @@ class ApiClient {
 
   Future<void> inviteUserByPhone({required String groupId, required String mobile}) async {
     final normalized = mobile.trim().replaceAll(' ', '').replaceAll('-', '').replaceAll('(', '').replaceAll(')', '');
-    try {
-      await _post('/api/groups/$groupId/invite-phone', {'mobile': normalized});
-      return;
-    } on ApiException catch (firstError) {
-      try {
-        await _post('/api/groups/$groupId/invite-user', {
-          'mobile': normalized,
-          'phone': normalized,
-          'target_mobile': normalized,
-        });
-        return;
-      } on ApiException {
-        throw firstError;
-      }
-    }
+    await _post('/api/groups/$groupId/invite-user', {'target_user_id': normalized});
   }
 
   Future<List<GroupInvitation>> fetchInvitations() async {
