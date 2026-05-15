@@ -6,6 +6,7 @@ import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../services/push_notification_service.dart';
+import 'localization.dart';
 import 'theme.dart';
 
 class MobileChatApp extends StatefulWidget {
@@ -22,6 +23,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
   );
 
   final SessionStore sessionStore = const SessionStore();
+  final AppLanguageController languageController = AppLanguageController();
   late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
   late final PushNotificationService pushNotifications = PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
@@ -30,6 +32,12 @@ class _MobileChatAppState extends State<MobileChatApp> {
   void initState() {
     super.initState();
     bootFuture = _boot();
+  }
+
+  @override
+  void dispose() {
+    languageController.dispose();
+    super.dispose();
   }
 
   Future<AppSession?> _boot() async {
@@ -60,21 +68,30 @@ class _MobileChatAppState extends State<MobileChatApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'MobileChat',
-      theme: MobileChatTheme.light,
-      home: FutureBuilder<AppSession?>(
-        future: bootFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          }
-          final session = snapshot.data;
-          if (session == null) {
-            return PhoneAuthScreen(api: api, onAuthenticated: setSession);
-          }
-          return GroupsScreen(api: api, session: session, onLogout: logout);
+    return AppLanguageScope(
+      controller: languageController,
+      child: AnimatedBuilder(
+        animation: languageController,
+        builder: (context, _) {
+          final text = languageController.text;
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: text.appTitle,
+            theme: MobileChatTheme.light,
+            home: FutureBuilder<AppSession?>(
+              future: bootFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                }
+                final session = snapshot.data;
+                if (session == null) {
+                  return PhoneAuthScreen(api: api, onAuthenticated: setSession);
+                }
+                return GroupsScreen(api: api, session: session, onLogout: logout);
+              },
+            ),
+          );
         },
       ),
     );
