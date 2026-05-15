@@ -18,7 +18,7 @@ class MobileChatApp extends StatefulWidget {
 class _MobileChatAppState extends State<MobileChatApp> {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080',
+    defaultValue: 'https://acrobat-democrats-wendy-interact.trycloudflare.com',
   );
 
   final SessionStore sessionStore = const SessionStore();
