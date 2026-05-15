@@ -39,16 +39,20 @@ class LanguageMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = AppLanguageScope.controllerOf(context);
+    final colors = context.appColors;
     return PopupMenuButton<AppLanguage>(
       tooltip: controller.text.languageLabel,
+      color: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: colors.border)),
       onSelected: controller.setLanguage,
       itemBuilder: (_) => AppLanguage.values
           .map((language) => PopupMenuItem<AppLanguage>(
                 value: language,
                 child: Row(children: [
-                  if (language == controller.language) const Icon(Icons.check_rounded, size: 18) else const SizedBox(width: 18),
+                  if (language == controller.language) const Icon(Icons.check_rounded, size: 18, color: MobileChatTheme.primary) else const SizedBox(width: 18),
                   const SizedBox(width: 8),
-                  Text(language.displayName),
+                  Text(language.displayName, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700)),
                 ]),
               ))
           .toList(),
@@ -57,15 +61,15 @@ class LanguageMenuButton extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            color: Colors.white,
+            border: Border.all(color: colors.border),
+            color: colors.surfaceSoft,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.language_rounded, color: MobileChatTheme.primaryDark, size: 18),
+              const Icon(Icons.language_rounded, color: MobileChatTheme.primary, size: 18),
               const SizedBox(width: 6),
-              Text(controller.language.shortName, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(controller.language.shortName, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800)),
             ]),
           ),
         ),
