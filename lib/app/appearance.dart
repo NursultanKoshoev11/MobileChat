@@ -64,8 +64,10 @@ class AppSettingsButton extends StatelessWidget {
 Future<void> showAppSettingsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    backgroundColor: Theme.of(context).cardColor,
+    showDragHandle: false,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
     builder: (_) => const AppSettingsSheet(),
   );
 }
@@ -79,27 +81,48 @@ class AppSettingsSheet extends StatelessWidget {
     final language = AppLanguageScope.controllerOf(context);
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.isKy ? 'Жөндөөлөр' : 'Настройки', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: colors.textStrong)),
-        const SizedBox(height: 14),
-        Text(text.isKy ? 'Тема' : 'Тема', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _SettingsOption(label: text.isKy ? 'Жарык режим' : 'Светлый режим', icon: Icons.light_mode_rounded, selected: !appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.light))),
-          const SizedBox(width: 10),
-          Expanded(child: _SettingsOption(label: text.isKy ? 'Караңгы режим' : 'Тёмный режим', icon: Icons.dark_mode_rounded, selected: appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.dark))),
-        ]),
-        const SizedBox(height: 16),
-        Text(text.languageLabel, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: _SettingsOption(label: 'Русский', icon: Icons.language_rounded, selected: language.language == AppLanguage.ru, onTap: () => language.setLanguage(AppLanguage.ru))),
-          const SizedBox(width: 10),
-          Expanded(child: _SettingsOption(label: 'Кыргызча', icon: Icons.language_rounded, selected: language.language == AppLanguage.ky, onTap: () => language.setLanguage(AppLanguage.ky))),
-        ]),
-      ]),
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.border),
+          boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 24, offset: const Offset(0, 12))],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: colors.textMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)))),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: Text(text.isKy ? 'Жөндөөлөр' : 'Настройки', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 24))),
+              IconButton.filledTonal(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+                tooltip: text.isKy ? 'Жабуу' : 'Закрыть',
+              ),
+            ]),
+            const SizedBox(height: 14),
+            Text(text.isKy ? 'Тема' : 'Тема', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _SettingsOption(label: text.isKy ? 'Жарык режим' : 'Светлый режим', icon: Icons.light_mode_rounded, selected: !appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.light))),
+              const SizedBox(width: 10),
+              Expanded(child: _SettingsOption(label: text.isKy ? 'Караңгы режим' : 'Тёмный режим', icon: Icons.dark_mode_rounded, selected: appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.dark))),
+            ]),
+            const SizedBox(height: 16),
+            Text(text.languageLabel, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _SettingsOption(label: 'Русский', icon: Icons.language_rounded, selected: language.language == AppLanguage.ru, onTap: () => language.setLanguage(AppLanguage.ru))),
+              const SizedBox(width: 10),
+              Expanded(child: _SettingsOption(label: 'Кыргызча', icon: Icons.language_rounded, selected: language.language == AppLanguage.ky, onTap: () => language.setLanguage(AppLanguage.ky))),
+            ]),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -115,6 +138,9 @@ class _SettingsOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final background = selected ? MobileChatTheme.primary : colors.surfaceSoft;
+    final foreground = selected ? Colors.white : colors.textStrong;
+    final iconColor = selected ? Colors.white : colors.textMuted;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
@@ -122,15 +148,15 @@ class _SettingsOption extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? MobileChatTheme.primary.withValues(alpha: 0.18) : colors.surfaceSoft,
+          color: background,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: selected ? MobileChatTheme.primary : colors.border, width: selected ? 1.5 : 1),
         ),
         child: Row(children: [
-          Icon(icon, color: selected ? MobileChatTheme.primary : colors.textMuted),
+          Icon(icon, color: iconColor),
           const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800))),
-          if (selected) const Icon(Icons.check_circle_rounded, color: MobileChatTheme.primary, size: 18),
+          Expanded(child: Text(label, style: TextStyle(color: foreground, fontWeight: FontWeight.w800))),
+          if (selected) const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
         ]),
       ),
     );
