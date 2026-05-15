@@ -67,6 +67,9 @@ jobs:
       - name: Patch offline Read buttons
         run: python3 scripts/patch_offline_read_buttons.py
 
+      - name: Patch offline light and dark theme
+        run: python3 scripts/patch_offline_theme.py
+
       - name: Create Android local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
