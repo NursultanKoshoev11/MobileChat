@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/group_invitation.dart';
@@ -24,16 +25,20 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
   }
 
   Future<void> refresh() async {
-    setState(() => invitationsFuture = widget.api.fetchInvitations());
-    await invitationsFuture;
+    final nextFuture = widget.api.fetchInvitations();
+    setState(() {
+      invitationsFuture = nextFuture;
+    });
+    await nextFuture;
   }
 
   Future<void> accept(GroupInvitation invitation) async {
+    final text = AppLanguageScope.textOf(context);
     try {
       await widget.api.acceptInvitation(invitation.id);
       await refresh();
       if (!mounted) return;
-      showAppSnack(context, 'Invitation accepted.');
+      showAppSnack(context, text.isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.');
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());
@@ -41,11 +46,12 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
   }
 
   Future<void> decline(GroupInvitation invitation) async {
+    final text = AppLanguageScope.textOf(context);
     try {
       await widget.api.declineInvitation(invitation.id);
       await refresh();
       if (!mounted) return;
-      showAppSnack(context, 'Invitation declined.');
+      showAppSnack(context, text.isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.');
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());
@@ -54,8 +60,9 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Invitations')),
+      appBar: AppBar(title: Text(text.invitations), actions: const [LanguageMenuButton()]),
       body: RefreshIndicator(
         onRefresh: refresh,
         child: FutureBuilder<List<GroupInvitation>>(
@@ -74,13 +81,13 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
             if (invitations.isEmpty) {
               return ListView(
                 padding: const EdgeInsets.all(24),
-                children: const [
-                  SizedBox(height: 120),
-                  Icon(Icons.mark_email_unread_outlined, size: 72, color: MobileChatTheme.primary),
-                  SizedBox(height: 16),
-                  Text('No invitations', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-                  SizedBox(height: 8),
-                  Text('Pending group invitations will appear here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+                children: [
+                  const SizedBox(height: 120),
+                  const Icon(Icons.mark_email_unread_outlined, size: 72, color: MobileChatTheme.primary),
+                  const SizedBox(height: 16),
+                  Text(text.isKy ? 'Чакыруулар жок' : 'Приглашений нет', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+                  const SizedBox(height: 8),
+                  Text(text.isKy ? 'Топко чакыруулар ушул жерде чыгат.' : 'Ожидающие приглашения в группы будут здесь.', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
                 ],
               );
             }
@@ -111,7 +118,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(invitation.groupTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                    Text('Invited by ${invitation.senderName}', style: const TextStyle(color: MobileChatTheme.textMuted)),
+                                    Text('${text.isKy ? 'Чакырган' : 'Пригласил'}: ${invitation.senderName}', style: const TextStyle(color: MobileChatTheme.textMuted)),
                                   ],
                                 ),
                               ),
@@ -123,14 +130,14 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: () => decline(invitation),
-                                  child: const Text('Decline'),
+                                  child: Text(text.isKy ? 'Баш тартуу' : 'Отклонить'),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: FilledButton(
                                   onPressed: () => accept(invitation),
-                                  child: const Text('Accept'),
+                                  child: Text(text.isKy ? 'Кабыл алуу' : 'Принять'),
                                 ),
                               ),
                             ],
