@@ -102,7 +102,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (request.interactionMode != 'discussion') return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate),
+        builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate, currentUserId: widget.user.id),
       ),
     );
     await refresh();
@@ -220,7 +220,7 @@ class PublicRequestCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     _ChipLabel(text: modeLabel(request.interactionMode, text)),
                     const Spacer(),
-                    Text(request.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
+                    Text(translatedStatus(request.status, text), style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -228,7 +228,7 @@ class PublicRequestCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(request.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MobileChatTheme.textStrong)),
                 const SizedBox(height: 10),
-                Text('By ${request.authorName}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
+                Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -260,6 +260,15 @@ class PublicRequestCard extends StatelessWidget {
     if (value == 'requirement') return text.requirement;
     if (value == 'problem') return text.problem;
     if (value == 'idea') return text.idea;
+    return value;
+  }
+
+  String translatedStatus(String value, AppText text) {
+    if (value == 'new') return text.statusNew;
+    if (value == 'under_review') return text.statusUnderReview;
+    if (value == 'accepted') return text.statusAccepted;
+    if (value == 'rejected') return text.statusRejected;
+    if (value == 'resolved') return text.statusResolved;
     return value;
   }
 
@@ -390,11 +399,12 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
 }
 
 class PublicRequestDetailsScreen extends StatefulWidget {
-  const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate});
+  const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate, required this.currentUserId});
 
   final PublicRequestsApi api;
   final PublicRequest request;
   final bool canModerate;
+  final String currentUserId;
 
   @override
   State<PublicRequestDetailsScreen> createState() => _PublicRequestDetailsScreenState();
@@ -584,17 +594,11 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                         if (comments.isEmpty) return Text(text.noCommentsYet, style: const TextStyle(color: MobileChatTheme.textMuted));
                         return Column(
                           children: comments
-                              .map((comment) => ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(comment.authorName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                    subtitle: Text(comment.body),
-                                    trailing: widget.canModerate
-                                        ? IconButton(
-                                            tooltip: 'Delete comment',
-                                            onPressed: () => deleteComment(comment),
-                                            icon: const Icon(Icons.delete_outline_rounded),
-                                          )
-                                        : null,
+                              .map((comment) => CommentBubble(
+                                    comment: comment,
+                                    mine: comment.authorId == widget.currentUserId,
+                                    canDelete: widget.canModerate,
+                                    onDelete: () => deleteComment(comment),
                                   ))
                               .toList(),
                         );
@@ -623,5 +627,69 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
         ],
       ),
     );
+  }
+}
+
+class CommentBubble extends StatelessWidget {
+  const CommentBubble({super.key, required this.comment, required this.mine, required this.canDelete, required this.onDelete});
+
+  final PublicRequestComment comment;
+  final bool mine;
+  final bool canDelete;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.of(context).size.width * 0.78;
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: mine ? const Color(0xFFDDF3FF) : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(mine ? 18 : 6),
+            bottomRight: Radius.circular(mine ? 6 : 18),
+          ),
+          boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 6))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!mine)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(comment.authorName, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
+              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(child: Text(comment.body, style: const TextStyle(color: MobileChatTheme.textStrong))),
+                if (canDelete) ...[
+                  const SizedBox(width: 4),
+                  InkWell(onTap: onDelete, child: const Icon(Icons.delete_outline_rounded, size: 18, color: MobileChatTheme.textMuted)),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(compactCommentTime(comment.createdAt.toLocal()), style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 11)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String compactCommentTime(DateTime time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
