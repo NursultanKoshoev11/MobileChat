@@ -53,6 +53,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   Future<void> verifyCode() async {
+    if (codeController.text.trim().isEmpty) {
+      setState(() => error = 'Code is required');
+      return;
+    }
     setState(() {
       loading = true;
       error = null;
@@ -103,7 +107,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Sign in with your mobile number. We will send a verification code by SMS.',
+                      'Enter your mobile number. For local testing, use test code 123 after continuing.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: MobileChatTheme.textMuted),
                     ),
@@ -123,12 +127,11 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       TextField(
                         controller: codeController,
                         enabled: !loading,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
+                        keyboardType: TextInputType.text,
                         decoration: const InputDecoration(
-                          labelText: 'SMS code',
+                          labelText: 'Code',
+                          hintText: 'For local test enter 123',
                           prefixIcon: Icon(Icons.password_rounded),
-                          counterText: '',
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -143,7 +146,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ],
                     if (devCode != null) ...[
                       const SizedBox(height: 12),
-                      InfoBanner(message: 'Development SMS code: $devCode'),
+                      InfoBanner(message: devCode == 'any_non_empty_code' ? 'Local test mode: enter 123 in the code field.' : 'Development SMS code: $devCode'),
                     ],
                     if (error != null) ...[
                       const SizedBox(height: 12),
@@ -159,7 +162,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : Icon(codeWasSent ? Icons.verified_rounded : Icons.sms_rounded),
-                      label: Text(loading ? 'Please wait...' : (codeWasSent ? 'Verify and continue' : 'Send SMS code')),
+                      label: Text(loading ? 'Please wait...' : (codeWasSent ? 'Verify and continue' : 'Continue')),
                     ),
                     if (codeWasSent)
                       TextButton(
