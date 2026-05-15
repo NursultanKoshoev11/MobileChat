@@ -3,6 +3,7 @@ class UserProfile {
     required this.id,
     required this.displayName,
     required this.createdAt,
+    required this.role,
     this.mobile,
   });
 
@@ -10,12 +11,17 @@ class UserProfile {
   final String displayName;
   final DateTime? createdAt;
   final String? mobile;
+  final String role;
+
+  bool get isPlatformAdmin => role == 'platform_admin' || role == 'super_admin';
+  bool get isSuperAdmin => role == 'super_admin';
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as String,
       displayName: json['display_name'] as String,
-      mobile: json['mobile'] as String?,
+      mobile: json['mobile'] as String? ?? json['phone'] as String?,
+      role: json['role'] as String? ?? 'user',
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
     );
   }
@@ -25,6 +31,7 @@ class UserProfile {
       'id': id,
       'display_name': displayName,
       'mobile': mobile,
+      'role': role,
       'created_at': createdAt?.toIso8601String(),
     };
   }
@@ -124,6 +131,77 @@ class ChatMessage {
       senderName: json['sender_name'] as String,
       text: json['text'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+}
+
+class GroupCreationRequest {
+  const GroupCreationRequest({
+    required this.id,
+    required this.requesterId,
+    required this.applicantName,
+    required this.position,
+    required this.organizationName,
+    required this.organizationType,
+    required this.region,
+    required this.officialPhone,
+    required this.officialEmail,
+    required this.website,
+    required this.groupTitle,
+    required this.groupDescription,
+    required this.reason,
+    required this.documents,
+    required this.status,
+    required this.adminComment,
+    required this.createdGroupId,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.reviewedAt,
+  });
+
+  final String id;
+  final String requesterId;
+  final String applicantName;
+  final String position;
+  final String organizationName;
+  final String organizationType;
+  final String region;
+  final String officialPhone;
+  final String officialEmail;
+  final String website;
+  final String groupTitle;
+  final String groupDescription;
+  final String reason;
+  final String documents;
+  final String status;
+  final String adminComment;
+  final String createdGroupId;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? reviewedAt;
+
+  factory GroupCreationRequest.fromJson(Map<String, dynamic> json) {
+    return GroupCreationRequest(
+      id: json['id'] as String,
+      requesterId: json['requester_id'] as String? ?? '',
+      applicantName: json['applicant_name'] as String? ?? '',
+      position: json['position'] as String? ?? '',
+      organizationName: json['organization_name'] as String? ?? '',
+      organizationType: json['organization_type'] as String? ?? '',
+      region: json['region'] as String? ?? '',
+      officialPhone: json['official_phone'] as String? ?? '',
+      officialEmail: json['official_email'] as String? ?? '',
+      website: json['website'] as String? ?? '',
+      groupTitle: json['group_title'] as String? ?? '',
+      groupDescription: json['group_description'] as String? ?? '',
+      reason: json['reason'] as String? ?? '',
+      documents: json['documents'] as String? ?? '',
+      status: json['status'] as String? ?? 'pending',
+      adminComment: json['admin_comment'] as String? ?? '',
+      createdGroupId: json['created_group_id'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+      reviewedAt: DateTime.tryParse(json['reviewed_at'] as String? ?? ''),
     );
   }
 }
