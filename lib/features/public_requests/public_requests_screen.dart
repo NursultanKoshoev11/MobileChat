@@ -274,7 +274,6 @@ class PublicRequestCard extends StatelessWidget {
               Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 _ChipLabel(text: translatedRequestType(request.requestType, text)),
                 _ChipLabel(text: modeLabel(request.interactionMode, text)),
-                _ChipLabel(text: translatedStatus(request.status, text)),
               ]),
               const SizedBox(height: 10),
               Text(request.title, style: TextStyle(color: colors.textStrong, fontSize: 17, fontWeight: FontWeight.w800)),
@@ -303,15 +302,6 @@ class PublicRequestCard extends StatelessWidget {
     if (value == 'requirement') return text.requirement;
     if (value == 'problem') return text.problem;
     if (value == 'idea') return text.idea;
-    return value;
-  }
-
-  String translatedStatus(String value, AppText text) {
-    if (value == 'new') return text.statusNew;
-    if (value == 'under_review') return text.statusUnderReview;
-    if (value == 'accepted') return text.statusAccepted;
-    if (value == 'rejected') return text.statusRejected;
-    if (value == 'resolved') return text.statusResolved;
     return value;
   }
 
