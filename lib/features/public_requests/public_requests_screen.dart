@@ -32,12 +32,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     requestsFuture = loadRequests();
   }
 
-  Future<List<PublicRequest>> loadRequests() async {
-    final requests = await requestsApi.listRequests(widget.group.id, mineOnly: filter == 'mine');
+  Future<List<PublicRequest>> loadRequests({String? selectedFilter}) async {
+    final activeFilter = selectedFilter ?? filter;
+    final requests = await requestsApi.listRequests(widget.group.id, mineOnly: activeFilter == 'mine');
     final filtered = List<PublicRequest>.from(requests);
-    if (filter == 'popular') {
+    if (activeFilter == 'popular') {
       filtered.sort((a, b) => (b.supportCount - b.opposeCount).compareTo(a.supportCount - a.opposeCount));
-    } else if (filter == 'resolved') {
+    } else if (activeFilter == 'resolved') {
       filtered
         ..retainWhere((request) => request.status == 'resolved' || request.status == 'accepted')
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -48,15 +49,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> refresh() async {
-    setState(() => requestsFuture = loadRequests());
-    await requestsFuture;
+    final nextRequestsFuture = loadRequests();
+    setState(() {
+      requestsFuture = nextRequestsFuture;
+    });
+    await nextRequestsFuture;
   }
 
   void changeFilter(String value) {
     if (filter == value) return;
+    final nextRequestsFuture = loadRequests(selectedFilter: value);
     setState(() {
       filter = value;
-      requestsFuture = loadRequests();
+      requestsFuture = nextRequestsFuture;
     });
   }
 
@@ -68,7 +73,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       backgroundColor: Colors.white,
       builder: (_) => CreatePublicRequestSheet(api: requestsApi, group: widget.group),
     );
-    if (created == true) await refresh();
+    if (created == true) {
+      await refresh();
+      if (!mounted) return;
+      showAppSnack(context, 'Post published.');
+    }
   }
 
   Future<void> vote(PublicRequest request, String voteType) async {
@@ -304,9 +313,16 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
-      setState(() => error = e.toString());
+      if (!mounted) return;
+      setState(() {
+        error = e.toString();
+      });
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -402,8 +418,11 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
 
   Future<void> refresh() async {
     if (!canComment) return;
-    setState(() => commentsFuture = widget.api.listComments(widget.request.id));
-    await commentsFuture;
+    final nextCommentsFuture = widget.api.listComments(widget.request.id);
+    setState(() {
+      commentsFuture = nextCommentsFuture;
+    });
+    await nextCommentsFuture;
   }
 
   Future<void> vote(String value) async {
