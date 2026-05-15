@@ -89,6 +89,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> openDetails(PublicRequest request) async {
+    if (request.interactionMode != 'discussion') return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate),
@@ -175,14 +176,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 }
 
 class PublicRequestCard extends StatelessWidget {
-  const PublicRequestCard({super.key, required this.request, required this.onRead, this.onSupport, this.onOppose});
+  const PublicRequestCard({super.key, required this.request, required this.onRead, this.onSupport, this.onOppose, this.showReadAction = true});
 
   final PublicRequest request;
   final VoidCallback onRead;
   final VoidCallback? onSupport;
   final VoidCallback? onOppose;
+  final bool showReadAction;
 
   bool get canVote => request.interactionMode != 'read_only';
+  bool get canOpenDetails => showReadAction && request.interactionMode == 'discussion';
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +195,7 @@ class PublicRequestCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          onTap: onRead,
+          onTap: canOpenDetails ? onRead : null,
           borderRadius: BorderRadius.circular(22),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -217,8 +220,10 @@ class PublicRequestCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    FilledButton.tonal(onPressed: onRead, child: const Text('Read')),
-                    const SizedBox(width: 8),
+                    if (canOpenDetails) ...[
+                      FilledButton.tonal(onPressed: onRead, child: const Text('Read')),
+                      const SizedBox(width: 8),
+                    ],
                     if (canVote) ...[
                       OutlinedButton.icon(onPressed: onSupport, icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${request.supportCount}')),
                       const SizedBox(width: 8),
@@ -546,6 +551,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                     onRead: () {},
                     onSupport: canVote ? () => vote('support') : null,
                     onOppose: canVote ? () => vote('oppose') : null,
+                    showReadAction: false,
                   ),
                   if (widget.canModerate) ...[
                     const SizedBox(height: 12),
