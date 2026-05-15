@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: "Backend API base URL for the iOS build. For a real iPhone use HTTPS or your PC LAN IP."
+        description: "Backend API base URL for the iOS build."
         required: false
-        default: "http://127.0.0.1:8080"
+        default: "https://acrobat-democrats-wendy-interact.trycloudflare.com"
       ios_bundle_id:
         description: "iOS bundle identifier. Must match your Apple provisioning profile for signed IPA."
         required: false
@@ -57,7 +57,7 @@ jobs:
 
       - name: Build iOS simulator app
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'http://127.0.0.1:8080' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://acrobat-democrats-wendy-interact.trycloudflare.com' }}"
           echo "Building iOS simulator app with API_BASE_URL=$API_BASE_URL"
           flutter build ios --debug --simulator -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
@@ -169,7 +169,7 @@ jobs:
       - name: Build signed IPA
         if: steps.signing.outputs.ready == 'true'
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'http://127.0.0.1:8080' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://acrobat-democrats-wendy-interact.trycloudflare.com' }}"
           flutter build ipa --release -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL" --export-options-plist=ios/ExportOptions.plist
 
       - name: Prepare IPA artifact
