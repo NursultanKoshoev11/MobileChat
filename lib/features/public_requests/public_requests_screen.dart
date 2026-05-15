@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -24,6 +25,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<List<PublicRequest>> requestsFuture;
 
   bool get canModerate => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
+  bool get canInvite => widget.group.canInvite;
 
   @override
   void initState() {
@@ -40,7 +42,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> refresh() async {
     final next = loadRequests();
-    setState(() => requestsFuture = next);
+    setState(() {
+      requestsFuture = next;
+    });
     await next;
   }
 
@@ -87,16 +91,48 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await refresh();
   }
 
-  void showGroupCode() {
+  void showGroupAccess() {
     final text = AppLanguageScope.textOf(context);
-    final code = widget.group.inviteCode;
+    final colors = context.appColors;
+    final code = widget.group.inviteCode ?? '';
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(text.isKy ? 'Топтун коду' : 'Код группы'),
-        content: SelectableText(code == null || code.isEmpty ? (text.isKy ? 'Код жок' : 'Кода нет') : code, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        title: Text(text.isKy ? 'Топко кирүү' : 'Вход в группу'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(text.isKy ? 'Код менен кирүү' : 'Вход по коду', style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            SelectableText(code.isEmpty ? (text.isKy ? 'Код жок' : 'Кода нет') : code, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            if (code.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: QrImageView(data: code, version: QrVersions.auto, size: 180),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(text.isKy ? 'QR кодду сканерлеп топко кирсе болот.' : 'Можно войти в группу, отсканировав QR-код.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted)),
+            ],
+          ],
+        ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(text.isKy ? 'Жабуу' : 'Закрыть'))],
       ),
+    );
+  }
+
+  Future<void> inviteByPhone() async {
+    if (!canInvite) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (_) => InviteByPhoneSheet(api: widget.api, group: widget.group),
     );
   }
 
@@ -107,7 +143,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
-          IconButton(onPressed: showGroupCode, tooltip: text.isKy ? 'Топтун коду' : 'Код группы', icon: const Icon(Icons.key_rounded)),
+          IconButton(onPressed: showGroupAccess, tooltip: text.isKy ? 'Код жана QR' : 'Код и QR', icon: const Icon(Icons.qr_code_rounded)),
+          if (canInvite) IconButton(onPressed: inviteByPhone, tooltip: text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', icon: const Icon(Icons.person_add_alt_1_rounded)),
           const AppSettingsButton(),
         ],
       ),
@@ -150,6 +187,60 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class InviteByPhoneSheet extends StatefulWidget {
+  const InviteByPhoneSheet({super.key, required this.api, required this.group});
+  final ApiClient api;
+  final ChatGroup group;
+
+  @override
+  State<InviteByPhoneSheet> createState() => _InviteByPhoneSheetState();
+}
+
+class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
+  final phoneController = TextEditingController(text: '+996');
+  bool loading = false;
+  String? error;
+
+  @override
+  void dispose() {
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      await widget.api.inviteUserByPhone(groupId: widget.group.id, mobile: phoneController.text);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Чакыруу жөнөтүлдү.' : 'Приглашение отправлено.');
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    return Padding(
+      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 16),
+        TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded))),
+        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
+        const SizedBox(height: 16),
+        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'))),
+      ]),
     );
   }
 }
@@ -347,7 +438,9 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   Future<void> refresh() async {
     if (!canComment) return;
     final next = widget.api.listComments(widget.request.id);
-    setState(() => commentsFuture = next);
+    setState(() {
+      commentsFuture = next;
+    });
     await next;
   }
 
