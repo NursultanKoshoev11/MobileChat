@@ -6,6 +6,7 @@ import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../services/push_notification_service.dart';
+import 'appearance.dart';
 import 'localization.dart';
 import 'theme.dart';
 
@@ -24,6 +25,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
 
   final SessionStore sessionStore = const SessionStore();
   final AppLanguageController languageController = AppLanguageController();
+  final AppAppearanceController appearanceController = AppAppearanceController();
   late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
   late final PushNotificationService pushNotifications = PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
@@ -37,6 +39,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
   @override
   void dispose() {
     languageController.dispose();
+    appearanceController.dispose();
     super.dispose();
   }
 
@@ -70,29 +73,34 @@ class _MobileChatAppState extends State<MobileChatApp> {
   Widget build(BuildContext context) {
     return AppLanguageScope(
       controller: languageController,
-      child: AnimatedBuilder(
-        animation: languageController,
-        builder: (context, _) {
-          final text = languageController.text;
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: text.appTitle,
-            theme: MobileChatTheme.light,
-            home: FutureBuilder<AppSession?>(
-              future: bootFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Scaffold(body: Center(child: CircularProgressIndicator()));
-                }
-                final session = snapshot.data;
-                if (session == null) {
-                  return PhoneAuthScreen(api: api, onAuthenticated: setSession);
-                }
-                return GroupsScreen(api: api, session: session, onLogout: logout);
-              },
-            ),
-          );
-        },
+      child: AppAppearanceScope(
+        controller: appearanceController,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([languageController, appearanceController]),
+          builder: (context, _) {
+            final text = languageController.text;
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: text.appTitle,
+              theme: MobileChatTheme.light,
+              darkTheme: MobileChatTheme.dark,
+              themeMode: appearanceController.themeMode,
+              home: FutureBuilder<AppSession?>(
+                future: bootFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                  }
+                  final session = snapshot.data;
+                  if (session == null) {
+                    return PhoneAuthScreen(api: api, onAuthenticated: setSession);
+                  }
+                  return GroupsScreen(api: api, session: session, onLogout: logout);
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
