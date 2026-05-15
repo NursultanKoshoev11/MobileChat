@@ -108,6 +108,64 @@ class ApiClient {
     return ChatMessage.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<GroupCreationRequest> createGroupCreationRequest({
+    required String applicantName,
+    required String position,
+    required String organizationName,
+    required String organizationType,
+    required String region,
+    required String officialPhone,
+    required String officialEmail,
+    required String website,
+    required String groupTitle,
+    required String groupDescription,
+    required String reason,
+    required String documents,
+  }) async {
+    final response = await _post('/api/group-creation-requests', {
+      'applicant_name': applicantName,
+      'position': position,
+      'organization_name': organizationName,
+      'organization_type': organizationType,
+      'region': region,
+      'official_phone': officialPhone,
+      'official_email': officialEmail,
+      'website': website,
+      'group_title': groupTitle,
+      'group_description': groupDescription,
+      'reason': reason,
+      'documents': documents,
+    });
+    return GroupCreationRequest.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<List<GroupCreationRequest>> fetchMyGroupCreationRequests() async {
+    final response = await _get('/api/group-creation-requests');
+    return (response as List<dynamic>).map((item) => GroupCreationRequest.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<GroupCreationRequest>> fetchAdminGroupCreationRequests({String status = '', int limit = 100}) async {
+    final query = <String, String>{'limit': '$limit'};
+    if (status.trim().isNotEmpty) query['status'] = status.trim();
+    final response = await _get('/api/admin/group-creation-requests', query: query);
+    return (response as List<dynamic>).map((item) => GroupCreationRequest.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<GroupCreationRequest> approveGroupCreationRequest(String requestId, {String adminComment = ''}) async {
+    final response = await _post('/api/admin/group-creation-requests/$requestId/approve', {'admin_comment': adminComment});
+    return GroupCreationRequest.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<GroupCreationRequest> rejectGroupCreationRequest(String requestId, {String adminComment = ''}) async {
+    final response = await _post('/api/admin/group-creation-requests/$requestId/reject', {'admin_comment': adminComment});
+    return GroupCreationRequest.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<GroupCreationRequest> needMoreInfoForGroupCreationRequest(String requestId, {String adminComment = ''}) async {
+    final response = await _post('/api/admin/group-creation-requests/$requestId/need-more-info', {'admin_comment': adminComment});
+    return GroupCreationRequest.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<dynamic> _get(String path, {Map<String, String>? query, bool auth = true}) {
     return _request('GET', path, query: query, auth: auth);
   }
@@ -124,7 +182,8 @@ class ApiClient {
     bool auth = true,
     bool retrying = false,
   }) async {
-    final uri = Uri.parse(baseUrl).replace(path: path, queryParameters: query);
+    final base = Uri.parse(baseUrl);
+    final uri = base.replace(path: path, queryParameters: query);
     final headers = {'Content-Type': 'application/json'};
     if (auth) {
       final session = await sessionStore.read();
@@ -161,7 +220,8 @@ class ApiClient {
     final session = await sessionStore.read();
     if (session == null || session.refreshToken.isEmpty) return false;
 
-    final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
+    final base = Uri.parse(baseUrl);
+    final uri = base.replace(path: '/api/auth/refresh');
     final response = await http
         .post(
           uri,
