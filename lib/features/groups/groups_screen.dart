@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
@@ -94,29 +95,31 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     final user = widget.session.user;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Groups'),
+        title: Text(text.groups),
         actions: [
+          const LanguageMenuButton(),
           if (isAdmin)
             IconButton(
-              tooltip: 'Admin requests',
+              tooltip: text.adminRequests,
               onPressed: openAdminRequests,
               icon: const Icon(Icons.admin_panel_settings_outlined),
             ),
           IconButton(
-            tooltip: 'My group requests',
+            tooltip: text.myRequests,
             onPressed: openGroupRequests,
             icon: const Icon(Icons.assignment_outlined),
           ),
           IconButton(
-            tooltip: 'Invitations',
+            tooltip: text.invitations,
             onPressed: openInvitations,
             icon: const Icon(Icons.mark_email_unread_outlined),
           ),
           IconButton(
-            tooltip: 'Join by code',
+            tooltip: text.joinByCode,
             onPressed: joinByCode,
             icon: const Icon(Icons.key_rounded),
           ),
@@ -128,11 +131,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
               if (value == 'logout') widget.onLogout();
             },
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'requests', child: Text(isAdmin ? 'My requests' : 'Request group')),
-              if (isAdmin) const PopupMenuItem(value: 'admin_requests', child: Text('Admin requests')),
-              if (isAdmin) const PopupMenuItem(value: 'create', child: Text('Create group')),
+              PopupMenuItem(value: 'requests', child: Text(isAdmin ? text.myRequests : text.requestGroup)),
+              if (isAdmin) PopupMenuItem(value: 'admin_requests', child: Text(text.adminRequests)),
+              if (isAdmin) PopupMenuItem(value: 'create', child: Text(text.createGroup)),
               const PopupMenuDivider(),
-              PopupMenuItem(value: 'logout', child: Text('Log out (${user.role})')),
+              PopupMenuItem(value: 'logout', child: Text('${text.logout} (${user.role})')),
             ],
           ),
         ],
@@ -140,7 +143,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: createGroup,
         icon: Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined),
-        label: Text(isAdmin ? 'New group' : 'Request group'),
+        label: Text(isAdmin ? text.newGroup : text.requestGroup),
       ),
       body: RefreshIndicator(
         onRefresh: refresh,
@@ -157,11 +160,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   const SizedBox(height: 120),
                   const Icon(Icons.groups_2_outlined, size: 72, color: MobileChatTheme.primary),
                   const SizedBox(height: 16),
-                  Text('No groups yet', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                  Text(text.noGroupsYet, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
-                  Text(isAdmin ? 'Create a group or approve user requests.' : 'Send a request to create an official group or join by invite code.', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
+                  Text(isAdmin ? text.createGroupOrApprove : text.sendGroupRequestOrJoin, textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
                   const SizedBox(height: 20),
-                  Center(child: FilledButton(onPressed: createGroup, child: Text(isAdmin ? 'Create group' : 'Request group'))),
+                  Center(child: FilledButton(onPressed: createGroup, child: Text(isAdmin ? text.createGroup : text.requestGroup))),
                 ],
               );
             }
@@ -185,6 +188,10 @@ class GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final visibilityText = group.isPublic ? (text.isKy ? 'Ачык' : 'Открытая') : (text.isKy ? 'Чакыруу менен' : 'По приглашению');
+    final roleText = group.myRole ?? (text.isKy ? 'мүчө' : 'участник');
+    final membersText = text.isKy ? 'мүчө' : 'участников';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -203,9 +210,9 @@ class GroupTile extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(group.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text(group.description.isEmpty ? 'No description yet' : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MobileChatTheme.textMuted)),
+                    Text(group.description.isEmpty ? (text.isKy ? 'Сүрөттөмө жок' : 'Нет описания') : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MobileChatTheme.textMuted)),
                     const SizedBox(height: 8),
-                    Text('${group.isPublic ? 'Public' : 'Invite only'} · ${group.memberCount} members · ${group.myRole ?? 'member'}', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
+                    Text('$visibilityText · ${group.memberCount} $membersText · $roleText', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right_rounded),
@@ -243,24 +250,30 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
       final group = await widget.api.createGroup(title: titleController.text.trim(), description: descriptionController.text.trim(), visibility: visibility);
       if (!mounted) return;
       Navigator.of(context).pop(group);
-    } catch (e) { setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Create group', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(text.createGroup, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Group name')),
+        TextField(controller: titleController, decoration: InputDecoration(labelText: text.isKy ? 'Топтун аты' : 'Название группы')),
         const SizedBox(height: 12),
-        TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Description')),
+        TextField(controller: descriptionController, decoration: InputDecoration(labelText: text.description)),
         const SizedBox(height: 12),
-        SegmentedButton<String>(segments: const [ButtonSegment(value: 'public', label: Text('Public')), ButtonSegment(value: 'private', label: Text('Invite only'))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
+        SegmentedButton<String>(segments: [ButtonSegment(value: 'public', label: Text(text.isKy ? 'Ачык' : 'Открытая')), ButtonSegment(value: 'private', label: Text(text.isKy ? 'Чакыруу менен' : 'По приглашению'))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Creating...' : 'Create')),
+        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Түзүлүп жатат...' : 'Создаётся...') : text.createGroup)),
       ]),
     );
   }
@@ -282,20 +295,26 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
       final group = await widget.api.joinByInviteCode(codeController.text.trim());
       if (!mounted) return;
       Navigator.of(context).pop(group);
-    } catch (e) { setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Join by code', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(text.joinByCode, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(controller: codeController, decoration: const InputDecoration(labelText: 'Invite code')),
+        TextField(controller: codeController, decoration: InputDecoration(labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения')),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? 'Joining...' : 'Join')),
+        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Кирүүдө...' : 'Входим...') : text.joinByCode)),
       ]),
     );
   }
