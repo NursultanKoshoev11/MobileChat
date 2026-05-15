@@ -251,14 +251,16 @@ class ApiClient {
 }
 
 class RequestCodeResult {
-  const RequestCodeResult({required this.status, this.devCode});
+  const RequestCodeResult({required this.status, required this.accountExists, this.devCode});
 
   final String status;
+  final bool accountExists;
   final String? devCode;
 
   factory RequestCodeResult.fromJson(Map<String, dynamic> json) {
     return RequestCodeResult(
       status: json['status'] as String? ?? 'code_sent',
+      accountExists: json['account_exists'] as bool? ?? false,
       devCode: json['dev_code'] as String?,
     );
   }
