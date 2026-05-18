@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -114,7 +115,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
 
     try {
-      final group = await widget.api.joinByInviteCode(inviteCode.trim());
+      final group = await widget.api.joinByInviteCode(formatGroupInviteCode(inviteCode));
       await refresh();
       if (mounted) openGroup(group);
     } catch (error) {
@@ -413,7 +414,7 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   Future<void> submit() async {
     setState(() { loading = true; error = null; });
     try {
-      final group = await widget.api.joinByInviteCode(codeController.text.trim());
+      final group = await widget.api.joinByInviteCode(formatGroupInviteCode(codeController.text));
       if (mounted) Navigator.of(context).pop(group);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -430,11 +431,37 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(text.joinByCode, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(controller: codeController, decoration: InputDecoration(labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения')),
+        TextField(
+          controller: codeController,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [GroupInviteCodeFormatter()],
+          decoration: InputDecoration(
+            labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
+            hintText: 'AAA-666',
+          ),
+        ),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
         FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Кирүүдө...' : 'Входим...') : text.joinByCode)),
       ]),
+    );
+  }
+}
+
+String formatGroupInviteCode(String input) {
+  final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  final shortened = compact.length > 6 ? compact.substring(0, 6) : compact;
+  if (shortened.length > 3) return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
+  return shortened;
+}
+
+class GroupInviteCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final formatted = formatGroupInviteCode(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
