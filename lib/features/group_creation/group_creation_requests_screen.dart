@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/appearance.dart';
@@ -138,6 +141,7 @@ class GroupCreationRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final documents = GroupRequestDocuments.tryParse(request.documents);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -182,6 +186,10 @@ class GroupCreationRequestCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text('${text.isKy ? 'Себеби' : 'Причина'}: ${request.reason}', style: TextStyle(color: colors.textStrong)),
               ],
+              if (documents.note.isNotEmpty || documents.files.isNotEmpty || (documents == GroupRequestDocuments.empty && request.documents.isNotEmpty)) ...[
+                const SizedBox(height: 10),
+                _DocumentsPreview(documents: documents, rawDocuments: request.documents),
+              ],
               if (request.adminComment.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -204,6 +212,50 @@ class GroupCreationRequestCard extends StatelessWidget {
   }
 }
 
+class _DocumentsPreview extends StatelessWidget {
+  const _DocumentsPreview({required this.documents, required this.rawDocuments});
+
+  final GroupRequestDocuments documents;
+  final String rawDocuments;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    if (documents == GroupRequestDocuments.empty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: colors.chipBackground, borderRadius: BorderRadius.circular(14)),
+        child: Text('${text.isKy ? 'Документтер' : 'Документы'}: $rawDocuments', style: TextStyle(color: colors.textStrong)),
+      );
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: colors.chipBackground, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(text.isKy ? 'Документтер / файлдар' : 'Документы / файлы', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900)),
+        if (documents.note.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(documents.note, style: TextStyle(color: colors.textStrong)),
+        ],
+        if (documents.files.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...documents.files.map((file) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  const Icon(Icons.attach_file_rounded, size: 18, color: MobileChatTheme.primaryDark),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700))),
+                ]),
+              )),
+        ],
+      ]),
+    );
+  }
+}
+
 class CreateGroupRequestSheet extends StatefulWidget {
   const CreateGroupRequestSheet({super.key, required this.api, required this.user, this.initialRequest});
 
@@ -216,6 +268,9 @@ class CreateGroupRequestSheet extends StatefulWidget {
 }
 
 class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
+  static const int maxFileBytes = 3 * 1024 * 1024;
+  static const int maxFiles = 3;
+
   final applicant = TextEditingController();
   final position = TextEditingController();
   final organization = TextEditingController();
@@ -227,7 +282,8 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
   final title = TextEditingController();
   final description = TextEditingController();
   final reason = TextEditingController();
-  final documents = TextEditingController();
+  final documentNote = TextEditingController();
+  final List<GroupRequestAttachment> attachments = [];
   bool loading = false;
   String? error;
 
@@ -246,7 +302,13 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
     title.text = initial?.groupTitle ?? '';
     description.text = initial?.groupDescription ?? '';
     reason.text = initial?.reason ?? '';
-    documents.text = initial?.documents ?? '';
+    final parsedDocuments = GroupRequestDocuments.tryParse(initial?.documents ?? '');
+    if (parsedDocuments != GroupRequestDocuments.empty) {
+      documentNote.text = parsedDocuments.note;
+      attachments.addAll(parsedDocuments.files);
+    } else {
+      documentNote.text = initial?.documents ?? '';
+    }
   }
 
   @override
@@ -262,8 +324,42 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
     title.dispose();
     description.dispose();
     reason.dispose();
-    documents.dispose();
+    documentNote.dispose();
     super.dispose();
+  }
+
+  Future<void> pickFiles() async {
+    if (attachments.length >= maxFiles) {
+      setState(() => error = AppLanguageScope.textOf(context).isKy ? '3 файлдан көп кошууга болбойт.' : 'Можно добавить максимум 3 файла.');
+      return;
+    }
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+      );
+      if (result == null) return;
+      final next = <GroupRequestAttachment>[];
+      for (final picked in result.files) {
+        final bytes = picked.bytes;
+        if (bytes == null) continue;
+        if (bytes.length > maxFileBytes) {
+          setState(() => error = '${picked.name}: ${AppLanguageScope.textOf(context).isKy ? 'файл 3 МБдан чоң.' : 'файл больше 3 МБ.'}');
+          continue;
+        }
+        next.add(GroupRequestAttachment(name: picked.name, sizeBytes: bytes.length, base64Data: base64Encode(bytes)));
+      }
+      if (next.isEmpty) return;
+      setState(() {
+        error = null;
+        final available = maxFiles - attachments.length;
+        attachments.addAll(next.take(available));
+      });
+    } catch (e) {
+      setState(() => error = e.toString());
+    }
   }
 
   Future<void> submit() async {
@@ -272,6 +368,7 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
       error = null;
     });
     try {
+      final documentsPayload = GroupRequestDocuments(note: documentNote.text.trim(), files: attachments).toPayload();
       final created = await widget.api.createGroupCreationRequest(
         applicantName: applicant.text.trim(),
         position: position.text.trim(),
@@ -284,7 +381,7 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
         groupTitle: title.text.trim(),
         groupDescription: description.text.trim(),
         reason: reason.text.trim(),
-        documents: documents.text.trim(),
+        documents: documentsPayload,
       );
       if (mounted) Navigator.of(context).pop(created);
     } catch (e) {
@@ -321,7 +418,14 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
           _field(title, text.isKy ? 'Топтун аталышы' : 'Название группы'),
           _field(description, text.description, lines: 2),
           _field(reason, text.isKy ? 'Себеби' : 'Причина', lines: 3),
-          _field(documents, text.isKy ? 'Документтер / далил' : 'Документы / подтверждение', lines: 3),
+          _field(documentNote, text.isKy ? 'Документтер боюнча комментарий' : 'Комментарий к документам', lines: 3),
+          OutlinedButton.icon(onPressed: loading ? null : pickFiles, icon: const Icon(Icons.attach_file_rounded), label: Text(text.isKy ? 'Файл / документ кошуу' : 'Добавить файл / документ')),
+          const SizedBox(height: 8),
+          Text(text.isKy ? 'PDF, DOC, DOCX, JPG, PNG. Максимум 3 файл, ар бири 3 МБга чейин.' : 'PDF, DOC, DOCX, JPG, PNG. Максимум 3 файла, каждый до 3 МБ.', style: TextStyle(color: context.appColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          if (attachments.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...attachments.map((file) => _AttachmentTile(file: file, onRemove: loading ? null : () => setState(() => attachments.remove(file)))),
+          ],
           if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
           const SizedBox(height: 16),
           FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Жөнөтүлүп жатат...' : 'Отправляется...') : (isResubmit ? (text.isKy ? 'Кайра жөнөтүү' : 'Отправить заново') : (text.isKy ? 'Өтүнүч жөнөтүү' : 'Отправить заявку')))),
@@ -336,4 +440,91 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
       child: TextField(controller: controller, minLines: lines, maxLines: lines, decoration: InputDecoration(labelText: label)),
     );
   }
+}
+
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({required this.file, required this.onRemove});
+
+  final GroupRequestAttachment file;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(14), border: Border.all(color: colors.border)),
+      child: Row(children: [
+        const Icon(Icons.description_outlined, color: MobileChatTheme.primaryDark),
+        const SizedBox(width: 10),
+        Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800))),
+        IconButton(onPressed: onRemove, icon: const Icon(Icons.close_rounded)),
+      ]),
+    );
+  }
+}
+
+class GroupRequestDocuments {
+  const GroupRequestDocuments({required this.note, required this.files});
+
+  static const empty = GroupRequestDocuments(note: '', files: []);
+
+  final String note;
+  final List<GroupRequestAttachment> files;
+
+  String toPayload() {
+    if (note.trim().isEmpty && files.isEmpty) return '';
+    return jsonEncode({
+      'version': 1,
+      'note': note.trim(),
+      'files': files.map((file) => file.toJson()).toList(),
+    });
+  }
+
+  static GroupRequestDocuments tryParse(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || !raw.startsWith('{')) return empty;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return empty;
+      final filesRaw = decoded['files'];
+      return GroupRequestDocuments(
+        note: decoded['note'] as String? ?? '',
+        files: filesRaw is List ? filesRaw.whereType<Map<String, dynamic>>().map(GroupRequestAttachment.fromJson).toList() : const [],
+      );
+    } catch (_) {
+      return empty;
+    }
+  }
+}
+
+class GroupRequestAttachment {
+  const GroupRequestAttachment({required this.name, required this.sizeBytes, required this.base64Data});
+
+  final String name;
+  final int sizeBytes;
+  final String base64Data;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'size_bytes': sizeBytes,
+        'base64': base64Data,
+      };
+
+  factory GroupRequestAttachment.fromJson(Map<String, dynamic> json) {
+    return GroupRequestAttachment(
+      name: json['name'] as String? ?? 'document',
+      sizeBytes: json['size_bytes'] as int? ?? 0,
+      base64Data: json['base64'] as String? ?? '',
+    );
+  }
+}
+
+String formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kb = bytes / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+  final mb = kb / 1024;
+  return '${mb.toStringAsFixed(1)} MB';
 }
