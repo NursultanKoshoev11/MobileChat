@@ -25,6 +25,7 @@ class GroupsScreen extends StatefulWidget {
 class _GroupsScreenState extends State<GroupsScreen> {
   late Future<List<ChatGroup>> groupsFuture;
   late Future<int> adminRequestsCountFuture;
+  late Future<int> invitationsCountFuture;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
@@ -32,6 +33,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     super.initState();
     groupsFuture = widget.api.fetchGroups();
     adminRequestsCountFuture = loadAdminRequestsCount();
+    invitationsCountFuture = loadInvitationsCount();
   }
 
   Future<int> loadAdminRequestsCount() async {
@@ -44,14 +46,25 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  Future<int> loadInvitationsCount() async {
+    try {
+      final invitations = await widget.api.fetchInvitations();
+      return invitations.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<void> refresh() async {
     final nextGroups = widget.api.fetchGroups();
-    final nextCount = loadAdminRequestsCount();
+    final nextAdminCount = loadAdminRequestsCount();
+    final nextInvitationsCount = loadInvitationsCount();
     setState(() {
       groupsFuture = nextGroups;
-      adminRequestsCountFuture = nextCount;
+      adminRequestsCountFuture = nextAdminCount;
+      invitationsCountFuture = nextInvitationsCount;
     });
-    await Future.wait([nextGroups, nextCount]);
+    await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
   }
 
   Future<void> createGroup() async {
@@ -120,7 +133,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> showMainMenu() async {
-    final count = await adminRequestsCountFuture;
+    final counts = await Future.wait([adminRequestsCountFuture, invitationsCountFuture]);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -128,7 +141,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => MainGroupsMenuSheet(
         isAdmin: isAdmin,
-        adminRequestsCount: count,
+        adminRequestsCount: counts[0],
+        invitationsCount: counts[1],
         onJoinByCode: joinByCode,
         onScanQr: scanGroupQr,
         onInvitations: openInvitations,
@@ -182,6 +196,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
     super.key,
     required this.isAdmin,
     required this.adminRequestsCount,
+    required this.invitationsCount,
     required this.onJoinByCode,
     required this.onScanQr,
     required this.onInvitations,
@@ -192,6 +207,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
 
   final bool isAdmin;
   final int adminRequestsCount;
+  final int invitationsCount;
   final VoidCallback onJoinByCode;
   final VoidCallback onScanQr;
   final VoidCallback onInvitations;
@@ -209,7 +225,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
         const SizedBox(height: 12),
         _MenuTile(icon: Icons.key_rounded, title: text.joinByCode, onTap: () => _closeAndRun(context, onJoinByCode)),
         _MenuTile(icon: Icons.qr_code_scanner_rounded, title: text.isKy ? 'QR код сканерлөө' : 'Сканировать QR код', onTap: () => _closeAndRun(context, onScanQr)),
-        _MenuTile(icon: Icons.mark_email_unread_outlined, title: text.invitations, onTap: () => _closeAndRun(context, onInvitations)),
+        _MenuTile(icon: Icons.mark_email_unread_outlined, title: text.invitations, badge: invitationsCount, onTap: () => _closeAndRun(context, onInvitations)),
         _MenuTile(icon: Icons.assignment_outlined, title: isAdmin ? text.myRequests : text.requestGroup, onTap: () => _closeAndRun(context, onMyRequests)),
         if (isAdmin) _MenuTile(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, badge: adminRequestsCount, onTap: () => _closeAndRun(context, onAdminRequests)),
         const SizedBox(height: 8),
