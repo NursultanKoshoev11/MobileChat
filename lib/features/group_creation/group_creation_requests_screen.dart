@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -245,7 +246,7 @@ class _DocumentsPreview extends StatelessWidget {
           ...documents.files.map((file) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(children: [
-                  const Icon(Icons.attach_file_rounded, size: 18, color: MobileChatTheme.primaryDark),
+                  Icon(file.isImage ? Icons.image_outlined : Icons.attach_file_rounded, size: 18, color: MobileChatTheme.primaryDark),
                   const SizedBox(width: 6),
                   Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700))),
                 ]),
@@ -362,6 +363,35 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
     }
   }
 
+  Future<void> pickGalleryPhotos() async {
+    if (attachments.length >= maxFiles) {
+      setState(() => error = AppLanguageScope.textOf(context).isKy ? '3 файлдан көп кошууга болбойт.' : 'Можно добавить максимум 3 файла.');
+      return;
+    }
+    try {
+      final picker = ImagePicker();
+      final images = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1600);
+      if (images.isEmpty) return;
+      final next = <GroupRequestAttachment>[];
+      for (final image in images) {
+        final bytes = await image.readAsBytes();
+        if (bytes.length > maxFileBytes) {
+          setState(() => error = '${image.name}: ${AppLanguageScope.textOf(context).isKy ? 'сүрөт 3 МБдан чоң.' : 'фото больше 3 МБ.'}');
+          continue;
+        }
+        next.add(GroupRequestAttachment(name: image.name, sizeBytes: bytes.length, base64Data: base64Encode(bytes), kind: 'image'));
+      }
+      if (next.isEmpty) return;
+      setState(() {
+        error = null;
+        final available = maxFiles - attachments.length;
+        attachments.addAll(next.take(available));
+      });
+    } catch (e) {
+      setState(() => error = e.toString());
+    }
+  }
+
   Future<void> submit() async {
     setState(() {
       loading = true;
@@ -419,6 +449,8 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
           _field(description, text.description, lines: 2),
           _field(reason, text.isKy ? 'Себеби' : 'Причина', lines: 3),
           _field(documentNote, text.isKy ? 'Документтер боюнча комментарий' : 'Комментарий к документам', lines: 3),
+          OutlinedButton.icon(onPressed: loading ? null : pickGalleryPhotos, icon: const Icon(Icons.photo_library_outlined), label: Text(text.isKy ? 'Галереядан сүрөт кошуу' : 'Добавить фото из галереи')),
+          const SizedBox(height: 8),
           OutlinedButton.icon(onPressed: loading ? null : pickFiles, icon: const Icon(Icons.attach_file_rounded), label: Text(text.isKy ? 'Файл / документ кошуу' : 'Добавить файл / документ')),
           const SizedBox(height: 8),
           Text(text.isKy ? 'PDF, DOC, DOCX, JPG, PNG. Максимум 3 файл, ар бири 3 МБга чейин.' : 'PDF, DOC, DOCX, JPG, PNG. Максимум 3 файла, каждый до 3 МБ.', style: TextStyle(color: context.appColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -456,7 +488,7 @@ class _AttachmentTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(14), border: Border.all(color: colors.border)),
       child: Row(children: [
-        const Icon(Icons.description_outlined, color: MobileChatTheme.primaryDark),
+        Icon(file.isImage ? Icons.image_outlined : Icons.description_outlined, color: MobileChatTheme.primaryDark),
         const SizedBox(width: 10),
         Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800))),
         IconButton(onPressed: onRemove, icon: const Icon(Icons.close_rounded)),
@@ -500,16 +532,19 @@ class GroupRequestDocuments {
 }
 
 class GroupRequestAttachment {
-  const GroupRequestAttachment({required this.name, required this.sizeBytes, required this.base64Data});
+  const GroupRequestAttachment({required this.name, required this.sizeBytes, required this.base64Data, this.kind = 'file'});
 
   final String name;
   final int sizeBytes;
   final String base64Data;
+  final String kind;
+  bool get isImage => kind == 'image' || name.toLowerCase().endsWith('.jpg') || name.toLowerCase().endsWith('.jpeg') || name.toLowerCase().endsWith('.png');
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'size_bytes': sizeBytes,
         'base64': base64Data,
+        'kind': kind,
       };
 
   factory GroupRequestAttachment.fromJson(Map<String, dynamic> json) {
@@ -517,6 +552,7 @@ class GroupRequestAttachment {
       name: json['name'] as String? ?? 'document',
       sizeBytes: json['size_bytes'] as int? ?? 0,
       base64Data: json['base64'] as String? ?? '',
+      kind: json['kind'] as String? ?? 'file',
     );
   }
 }
