@@ -39,6 +39,19 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
+
+        ndk {
+            // Exclude x86/x86_64 from distributable APKs because some emulator-only native
+            // libraries are not 16 KB page-size compatible on Android 15+ compatibility checks.
+            // Physical Android phones are normally arm64-v8a, with armeabi-v7a kept for older devices.
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging false
+        }
     }
 
     signingConfigs {
