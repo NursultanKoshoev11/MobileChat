@@ -88,24 +88,33 @@ jobs:
           esac
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      - name: Build ARM64 debug APK
         run: |
           echo "Building APK with API_BASE_URL=$API_BASE_URL"
-          flutter build apk --debug -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build apk --debug --target-platform android-arm64 -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Verify APK does not contain x86 native libraries
+        run: |
+          APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+          unzip -l "$APK_PATH" | tee apk-contents.txt
+          if grep -E "lib/(x86|x86_64)/" apk-contents.txt; then
+            echo "APK still contains x86/x86_64 native libraries"
+            exit 1
+          fi
 
       - name: Prepare APK artifact
         run: |
           mkdir -p build-artifacts
-          cp build/app/outputs/flutter-apk/app-debug.apk build-artifacts/MobileChat-debug.apk
-          sha256sum build-artifacts/MobileChat-debug.apk > build-artifacts/MobileChat-debug.sha256.txt
+          cp build/app/outputs/flutter-apk/app-debug.apk build-artifacts/MobileChat-debug-arm64.apk
+          sha256sum build-artifacts/MobileChat-debug-arm64.apk > build-artifacts/MobileChat-debug-arm64.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-debug-apk
+          name: MobileChat-debug-arm64-apk
           path: |
-            build-artifacts/MobileChat-debug.apk
-            build-artifacts/MobileChat-debug.sha256.txt
+            build-artifacts/MobileChat-debug-arm64.apk
+            build-artifacts/MobileChat-debug-arm64.sha256.txt
           if-no-files-found: error
           retention-days: 14
