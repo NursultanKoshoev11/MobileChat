@@ -10,6 +10,7 @@ import '../group_creation/admin_group_creation_requests_screen.dart';
 import '../group_creation/group_creation_requests_screen.dart';
 import '../invitations/invitations_screen.dart';
 import '../public_requests/public_requests_screen.dart';
+import 'group_qr_scan_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key, required this.api, required this.session, required this.onLogout});
@@ -95,6 +96,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  Future<void> scanGroupQr() async {
+    final inviteCode = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
+    if (inviteCode == null || inviteCode.trim().isEmpty) return;
+
+    try {
+      final group = await widget.api.joinByInviteCode(inviteCode.trim());
+      await refresh();
+      if (mounted) openGroup(group);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   Future<void> openInvitations() async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)));
     await refresh();
@@ -115,6 +130,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         isAdmin: isAdmin,
         adminRequestsCount: count,
         onJoinByCode: joinByCode,
+        onScanQr: scanGroupQr,
         onInvitations: openInvitations,
         onMyRequests: openGroupRequests,
         onAdminRequests: openAdminRequests,
@@ -167,6 +183,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
     required this.isAdmin,
     required this.adminRequestsCount,
     required this.onJoinByCode,
+    required this.onScanQr,
     required this.onInvitations,
     required this.onMyRequests,
     required this.onAdminRequests,
@@ -176,6 +193,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
   final bool isAdmin;
   final int adminRequestsCount;
   final VoidCallback onJoinByCode;
+  final VoidCallback onScanQr;
   final VoidCallback onInvitations;
   final VoidCallback onMyRequests;
   final VoidCallback onAdminRequests;
@@ -190,6 +208,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
         Text(text.isKy ? 'Меню' : 'Меню', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
         const SizedBox(height: 12),
         _MenuTile(icon: Icons.key_rounded, title: text.joinByCode, onTap: () => _closeAndRun(context, onJoinByCode)),
+        _MenuTile(icon: Icons.qr_code_scanner_rounded, title: text.isKy ? 'QR код сканерлөө' : 'Сканировать QR код', onTap: () => _closeAndRun(context, onScanQr)),
         _MenuTile(icon: Icons.mark_email_unread_outlined, title: text.invitations, onTap: () => _closeAndRun(context, onInvitations)),
         _MenuTile(icon: Icons.assignment_outlined, title: isAdmin ? text.myRequests : text.requestGroup, onTap: () => _closeAndRun(context, onMyRequests)),
         if (isAdmin) _MenuTile(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, badge: adminRequestsCount, onTap: () => _closeAndRun(context, onAdminRequests)),
