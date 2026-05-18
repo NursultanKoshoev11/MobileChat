@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
+import 'group_statistics.dart';
 import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
@@ -30,6 +31,17 @@ class PublicRequestsApi {
     if (mineOnly) query['mine'] = 'true';
     final response = await _send('GET', '/api/groups/$groupId/requests', query: query);
     return (response as List<dynamic>).map((item) => PublicRequest.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<GroupStatistics> fetchStatistics(String groupId, {String period = 'month', String granularity = 'day', DateTime? from, DateTime? to}) async {
+    final query = <String, String>{
+      'period': period,
+      'granularity': granularity,
+    };
+    if (from != null) query['from'] = from.toUtc().toIso8601String();
+    if (to != null) query['to'] = to.toUtc().toIso8601String();
+    final response = await _send('GET', '/api/groups/$groupId/statistics', query: query);
+    return GroupStatistics.fromJson(response as Map<String, dynamic>);
   }
 
   Future<void> support(String requestId) async {
