@@ -9,6 +9,7 @@ import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/ui_helpers.dart';
+import '../statistics/group_statistics_screen.dart';
 
 class PublicRequestsScreen extends StatefulWidget {
   const PublicRequestsScreen({super.key, required this.api, required this.user, required this.group});
@@ -46,6 +47,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       requestsFuture = next;
     });
     await next;
+  }
+
+  Future<void> openStatistics() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GroupStatisticsScreen(api: requestsApi, group: widget.group)));
+    await refresh();
   }
 
   Future<void> createRequest() async {
@@ -144,6 +150,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
+          IconButton(
+            onPressed: openStatistics,
+            tooltip: text.isKy ? 'Статистика' : 'Статистика',
+            icon: const Icon(Icons.analytics_outlined),
+          ),
           IconButton(
             onPressed: showGroupAccess,
             tooltip: text.isKy ? 'Код жана QR' : 'Код и QR',
