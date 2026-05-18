@@ -20,7 +20,7 @@ class MobileChatApp extends StatefulWidget {
 class _MobileChatAppState extends State<MobileChatApp> {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://acrobat-democrats-wendy-interact.trycloudflare.com',
+    defaultValue: 'https://advice-cat-coordinate-category.trycloudflare.com',
   );
 
   final SessionStore sessionStore = const SessionStore();
