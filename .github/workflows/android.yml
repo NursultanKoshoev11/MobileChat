@@ -5,8 +5,8 @@ on:
     inputs:
       api_base_url:
         description: "Backend API base URL for the Android build."
-        required: false
-        default: "https://acrobat-democrats-wendy-interact.trycloudflare.com"
+        required: true
+        default: "https://api.example.com"
   push:
     branches:
       - main
@@ -69,11 +69,23 @@ jobs:
       - name: Run Flutter tests
         run: flutter test
 
+      - name: Validate API base URL
+        run: |
+          API_BASE_URL="${{ github.event.inputs.api_base_url }}"
+          if [ -z "$API_BASE_URL" ]; then
+            echo "api_base_url is required"
+            exit 1
+          fi
+          case "$API_BASE_URL" in
+            https://*) echo "API_BASE_URL is valid" ;;
+            *) echo "API_BASE_URL must start with https://" && exit 1 ;;
+          esac
+
       - name: Build debug APK
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://acrobat-democrats-wendy-interact.trycloudflare.com' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url }}"
           echo "Building APK with API_BASE_URL=$API_BASE_URL"
-          flutter build apk --debug -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build apk --debug -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
       - name: Prepare APK artifact
         run: |
