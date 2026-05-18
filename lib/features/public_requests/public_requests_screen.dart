@@ -97,17 +97,17 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await refresh();
   }
 
-  String get groupAccessCode {
-    final inviteCode = widget.group.inviteCode?.trim() ?? '';
-    if (inviteCode.isNotEmpty) return inviteCode;
-    return widget.group.id.trim();
-  }
+  String get groupAccessCode => (widget.group.inviteCode ?? '').trim().toUpperCase();
 
   Future<void> showGroupAccess() async {
     final code = groupAccessCode;
-    debugPrint('[QR] open requested group_id=${widget.group.id} invite_code=${widget.group.inviteCode ?? '<null>'} fallback_code=$code mounted=$mounted');
+    debugPrint('[QR] open requested group_id=${widget.group.id} invite_code=${widget.group.inviteCode ?? '<null>'} code=$code mounted=$mounted');
     if (!mounted) {
       debugPrint('[QR] open cancelled: widget is not mounted');
+      return;
+    }
+    if (code.isEmpty) {
+      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Топтун коду азырынча түзүлгөн эмес.' : 'Код группы ещё не создан.');
       return;
     }
     try {
