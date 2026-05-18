@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class PublicRequest {
   const PublicRequest({
     required this.id,
@@ -35,6 +37,8 @@ class PublicRequest {
 
   bool get supportedByMe => myVote == 'support';
   bool get opposedByMe => myVote == 'oppose';
+  PublicRequestContent get content => PublicRequestContent.tryParse(body);
+  String get displayBody => content.text.isNotEmpty || content.photos.isNotEmpty ? content.text : body;
 
   factory PublicRequest.fromJson(Map<String, dynamic> json) {
     return PublicRequest(
@@ -53,6 +57,62 @@ class PublicRequest {
       myVote: json['my_vote'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+}
+
+class PublicRequestContent {
+  const PublicRequestContent({required this.text, required this.photos});
+
+  final String text;
+  final List<PublicRequestPhoto> photos;
+
+  static const empty = PublicRequestContent(text: '', photos: []);
+
+  String toPayload() {
+    if (photos.isEmpty) return text.trim();
+    return jsonEncode({
+      'version': 1,
+      'text': text.trim(),
+      'photos': photos.map((photo) => photo.toJson()).toList(),
+    });
+  }
+
+  static PublicRequestContent tryParse(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || !raw.startsWith('{')) return PublicRequestContent(text: value, photos: const []);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return PublicRequestContent(text: value, photos: const []);
+      final photosRaw = decoded['photos'];
+      return PublicRequestContent(
+        text: decoded['text'] as String? ?? '',
+        photos: photosRaw is List ? photosRaw.whereType<Map<String, dynamic>>().map(PublicRequestPhoto.fromJson).toList() : const [],
+      );
+    } catch (_) {
+      return PublicRequestContent(text: value, photos: const []);
+    }
+  }
+}
+
+class PublicRequestPhoto {
+  const PublicRequestPhoto({required this.name, required this.sizeBytes, required this.base64Data});
+
+  final String name;
+  final int sizeBytes;
+  final String base64Data;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'size_bytes': sizeBytes,
+        'base64': base64Data,
+      };
+
+  factory PublicRequestPhoto.fromJson(Map<String, dynamic> json) {
+    return PublicRequestPhoto(
+      name: json['name'] as String? ?? 'photo.jpg',
+      sizeBytes: json['size_bytes'] as int? ?? 0,
+      base64Data: json['base64'] as String? ?? '',
     );
   }
 }
