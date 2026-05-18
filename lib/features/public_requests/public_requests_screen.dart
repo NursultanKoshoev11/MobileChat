@@ -87,10 +87,30 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     }
   }
 
+  Future<void> updateStatus(PublicRequest request, String status) async {
+    if (!canModerate) return;
+    try {
+      await requestsApi.updateStatus(requestId: request.id, status: status);
+      await refresh();
+      if (mounted) {
+        final isKy = AppLanguageScope.textOf(context).isKy;
+        showAppSnack(context, isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
+      }
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString());
+    }
+  }
+
   Future<void> openDetails(PublicRequest request) async {
     if (request.interactionMode != 'discussion') return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate, currentUserId: widget.user.id),
+      builder: (_) => PublicRequestDetailsScreen(
+        api: requestsApi,
+        request: request,
+        canModerate: canModerate,
+        currentUserId: widget.user.id,
+        onStatusChanged: canModerate ? (status) => updateStatus(request, status) : null,
+      ),
     ));
     await refresh();
   }
@@ -164,6 +184,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 final request = requests[index];
                 return PublicRequestCard(
                   request: request,
+                  canModerate: canModerate,
+                  onStatusChanged: canModerate ? (status) => updateStatus(request, status) : null,
                   onRead: () => openDetails(request),
                   onSupport: request.interactionMode == 'read_only' ? null : () => vote(request, 'support'),
                   onOppose: request.interactionMode == 'read_only' ? null : () => vote(request, 'oppose'),
@@ -267,12 +289,23 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
 }
 
 class PublicRequestCard extends StatelessWidget {
-  const PublicRequestCard({super.key, required this.request, required this.onRead, this.onSupport, this.onOppose, this.showReadAction = true});
+  const PublicRequestCard({
+    super.key,
+    required this.request,
+    required this.onRead,
+    this.onSupport,
+    this.onOppose,
+    this.showReadAction = true,
+    this.canModerate = false,
+    this.onStatusChanged,
+  });
   final PublicRequest request;
   final VoidCallback onRead;
   final VoidCallback? onSupport;
   final VoidCallback? onOppose;
   final bool showReadAction;
+  final bool canModerate;
+  final ValueChanged<String>? onStatusChanged;
 
   bool get canVote => request.interactionMode != 'read_only';
   bool get canOpenDetails => showReadAction && request.interactionMode == 'discussion';
@@ -293,7 +326,11 @@ class PublicRequestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [_ChipLabel(text: translatedRequestType(request.requestType, text)), _ChipLabel(text: modeLabel(request.interactionMode, text))]),
+              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                _ChipLabel(text: translatedRequestType(request.requestType, text)),
+                _ChipLabel(text: modeLabel(request.interactionMode, text)),
+                _StatusChip(status: request.status),
+              ]),
               const SizedBox(height: 10),
               Text(request.title, style: TextStyle(color: colors.textStrong, fontSize: 17, fontWeight: FontWeight.w800)),
               if (request.displayBody.isNotEmpty) ...[
@@ -309,6 +346,7 @@ class PublicRequestCard extends StatelessWidget {
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 if (canOpenDetails) FilledButton.tonal(onPressed: onRead, child: Text(text.read)),
+                if (canModerate && onStatusChanged != null) _StatusActionButton(request: request, onChanged: onStatusChanged!),
                 if (canVote) OutlinedButton.icon(onPressed: onSupport, icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${request.supportCount}')),
                 if (canVote) OutlinedButton.icon(onPressed: onOppose, icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${request.opposeCount}')),
                 if (request.interactionMode == 'discussion') Text('${request.commentCount} ${text.comments}', style: TextStyle(color: colors.textMuted)),
@@ -337,6 +375,78 @@ class PublicRequestCard extends StatelessWidget {
   }
 }
 
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = publicStatusLabel(context, status);
+    final color = publicStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
+      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12)),
+    );
+  }
+}
+
+class _StatusActionButton extends StatelessWidget {
+  const _StatusActionButton({required this.request, required this.onChanged});
+  final PublicRequest request;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isKy = AppLanguageScope.textOf(context).isKy;
+    return PopupMenuButton<String>(
+      onSelected: onChanged,
+      itemBuilder: (_) => [
+        PopupMenuItem(value: 'under_review', child: Text(isKy ? 'Процессте' : 'В процессе')),
+        PopupMenuItem(value: 'resolved', child: Text(isKy ? 'Аяктады' : 'Завершено')),
+        PopupMenuItem(value: 'new', child: Text(isKy ? 'Жаңы' : 'Новая')),
+        PopupMenuItem(value: 'rejected', child: Text(isKy ? 'Четке кагылды' : 'Отклонено')),
+      ],
+      child: OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.sync_alt_rounded),
+        label: Text(isKy ? 'Статус' : 'Статус'),
+      ),
+    );
+  }
+}
+
+String publicStatusLabel(BuildContext context, String status) {
+  final isKy = AppLanguageScope.textOf(context).isKy;
+  switch (status) {
+    case 'under_review':
+      return isKy ? 'Процессте' : 'В процессе';
+    case 'resolved':
+      return isKy ? 'Аяктады' : 'Завершено';
+    case 'accepted':
+      return isKy ? 'Кабыл алынды' : 'Принято';
+    case 'rejected':
+      return isKy ? 'Четке кагылды' : 'Отклонено';
+    default:
+      return isKy ? 'Жаңы' : 'Новая';
+  }
+}
+
+Color publicStatusColor(String status) {
+  switch (status) {
+    case 'under_review':
+      return Colors.orange;
+    case 'resolved':
+      return Colors.green;
+    case 'accepted':
+      return MobileChatTheme.primaryDark;
+    case 'rejected':
+      return Colors.redAccent;
+    default:
+      return Colors.blueGrey;
+  }
+}
+
 class _PostPhotosGrid extends StatelessWidget {
   const _PostPhotosGrid({required this.photos});
   final List<PublicRequestPhoto> photos;
@@ -350,10 +460,7 @@ class _PostPhotosGrid extends StatelessWidget {
       children: shown.map((photo) {
         try {
           final bytes = base64Decode(photo.base64Data);
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover, gaplessPlayback: true),
-          );
+          return ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover, gaplessPlayback: true));
         } catch (_) {
           return Container(width: 120, height: 120, alignment: Alignment.center, decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.broken_image_outlined));
         }
@@ -482,11 +589,12 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
 }
 
 class PublicRequestDetailsScreen extends StatefulWidget {
-  const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate, required this.currentUserId});
+  const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate, required this.currentUserId, this.onStatusChanged});
   final PublicRequestsApi api;
   final PublicRequest request;
   final bool canModerate;
   final String currentUserId;
+  final ValueChanged<String>? onStatusChanged;
   @override
   State<PublicRequestDetailsScreen> createState() => _PublicRequestDetailsScreenState();
 }
@@ -496,12 +604,13 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   late Future<List<PublicRequestComment>> commentsFuture;
   late int supportCount;
   late int opposeCount;
+  late String status;
   String? myVote;
   bool sending = false;
   bool get canComment => widget.request.interactionMode == 'discussion';
   bool get canVote => widget.request.interactionMode != 'read_only';
   @override
-  void initState() { super.initState(); supportCount = widget.request.supportCount; opposeCount = widget.request.opposeCount; myVote = widget.request.myVote; commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []); }
+  void initState() { super.initState(); supportCount = widget.request.supportCount; opposeCount = widget.request.opposeCount; status = widget.request.status; myVote = widget.request.myVote; commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []); }
   @override
   void dispose() { commentController.dispose(); super.dispose(); }
   Future<void> refresh() async { if (!canComment) return; final next = widget.api.listComments(widget.request.id); setState(() { commentsFuture = next; }); await next; }
@@ -518,18 +627,24 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
       }
     } catch (e) { if (mounted) showAppSnack(context, e.toString()); }
   }
+  Future<void> changeStatus(String nextStatus) async {
+    final callback = widget.onStatusChanged;
+    if (callback == null) return;
+    setState(() => status = nextStatus);
+    callback(nextStatus);
+  }
   Future<void> deleteComment(PublicRequestComment comment) async { try { await widget.api.deleteComment(comment.id); await refresh(); if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.'); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } }
   Future<void> sendComment() async { final body = commentController.text.trim(); if (body.isEmpty || sending || !canComment) return; setState(() => sending = true); try { await widget.api.addComment(requestId: widget.request.id, body: body); commentController.clear(); await refresh(); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } finally { if (mounted) setState(() => sending = false); } }
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final localRequest = PublicRequest(id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName, requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body, status: widget.request.status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount, commentCount: widget.request.commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt);
+    final localRequest = PublicRequest(id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName, requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body, status: status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount, commentCount: widget.request.commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt);
     return Scaffold(
       appBar: AppBar(title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: Column(children: [
         Expanded(child: RefreshIndicator(onRefresh: refresh, child: ListView(padding: const EdgeInsets.all(16), children: [
-          PublicRequestCard(request: localRequest, onRead: () {}, onSupport: canVote ? () => vote('support') : null, onOppose: canVote ? () => vote('oppose') : null, showReadAction: false),
+          PublicRequestCard(request: localRequest, onRead: () {}, onSupport: canVote ? () => vote('support') : null, onOppose: canVote ? () => vote('oppose') : null, showReadAction: false, canModerate: widget.canModerate, onStatusChanged: widget.canModerate ? changeStatus : null),
           const SizedBox(height: 12),
           if (widget.request.interactionMode == 'read_only') Text(text.readOnlyPost, style: TextStyle(color: context.appColors.textMuted))
           else if (widget.request.interactionMode == 'vote_only') Text(text.voteOnlyPost, style: TextStyle(color: context.appColors.textMuted))
