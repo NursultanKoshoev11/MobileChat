@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
@@ -87,12 +90,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> openDetails(PublicRequest request) async {
     if (request.interactionMode != 'discussion') return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PublicRequestDetailsScreen(
-        api: requestsApi,
-        request: request,
-        canModerate: canModerate,
-        currentUserId: widget.user.id,
-      ),
+      builder: (_) => PublicRequestDetailsScreen(api: requestsApi, request: request, canModerate: canModerate, currentUserId: widget.user.id),
     ));
     await refresh();
   }
@@ -101,35 +99,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> showGroupAccess() async {
     final code = groupAccessCode;
-    debugPrint('[QR] open requested group_id=${widget.group.id} invite_code=${widget.group.inviteCode ?? '<null>'} code=$code mounted=$mounted');
-    if (!mounted) {
-      debugPrint('[QR] open cancelled: widget is not mounted');
-      return;
-    }
+    if (!mounted) return;
     if (code.isEmpty) {
       showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Топтун коду азырынча түзүлгөн эмес.' : 'Код группы ещё не создан.');
       return;
     }
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: false,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.45),
-        builder: (_) {
-          debugPrint('[QR] bottom sheet builder called with code=$code');
-          return GroupAccessSheet(groupTitle: widget.group.title, code: code);
-        },
-      );
-      debugPrint('[QR] bottom sheet closed normally');
-    } catch (error, stackTrace) {
-      debugPrint('[QR] failed to open bottom sheet: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'QR терезеси ачылган жок.' : 'QR окно не открылось.');
-      }
-    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code),
+    );
   }
 
   Future<void> inviteByPhone() async {
@@ -150,25 +132,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
-          IconButton(
-            onPressed: openStatistics,
-            tooltip: text.isKy ? 'Статистика' : 'Статистика',
-            icon: const Icon(Icons.analytics_outlined),
-          ),
-          IconButton(
-            onPressed: showGroupAccess,
-            tooltip: text.isKy ? 'Код жана QR' : 'Код и QR',
-            icon: const Icon(Icons.qr_code_rounded),
-          ),
+          IconButton(onPressed: openStatistics, tooltip: text.isKy ? 'Статистика' : 'Статистика', icon: const Icon(Icons.analytics_outlined)),
+          IconButton(onPressed: showGroupAccess, tooltip: text.isKy ? 'Код жана QR' : 'Код и QR', icon: const Icon(Icons.qr_code_rounded)),
           if (canInvite) IconButton(onPressed: inviteByPhone, tooltip: text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', icon: const Icon(Icons.person_add_alt_1_rounded)),
           const AppSettingsButton(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: createRequest,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(text.newPost),
-      ),
+      floatingActionButton: FloatingActionButton.extended(onPressed: createRequest, icon: const Icon(Icons.add_rounded), label: Text(text.newPost)),
       body: RefreshIndicator(
         onRefresh: refresh,
         child: FutureBuilder<List<PublicRequest>>(
@@ -209,7 +179,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
 class GroupAccessSheet extends StatelessWidget {
   const GroupAccessSheet({super.key, required this.groupTitle, required this.code});
-
   final String groupTitle;
   final String code;
 
@@ -217,35 +186,23 @@ class GroupAccessSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
-    debugPrint('[QR] rendering sheet group=$groupTitle code=$code code_length=${code.length}');
     return SafeArea(
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: colors.border),
-          boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 24, offset: const Offset(0, 12))],
-        ),
+        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(28), border: Border.all(color: colors.border), boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 24, offset: const Offset(0, 12))]),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: colors.textMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)))),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(text.isKy ? 'Топко кирүү' : 'Вход в группу', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 22)),
-                  const SizedBox(height: 2),
-                  Text(groupTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
-                ]),
-              ),
-              IconButton.filledTonal(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-                tooltip: text.isKy ? 'Жабуу' : 'Закрыть',
-              ),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(text.isKy ? 'Топко кирүү' : 'Вход в группу', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 22)),
+                const SizedBox(height: 2),
+                Text(groupTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
+              ])),
+              IconButton.filledTonal(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded), tooltip: text.isKy ? 'Жабуу' : 'Закрыть'),
             ]),
             const SizedBox(height: 16),
             Container(
@@ -258,33 +215,9 @@ class GroupAccessSheet extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 16),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE5E7EB))),
-                child: QrImageView(
-                  data: code,
-                  version: QrVersions.auto,
-                  size: 210,
-                  backgroundColor: Colors.white,
-                  errorCorrectionLevel: QrErrorCorrectLevel.M,
-                  errorStateBuilder: (context, error) {
-                    debugPrint('[QR] render error: $error code=$code');
-                    return SizedBox(
-                      width: 210,
-                      height: 210,
-                      child: Center(child: Text(text.isKy ? 'QR түзүлгөн жок' : 'QR не создан', textAlign: TextAlign.center, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w800))),
-                    );
-                  },
-                ),
-              ),
-            ),
+            Center(child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE5E7EB))), child: QrImageView(data: code, version: QrVersions.auto, size: 210, backgroundColor: Colors.white, errorCorrectionLevel: QrErrorCorrectLevel.M))),
             const SizedBox(height: 12),
-            Text(
-              text.isKy ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз. Ал код менен топко кире алат.' : 'Передайте этот код или QR другому пользователю. Он сможет войти в группу по коду.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600),
-            ),
+            Text(text.isKy ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз. Ал код менен топко кире алат.' : 'Передайте этот код или QR другому пользователю. Он сможет войти в группу по коду.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600)),
           ]),
         ),
       ),
@@ -296,7 +229,6 @@ class InviteByPhoneSheet extends StatefulWidget {
   const InviteByPhoneSheet({super.key, required this.api, required this.group});
   final ApiClient api;
   final ChatGroup group;
-
   @override
   State<InviteByPhoneSheet> createState() => _InviteByPhoneSheetState();
 }
@@ -305,18 +237,10 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
   final phoneController = TextEditingController(text: '+996');
   bool loading = false;
   String? error;
-
   @override
-  void dispose() {
-    phoneController.dispose();
-    super.dispose();
-  }
-
+  void dispose() { phoneController.dispose(); super.dispose(); }
   Future<void> submit() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
+    setState(() { loading = true; error = null; });
     try {
       await widget.api.inviteUserByPhone(groupId: widget.group.id, mobile: phoneController.text);
       if (!mounted) return;
@@ -328,21 +252,17 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
       if (mounted) setState(() => loading = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded))),
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'))),
-      ]),
-    );
+    return Padding(padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 16),
+      TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded))),
+      if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
+      const SizedBox(height: 16),
+      FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'))),
+    ]));
   }
 }
 
@@ -361,6 +281,7 @@ class PublicRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final content = request.content;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -372,14 +293,17 @@ class PublicRequestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                _ChipLabel(text: translatedRequestType(request.requestType, text)),
-                _ChipLabel(text: modeLabel(request.interactionMode, text)),
-              ]),
+              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [_ChipLabel(text: translatedRequestType(request.requestType, text)), _ChipLabel(text: modeLabel(request.interactionMode, text))]),
               const SizedBox(height: 10),
               Text(request.title, style: TextStyle(color: colors.textStrong, fontSize: 17, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              Text(request.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong)),
+              if (request.displayBody.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(request.displayBody, maxLines: showReadAction ? 3 : null, overflow: showReadAction ? TextOverflow.ellipsis : TextOverflow.visible, style: TextStyle(color: colors.textStrong)),
+              ],
+              if (content.photos.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _PostPhotosGrid(photos: content.photos),
+              ],
               const SizedBox(height: 10),
               Text('${text.isKy ? 'Жазган' : 'Автор'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
               const SizedBox(height: 12),
@@ -413,17 +337,37 @@ class PublicRequestCard extends StatelessWidget {
   }
 }
 
-class _ChipLabel extends StatelessWidget {
-  const _ChipLabel({required this.text});
-  final String text;
+class _PostPhotosGrid extends StatelessWidget {
+  const _PostPhotosGrid({required this.photos});
+  final List<PublicRequestPhoto> photos;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: context.appColors.chipBackground, borderRadius: BorderRadius.circular(999)),
-      child: Text(text, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
+    final shown = photos.take(4).toList();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: shown.map((photo) {
+        try {
+          final bytes = base64Decode(photo.base64Data);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover, gaplessPlayback: true),
+          );
+        } catch (_) {
+          return Container(width: 120, height: 120, alignment: Alignment.center, decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.broken_image_outlined));
+        }
+      }).toList(),
     );
+  }
+}
+
+class _ChipLabel extends StatelessWidget {
+  const _ChipLabel({required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) {
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: context.appColors.chipBackground, borderRadius: BorderRadius.circular(999)), child: Text(text, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)));
   }
 }
 
@@ -431,14 +375,16 @@ class CreatePublicRequestSheet extends StatefulWidget {
   const CreatePublicRequestSheet({super.key, required this.api, required this.group});
   final PublicRequestsApi api;
   final ChatGroup group;
-
   @override
   State<CreatePublicRequestSheet> createState() => _CreatePublicRequestSheetState();
 }
 
 class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
+  static const int maxPhotoBytes = 3 * 1024 * 1024;
+  static const int maxPhotos = 4;
   final titleController = TextEditingController();
   final bodyController = TextEditingController();
+  final List<PublicRequestPhoto> photos = [];
   String type = 'announcement';
   String interactionMode = 'read_only';
   bool loading = false;
@@ -447,10 +393,40 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   @override
   void dispose() { titleController.dispose(); bodyController.dispose(); super.dispose(); }
 
+  Future<void> pickGalleryPhotos() async {
+    if (photos.length >= maxPhotos) {
+      setState(() => error = AppLanguageScope.textOf(context).isKy ? '4 сүрөттөн көп кошууга болбойт.' : 'Можно добавить максимум 4 фото.');
+      return;
+    }
+    try {
+      final picker = ImagePicker();
+      final images = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1600);
+      if (images.isEmpty) return;
+      final next = <PublicRequestPhoto>[];
+      for (final image in images) {
+        final bytes = await image.readAsBytes();
+        if (bytes.length > maxPhotoBytes) {
+          setState(() => error = '${image.name}: ${AppLanguageScope.textOf(context).isKy ? 'сүрөт 3 МБдан чоң.' : 'фото больше 3 МБ.'}');
+          continue;
+        }
+        next.add(PublicRequestPhoto(name: image.name, sizeBytes: bytes.length, base64Data: base64Encode(bytes)));
+      }
+      if (next.isEmpty) return;
+      setState(() {
+        error = null;
+        final available = maxPhotos - photos.length;
+        photos.addAll(next.take(available));
+      });
+    } catch (e) {
+      setState(() => error = e.toString());
+    }
+  }
+
   Future<void> submit() async {
     setState(() { loading = true; error = null; });
     try {
-      await widget.api.createRequest(groupId: widget.group.id, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: bodyController.text.trim());
+      final content = PublicRequestContent(text: bodyController.text.trim(), photos: photos);
+      await widget.api.createRequest(groupId: widget.group.id, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: content.toPayload());
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -485,6 +461,18 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
         TextField(controller: titleController, decoration: InputDecoration(labelText: text.title)),
         const SizedBox(height: 12),
         TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(onPressed: loading ? null : pickGalleryPhotos, icon: const Icon(Icons.photo_library_outlined), label: Text(text.isKy ? 'Галереядан сүрөт кошуу' : 'Добавить фото из галереи')),
+        if (photos.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: photos.map((photo) {
+            final bytes = base64Decode(photo.base64Data);
+            return Stack(children: [
+              ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 92, height: 92, fit: BoxFit.cover)),
+              Positioned(right: 2, top: 2, child: IconButton.filledTonal(onPressed: loading ? null : () => setState(() => photos.remove(photo)), icon: const Icon(Icons.close_rounded, size: 18))),
+            ]);
+          }).toList()),
+        ],
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
         FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
@@ -499,7 +487,6 @@ class PublicRequestDetailsScreen extends StatefulWidget {
   final PublicRequest request;
   final bool canModerate;
   final String currentUserId;
-
   @override
   State<PublicRequestDetailsScreen> createState() => _PublicRequestDetailsScreenState();
 }
@@ -513,28 +500,11 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
   bool sending = false;
   bool get canComment => widget.request.interactionMode == 'discussion';
   bool get canVote => widget.request.interactionMode != 'read_only';
-
   @override
-  void initState() {
-    super.initState();
-    supportCount = widget.request.supportCount;
-    opposeCount = widget.request.opposeCount;
-    myVote = widget.request.myVote;
-    commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []);
-  }
-
+  void initState() { super.initState(); supportCount = widget.request.supportCount; opposeCount = widget.request.opposeCount; myVote = widget.request.myVote; commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []); }
   @override
   void dispose() { commentController.dispose(); super.dispose(); }
-
-  Future<void> refresh() async {
-    if (!canComment) return;
-    final next = widget.api.listComments(widget.request.id);
-    setState(() {
-      commentsFuture = next;
-    });
-    await next;
-  }
-
+  Future<void> refresh() async { if (!canComment) return; final next = widget.api.listComments(widget.request.id); setState(() { commentsFuture = next; }); await next; }
   Future<void> vote(String value) async {
     if (!canVote) return;
     try {
@@ -546,45 +516,15 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
         if (value == 'support') await widget.api.support(widget.request.id); else await widget.api.oppose(widget.request.id);
         setState(() { if (previousVote == 'support') supportCount--; if (previousVote == 'oppose') opposeCount--; if (value == 'support') supportCount++; if (value == 'oppose') opposeCount++; myVote = value; });
       }
-    } catch (e) {
-      if (mounted) showAppSnack(context, e.toString());
-    }
+    } catch (e) { if (mounted) showAppSnack(context, e.toString()); }
   }
-
-  Future<void> deleteComment(PublicRequestComment comment) async {
-    try {
-      await widget.api.deleteComment(comment.id);
-      await refresh();
-      if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.');
-    } catch (e) {
-      if (mounted) showAppSnack(context, e.toString());
-    }
-  }
-
-  Future<void> sendComment() async {
-    final body = commentController.text.trim();
-    if (body.isEmpty || sending || !canComment) return;
-    setState(() => sending = true);
-    try {
-      await widget.api.addComment(requestId: widget.request.id, body: body);
-      commentController.clear();
-      await refresh();
-    } catch (e) {
-      if (mounted) showAppSnack(context, e.toString());
-    } finally {
-      if (mounted) setState(() => sending = false);
-    }
-  }
+  Future<void> deleteComment(PublicRequestComment comment) async { try { await widget.api.deleteComment(comment.id); await refresh(); if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.'); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } }
+  Future<void> sendComment() async { final body = commentController.text.trim(); if (body.isEmpty || sending || !canComment) return; setState(() => sending = true); try { await widget.api.addComment(requestId: widget.request.id, body: body); commentController.clear(); await refresh(); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } finally { if (mounted) setState(() => sending = false); } }
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final localRequest = PublicRequest(
-      id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName,
-      requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body,
-      status: widget.request.status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount,
-      commentCount: widget.request.commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt,
-    );
+    final localRequest = PublicRequest(id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName, requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body, status: widget.request.status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount, commentCount: widget.request.commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt);
     return Scaffold(
       appBar: AppBar(title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: Column(children: [
@@ -621,31 +561,20 @@ class CommentBubble extends StatelessWidget {
   final bool mine;
   final bool canDelete;
   final VoidCallback onDelete;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final maxWidth = MediaQuery.of(context).size.width * 0.78;
     return Align(alignment: mine ? Alignment.centerRight : Alignment.centerLeft, child: Container(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: mine ? MobileChatTheme.mineBubble : colors.surface,
-        borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(mine ? 18 : 6), bottomRight: Radius.circular(mine ? 6 : 18)),
-        boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 12, offset: const Offset(0, 6))],
-      ),
+      constraints: BoxConstraints(maxWidth: maxWidth), margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(color: mine ? MobileChatTheme.mineBubble : colors.surface, borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(mine ? 18 : 6), bottomRight: Radius.circular(mine ? 6 : 18)), boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 12, offset: const Offset(0, 6))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!mine) Padding(padding: const EdgeInsets.only(bottom: 3), child: Text(comment.authorName, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12))),
-        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Flexible(child: Text(comment.body, style: TextStyle(color: mine ? MobileChatTheme.lightTextStrong : colors.textStrong))),
-          if (canDelete) ...[const SizedBox(width: 4), InkWell(onTap: onDelete, child: Icon(Icons.delete_outline_rounded, size: 18, color: colors.textMuted))],
-        ]),
+        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Flexible(child: Text(comment.body, style: TextStyle(color: mine ? MobileChatTheme.lightTextStrong : colors.textStrong))), if (canDelete) ...[const SizedBox(width: 4), InkWell(onTap: onDelete, child: Icon(Icons.delete_outline_rounded, size: 18, color: colors.textMuted))]]),
         const SizedBox(height: 4),
         Align(alignment: Alignment.centerRight, child: Text(compactCommentTime(comment.createdAt.toLocal()), style: TextStyle(color: mine ? MobileChatTheme.lightTextMuted : colors.textMuted, fontSize: 11))),
       ]),
     ));
   }
-
   String compactCommentTime(DateTime time) => '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 }
