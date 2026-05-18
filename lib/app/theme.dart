@@ -70,6 +70,8 @@ class MobileChatTheme {
     required Color textStrongColor,
     required Color textMutedColor,
   }) {
+    final iconButtonBackground = scheme.brightness == Brightness.dark ? darkSurfaceSoft : const Color(0xFFE0F2FE);
+    final iconButtonForeground = scheme.brightness == Brightness.dark ? darkTextStrong : primaryDark;
     return ThemeData(
       useMaterial3: true,
       brightness: scheme.brightness,
@@ -84,6 +86,14 @@ class MobileChatTheme {
         centerTitle: false,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: iconButtonForeground,
+          backgroundColor: iconButtonBackground,
+          disabledForegroundColor: textMutedColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
