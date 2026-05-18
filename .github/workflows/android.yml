@@ -88,14 +88,14 @@ jobs:
           esac
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
-      - name: Build ARM64 release APK
+      - name: Build ARM64 profile APK
         run: |
-          echo "Building release APK with API_BASE_URL=$API_BASE_URL"
-          flutter build apk --release --target-platform android-arm64 -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+          echo "Building profile APK with API_BASE_URL=$API_BASE_URL"
+          flutter build apk --profile --target-platform android-arm64 -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
       - name: Verify APK does not contain x86 native libraries
         run: |
-          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          APK_PATH="build/app/outputs/flutter-apk/app-profile.apk"
           unzip -l "$APK_PATH" | tee apk-contents.txt
           if grep -E "lib/(x86|x86_64)/" apk-contents.txt; then
             echo "APK still contains x86/x86_64 native libraries"
@@ -105,16 +105,16 @@ jobs:
       - name: Prepare APK artifact
         run: |
           mkdir -p build-artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk build-artifacts/MobileChat-release-arm64.apk
-          sha256sum build-artifacts/MobileChat-release-arm64.apk > build-artifacts/MobileChat-release-arm64.sha256.txt
+          cp build/app/outputs/flutter-apk/app-profile.apk build-artifacts/MobileChat-profile-arm64.apk
+          sha256sum build-artifacts/MobileChat-profile-arm64.apk > build-artifacts/MobileChat-profile-arm64.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-release-arm64-apk
+          name: MobileChat-profile-arm64-apk
           path: |
-            build-artifacts/MobileChat-release-arm64.apk
-            build-artifacts/MobileChat-release-arm64.sha256.txt
+            build-artifacts/MobileChat-profile-arm64.apk
+            build-artifacts/MobileChat-profile-arm64.sha256.txt
           if-no-files-found: error
           retention-days: 14
