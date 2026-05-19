@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
+import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../statistics/group_statistics_screen.dart';
 
@@ -26,7 +28,9 @@ class PublicRequestsScreen extends StatefulWidget {
 
 class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late final PublicRequestsApi requestsApi;
+  late final GroupRealtimeService realtime;
   late Future<List<PublicRequest>> requestsFuture;
+  Timer? _refreshDebounce;
 
   bool get canModerate => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
   bool get canInvite => widget.group.canInvite;
@@ -35,7 +39,29 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void initState() {
     super.initState();
     requestsApi = PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    realtime = GroupRealtimeService(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore, groupId: widget.group.id);
     requestsFuture = loadRequests();
+    realtime.connect(onEvent: _handleRealtimeEvent);
+  }
+
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    realtime.close();
+    super.dispose();
+  }
+
+  void _handleRealtimeEvent(GroupRealtimeEvent event) {
+    if (!mounted || event.groupId != widget.group.id) return;
+    if (!event.type.startsWith('public_request.')) return;
+    _scheduleRealtimeRefresh();
+  }
+
+  void _scheduleRealtimeRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) refresh(silent: true);
+    });
   }
 
   Future<List<PublicRequest>> loadRequests() async {
@@ -44,11 +70,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     return sorted;
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool silent = false}) async {
     final next = loadRequests();
-    setState(() {
-      requestsFuture = next;
-    });
+    if (mounted) setState(() => requestsFuture = next);
     await next;
   }
 
@@ -92,10 +116,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     try {
       await requestsApi.updateStatus(requestId: request.id, status: status);
       await refresh();
-      if (mounted) {
-        final isKy = AppLanguageScope.textOf(context).isKy;
-        showAppSnack(context, isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
-      }
+      if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
     } catch (e) {
       if (mounted) showAppSnack(context, e.toString());
     }
@@ -119,7 +140,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> showGroupAccess() async {
     final code = groupAccessCode;
-    if (!mounted) return;
     if (code.isEmpty) {
       showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Топтун коду азырынча түзүлгөн эмес.' : 'Код группы ещё не создан.');
       return;
@@ -127,7 +147,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: false,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code),
@@ -167,16 +186,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
             final requests = snapshot.data ?? const [];
-            if (requests.isEmpty) {
-              return ListView(padding: const EdgeInsets.all(24), children: [
-                const SizedBox(height: 120),
-                const Icon(Icons.feed_outlined, size: 72, color: MobileChatTheme.primary),
-                const SizedBox(height: 16),
-                Text(text.noPostsYet, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text(text.postsDescription, textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
-              ]);
-            }
+            if (requests.isEmpty) return EmptyPostsView(onCreate: createRequest);
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
               itemCount: requests.length,
@@ -196,6 +206,26 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         ),
       ),
     );
+  }
+}
+
+class EmptyPostsView extends StatelessWidget {
+  const EmptyPostsView({super.key, required this.onCreate});
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    return ListView(padding: const EdgeInsets.all(24), children: [
+      const SizedBox(height: 120),
+      const Icon(Icons.feed_outlined, size: 72, color: MobileChatTheme.primary),
+      const SizedBox(height: 16),
+      Text(text.noPostsYet, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      Text(text.postsDescription, textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
+      const SizedBox(height: 18),
+      Center(child: FilledButton.icon(onPressed: onCreate, icon: const Icon(Icons.add_rounded), label: Text(text.newPost))),
+    ]);
   }
 }
 
@@ -224,7 +254,7 @@ class GroupAccessSheet extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(groupTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
               ])),
-              IconButton.filledTonal(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded), tooltip: text.isKy ? 'Жабуу' : 'Закрыть'),
+              IconButton.filledTonal(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
             ]),
             const SizedBox(height: 16),
             Container(
@@ -326,21 +356,11 @@ class PublicRequestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                _ChipLabel(text: translatedRequestType(request.requestType, text)),
-                _ChipLabel(text: modeLabel(request.interactionMode, text)),
-                _StatusChip(status: request.status),
-              ]),
+              Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [_ChipLabel(text: translatedRequestType(request.requestType, text)), _ChipLabel(text: modeLabel(request.interactionMode, text)), _StatusChip(status: request.status)]),
               const SizedBox(height: 10),
               Text(request.title, style: TextStyle(color: colors.textStrong, fontSize: 17, fontWeight: FontWeight.w800)),
-              if (request.displayBody.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(request.displayBody, maxLines: showReadAction ? 3 : null, overflow: showReadAction ? TextOverflow.ellipsis : TextOverflow.visible, style: TextStyle(color: colors.textStrong)),
-              ],
-              if (content.photos.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _PostPhotosGrid(photos: content.photos),
-              ],
+              if (request.displayBody.isNotEmpty) ...[const SizedBox(height: 6), Text(request.displayBody, maxLines: showReadAction ? 3 : null, overflow: showReadAction ? TextOverflow.ellipsis : TextOverflow.visible, style: TextStyle(color: colors.textStrong))],
+              if (content.photos.isNotEmpty) ...[const SizedBox(height: 10), _PostPhotosGrid(photos: content.photos)],
               const SizedBox(height: 10),
               Text('${text.isKy ? 'Жазган' : 'Автор'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
               const SizedBox(height: 12),
@@ -378,16 +398,11 @@ class PublicRequestCard extends StatelessWidget {
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
   final String status;
-
   @override
   Widget build(BuildContext context) {
     final label = publicStatusLabel(context, status);
     final color = publicStatusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12)),
-    );
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)), child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12)));
   }
 }
 
@@ -395,7 +410,6 @@ class _StatusActionButton extends StatelessWidget {
   const _StatusActionButton({required this.request, required this.onChanged});
   final PublicRequest request;
   final ValueChanged<String> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
@@ -407,11 +421,7 @@ class _StatusActionButton extends StatelessWidget {
         PopupMenuItem(value: 'new', child: Text(isKy ? 'Жаңы' : 'Новая')),
         PopupMenuItem(value: 'rejected', child: Text(isKy ? 'Четке кагылды' : 'Отклонено')),
       ],
-      child: OutlinedButton.icon(
-        onPressed: null,
-        icon: const Icon(Icons.sync_alt_rounded),
-        label: Text(isKy ? 'Статус' : 'Статус'),
-      ),
+      child: OutlinedButton.icon(onPressed: null, icon: const Icon(Icons.sync_alt_rounded), label: Text(isKy ? 'Статус' : 'Статус')),
     );
   }
 }
@@ -419,53 +429,37 @@ class _StatusActionButton extends StatelessWidget {
 String publicStatusLabel(BuildContext context, String status) {
   final isKy = AppLanguageScope.textOf(context).isKy;
   switch (status) {
-    case 'under_review':
-      return isKy ? 'Процессте' : 'В процессе';
-    case 'resolved':
-      return isKy ? 'Аяктады' : 'Завершено';
-    case 'accepted':
-      return isKy ? 'Кабыл алынды' : 'Принято';
-    case 'rejected':
-      return isKy ? 'Четке кагылды' : 'Отклонено';
-    default:
-      return isKy ? 'Жаңы' : 'Новая';
+    case 'under_review': return isKy ? 'Процессте' : 'В процессе';
+    case 'resolved': return isKy ? 'Аяктады' : 'Завершено';
+    case 'accepted': return isKy ? 'Кабыл алынды' : 'Принято';
+    case 'rejected': return isKy ? 'Четке кагылды' : 'Отклонено';
+    default: return isKy ? 'Жаңы' : 'Новая';
   }
 }
 
 Color publicStatusColor(String status) {
   switch (status) {
-    case 'under_review':
-      return Colors.orange;
-    case 'resolved':
-      return Colors.green;
-    case 'accepted':
-      return MobileChatTheme.primaryDark;
-    case 'rejected':
-      return Colors.redAccent;
-    default:
-      return Colors.blueGrey;
+    case 'under_review': return Colors.orange;
+    case 'resolved': return Colors.green;
+    case 'accepted': return MobileChatTheme.primaryDark;
+    case 'rejected': return Colors.redAccent;
+    default: return Colors.blueGrey;
   }
 }
 
 class _PostPhotosGrid extends StatelessWidget {
   const _PostPhotosGrid({required this.photos});
   final List<PublicRequestPhoto> photos;
-
   @override
   Widget build(BuildContext context) {
-    final shown = photos.take(4).toList();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: shown.map((photo) {
-        try {
-          final bytes = base64Decode(photo.base64Data);
-          return ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover, gaplessPlayback: true));
-        } catch (_) {
-          return Container(width: 120, height: 120, alignment: Alignment.center, decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.broken_image_outlined));
-        }
-      }).toList(),
-    );
+    return Wrap(spacing: 8, runSpacing: 8, children: photos.take(4).map((photo) {
+      try {
+        final bytes = base64Decode(photo.base64Data);
+        return ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 120, height: 120, fit: BoxFit.cover, gaplessPlayback: true));
+      } catch (_) {
+        return Container(width: 120, height: 120, alignment: Alignment.center, decoration: BoxDecoration(color: context.appColors.surfaceSoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.broken_image_outlined));
+      }
+    }).toList());
   }
 }
 
@@ -496,95 +490,51 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   String interactionMode = 'read_only';
   bool loading = false;
   String? error;
-
   @override
   void dispose() { titleController.dispose(); bodyController.dispose(); super.dispose(); }
-
   Future<void> pickGalleryPhotos() async {
-    if (photos.length >= maxPhotos) {
-      setState(() => error = AppLanguageScope.textOf(context).isKy ? '4 сүрөттөн көп кошууга болбойт.' : 'Можно добавить максимум 4 фото.');
-      return;
-    }
+    if (photos.length >= maxPhotos) { setState(() => error = AppLanguageScope.textOf(context).isKy ? '4 сүрөттөн көп кошууга болбойт.' : 'Можно добавить максимум 4 фото.'); return; }
     try {
-      final picker = ImagePicker();
-      final images = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1600);
+      final images = await ImagePicker().pickMultiImage(imageQuality: 80, maxWidth: 1600);
       if (images.isEmpty) return;
       final next = <PublicRequestPhoto>[];
       for (final image in images) {
         final bytes = await image.readAsBytes();
-        if (bytes.length > maxPhotoBytes) {
-          setState(() => error = '${image.name}: ${AppLanguageScope.textOf(context).isKy ? 'сүрөт 3 МБдан чоң.' : 'фото больше 3 МБ.'}');
-          continue;
-        }
+        if (bytes.length > maxPhotoBytes) { setState(() => error = '${image.name}: ${AppLanguageScope.textOf(context).isKy ? 'сүрөт 3 МБдан чоң.' : 'фото больше 3 МБ.'}'); continue; }
         next.add(PublicRequestPhoto(name: image.name, sizeBytes: bytes.length, base64Data: base64Encode(bytes)));
       }
       if (next.isEmpty) return;
-      setState(() {
-        error = null;
-        final available = maxPhotos - photos.length;
-        photos.addAll(next.take(available));
-      });
-    } catch (e) {
-      setState(() => error = e.toString());
-    }
+      setState(() { error = null; photos.addAll(next.take(maxPhotos - photos.length)); });
+    } catch (e) { setState(() => error = e.toString()); }
   }
-
   Future<void> submit() async {
     setState(() { loading = true; error = null; });
     try {
       final content = PublicRequestContent(text: bodyController.text.trim(), photos: photos);
       await widget.api.createRequest(groupId: widget.group.id, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: content.toPayload());
       if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) setState(() => error = e.toString());
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+    } catch (e) { if (mounted) setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
   }
-
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.newPost, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(value: type, decoration: InputDecoration(labelText: text.postType), items: [
-          DropdownMenuItem(value: 'announcement', child: Text(text.announcement)),
-          DropdownMenuItem(value: 'suggestion', child: Text(text.suggestion)),
-          DropdownMenuItem(value: 'complaint', child: Text(text.complaint)),
-          DropdownMenuItem(value: 'requirement', child: Text(text.requirement)),
-          DropdownMenuItem(value: 'problem', child: Text(text.problem)),
-          DropdownMenuItem(value: 'idea', child: Text(text.idea)),
-        ], onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement')),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: interactionMode, decoration: InputDecoration(labelText: text.interactionMode), items: [
-          DropdownMenuItem(value: 'read_only', child: Text(text.textOnly)),
-          DropdownMenuItem(value: 'vote_only', child: Text(text.votingOnly)),
-          DropdownMenuItem(value: 'discussion', child: Text(text.discussionWithComments)),
-        ], onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only')),
-        const SizedBox(height: 12),
-        TextField(controller: titleController, decoration: InputDecoration(labelText: text.title)),
-        const SizedBox(height: 12),
-        TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(onPressed: loading ? null : pickGalleryPhotos, icon: const Icon(Icons.photo_library_outlined), label: Text(text.isKy ? 'Галереядан сүрөт кошуу' : 'Добавить фото из галереи')),
-        if (photos.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(spacing: 8, runSpacing: 8, children: photos.map((photo) {
-            final bytes = base64Decode(photo.base64Data);
-            return Stack(children: [
-              ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 92, height: 92, fit: BoxFit.cover)),
-              Positioned(right: 2, top: 2, child: IconButton.filledTonal(onPressed: loading ? null : () => setState(() => photos.remove(photo)), icon: const Icon(Icons.close_rounded, size: 18))),
-            ]);
-          }).toList()),
-        ],
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
-      ])),
-    );
+    return Padding(padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22), child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(text.newPost, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 16),
+      DropdownButtonFormField<String>(value: type, decoration: InputDecoration(labelText: text.postType), items: [DropdownMenuItem(value: 'announcement', child: Text(text.announcement)), DropdownMenuItem(value: 'suggestion', child: Text(text.suggestion)), DropdownMenuItem(value: 'complaint', child: Text(text.complaint)), DropdownMenuItem(value: 'requirement', child: Text(text.requirement)), DropdownMenuItem(value: 'problem', child: Text(text.problem)), DropdownMenuItem(value: 'idea', child: Text(text.idea))], onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement')),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(value: interactionMode, decoration: InputDecoration(labelText: text.interactionMode), items: [DropdownMenuItem(value: 'read_only', child: Text(text.textOnly)), DropdownMenuItem(value: 'vote_only', child: Text(text.votingOnly)), DropdownMenuItem(value: 'discussion', child: Text(text.discussionWithComments))], onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only')),
+      const SizedBox(height: 12),
+      TextField(controller: titleController, decoration: InputDecoration(labelText: text.title)),
+      const SizedBox(height: 12),
+      TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(onPressed: loading ? null : pickGalleryPhotos, icon: const Icon(Icons.photo_library_outlined), label: Text(text.isKy ? 'Галереядан сүрөт кошуу' : 'Добавить фото из галереи')),
+      if (photos.isNotEmpty) ...[const SizedBox(height: 10), Wrap(spacing: 8, runSpacing: 8, children: photos.map((photo) { final bytes = base64Decode(photo.base64Data); return Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.memory(bytes, width: 92, height: 92, fit: BoxFit.cover)), Positioned(right: 2, top: 2, child: IconButton.filledTonal(onPressed: loading ? null : () => setState(() => photos.remove(photo)), icon: const Icon(Icons.close_rounded, size: 18))) ]); }).toList())],
+      if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
+      const SizedBox(height: 16),
+      FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
+    ])));
   }
 }
 
@@ -601,45 +551,81 @@ class PublicRequestDetailsScreen extends StatefulWidget {
 
 class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen> {
   final commentController = TextEditingController();
+  late final GroupRealtimeService realtime;
   late Future<List<PublicRequestComment>> commentsFuture;
   late int supportCount;
   late int opposeCount;
   late String status;
+  late int commentCount;
   String? myVote;
   bool sending = false;
+  Timer? _refreshDebounce;
   bool get canComment => widget.request.interactionMode == 'discussion';
   bool get canVote => widget.request.interactionMode != 'read_only';
+
   @override
-  void initState() { super.initState(); supportCount = widget.request.supportCount; opposeCount = widget.request.opposeCount; status = widget.request.status; myVote = widget.request.myVote; commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []); }
+  void initState() {
+    super.initState();
+    supportCount = widget.request.supportCount;
+    opposeCount = widget.request.opposeCount;
+    commentCount = widget.request.commentCount;
+    status = widget.request.status;
+    myVote = widget.request.myVote;
+    commentsFuture = canComment ? widget.api.listComments(widget.request.id) : Future.value(const []);
+    realtime = GroupRealtimeService(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore, groupId: widget.request.groupId);
+    realtime.connect(onEvent: _handleRealtimeEvent);
+  }
+
   @override
-  void dispose() { commentController.dispose(); super.dispose(); }
-  Future<void> refresh() async { if (!canComment) return; final next = widget.api.listComments(widget.request.id); setState(() { commentsFuture = next; }); await next; }
+  void dispose() { _refreshDebounce?.cancel(); realtime.close(); commentController.dispose(); super.dispose(); }
+
+  void _handleRealtimeEvent(GroupRealtimeEvent event) {
+    if (!mounted || event.groupId != widget.request.groupId || !event.type.startsWith('public_request.')) return;
+    final eventRequestId = event.requestId;
+    if (eventRequestId.isNotEmpty && eventRequestId != widget.request.id) return;
+    if (event.type == 'public_request.comment_created') commentCount++;
+    _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted) return;
+      await refreshComments();
+      await refreshRequestState();
+    });
+  }
+
+  Future<void> refreshComments() async {
+    if (!canComment) return;
+    final next = widget.api.listComments(widget.request.id);
+    if (mounted) setState(() => commentsFuture = next);
+    await next;
+  }
+
+  Future<void> refreshRequestState() async {
+    try {
+      final requests = await widget.api.listRequests(widget.request.groupId);
+      final updated = requests.where((item) => item.id == widget.request.id).firstOrNull;
+      if (updated == null || !mounted) return;
+      setState(() { supportCount = updated.supportCount; opposeCount = updated.opposeCount; commentCount = updated.commentCount; status = updated.status; myVote = updated.myVote; });
+    } catch (_) {}
+  }
+
+  Future<void> refresh() async { await refreshComments(); await refreshRequestState(); }
+
   Future<void> vote(String value) async {
     if (!canVote) return;
-    try {
-      final previousVote = myVote;
-      if (previousVote == value) {
-        await widget.api.clearVote(widget.request.id);
-        setState(() { if (value == 'support') supportCount--; if (value == 'oppose') opposeCount--; myVote = null; });
-      } else {
-        if (value == 'support') await widget.api.support(widget.request.id); else await widget.api.oppose(widget.request.id);
-        setState(() { if (previousVote == 'support') supportCount--; if (previousVote == 'oppose') opposeCount--; if (value == 'support') supportCount++; if (value == 'oppose') opposeCount++; myVote = value; });
-      }
-    } catch (e) { if (mounted) showAppSnack(context, e.toString()); }
+    try { if (myVote == value) await widget.api.clearVote(widget.request.id); else if (value == 'support') await widget.api.support(widget.request.id); else await widget.api.oppose(widget.request.id); await refreshRequestState(); } catch (e) { if (mounted) showAppSnack(context, e.toString()); }
   }
-  Future<void> changeStatus(String nextStatus) async {
-    final callback = widget.onStatusChanged;
-    if (callback == null) return;
-    setState(() => status = nextStatus);
-    callback(nextStatus);
-  }
+  Future<void> changeStatus(String nextStatus) async { final callback = widget.onStatusChanged; if (callback == null) return; setState(() => status = nextStatus); callback(nextStatus); }
   Future<void> deleteComment(PublicRequestComment comment) async { try { await widget.api.deleteComment(comment.id); await refresh(); if (mounted) showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.'); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } }
   Future<void> sendComment() async { final body = commentController.text.trim(); if (body.isEmpty || sending || !canComment) return; setState(() => sending = true); try { await widget.api.addComment(requestId: widget.request.id, body: body); commentController.clear(); await refresh(); } catch (e) { if (mounted) showAppSnack(context, e.toString()); } finally { if (mounted) setState(() => sending = false); } }
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final localRequest = PublicRequest(id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName, requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body, status: status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount, commentCount: widget.request.commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt);
+    final localRequest = PublicRequest(id: widget.request.id, groupId: widget.request.groupId, authorId: widget.request.authorId, authorName: widget.request.authorName, requestType: widget.request.requestType, interactionMode: widget.request.interactionMode, title: widget.request.title, body: widget.request.body, status: status, supportCount: supportCount < 0 ? 0 : supportCount, opposeCount: opposeCount < 0 ? 0 : opposeCount, commentCount: commentCount < 0 ? 0 : commentCount, myVote: myVote, createdAt: widget.request.createdAt, updatedAt: widget.request.updatedAt);
     return Scaffold(
       appBar: AppBar(title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: Column(children: [
@@ -648,23 +634,9 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
           const SizedBox(height: 12),
           if (widget.request.interactionMode == 'read_only') Text(text.readOnlyPost, style: TextStyle(color: context.appColors.textMuted))
           else if (widget.request.interactionMode == 'vote_only') Text(text.voteOnlyPost, style: TextStyle(color: context.appColors.textMuted))
-          else ...[
-            Text(text.comments, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            FutureBuilder<List<PublicRequestComment>>(future: commentsFuture, builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError) return ErrorBanner(message: snapshot.error.toString());
-              final comments = snapshot.data ?? const [];
-              if (comments.isEmpty) return Text(text.noCommentsYet, style: TextStyle(color: context.appColors.textMuted));
-              return Column(children: comments.map((comment) => CommentBubble(comment: comment, mine: comment.authorId == widget.currentUserId, canDelete: widget.canModerate, onDelete: () => deleteComment(comment))).toList());
-            }),
-          ],
+          else ...[Text(text.comments, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 8), FutureBuilder<List<PublicRequestComment>>(future: commentsFuture, builder: (context, snapshot) { if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator()); if (snapshot.hasError) return ErrorBanner(message: snapshot.error.toString()); final comments = snapshot.data ?? const []; if (comments.isEmpty) return Text(text.noCommentsYet, style: TextStyle(color: context.appColors.textMuted)); return Column(children: comments.map((comment) => CommentBubble(comment: comment, mine: comment.authorId == widget.currentUserId, canDelete: widget.canModerate, onDelete: () => deleteComment(comment))).toList()); })],
         ]))),
-        if (canComment) SafeArea(top: false, child: Container(padding: const EdgeInsets.all(10), color: context.appColors.surface, child: Row(children: [
-          Expanded(child: TextField(controller: commentController, decoration: InputDecoration(hintText: text.addComment))),
-          const SizedBox(width: 8),
-          IconButton.filled(onPressed: sending ? null : sendComment, icon: const Icon(Icons.send_rounded)),
-        ]))),
+        if (canComment) SafeArea(top: false, child: Container(padding: const EdgeInsets.all(10), color: context.appColors.surface, child: Row(children: [Expanded(child: TextField(controller: commentController, decoration: InputDecoration(hintText: text.addComment))), const SizedBox(width: 8), IconButton.filled(onPressed: sending ? null : sendComment, icon: const Icon(Icons.send_rounded))]))),
       ]),
     );
   }
@@ -683,12 +655,7 @@ class CommentBubble extends StatelessWidget {
     return Align(alignment: mine ? Alignment.centerRight : Alignment.centerLeft, child: Container(
       constraints: BoxConstraints(maxWidth: maxWidth), margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: mine ? MobileChatTheme.mineBubble : colors.surface, borderRadius: BorderRadius.only(topLeft: const Radius.circular(18), topRight: const Radius.circular(18), bottomLeft: Radius.circular(mine ? 18 : 6), bottomRight: Radius.circular(mine ? 6 : 18)), boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 12, offset: const Offset(0, 6))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (!mine) Padding(padding: const EdgeInsets.only(bottom: 3), child: Text(comment.authorName, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12))),
-        Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Flexible(child: Text(comment.body, style: TextStyle(color: mine ? MobileChatTheme.lightTextStrong : colors.textStrong))), if (canDelete) ...[const SizedBox(width: 4), InkWell(onTap: onDelete, child: Icon(Icons.delete_outline_rounded, size: 18, color: colors.textMuted))]]),
-        const SizedBox(height: 4),
-        Align(alignment: Alignment.centerRight, child: Text(compactCommentTime(comment.createdAt.toLocal()), style: TextStyle(color: mine ? MobileChatTheme.lightTextMuted : colors.textMuted, fontSize: 11))),
-      ]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (!mine) Padding(padding: const EdgeInsets.only(bottom: 3), child: Text(comment.authorName, style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12))), Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Flexible(child: Text(comment.body, style: TextStyle(color: mine ? MobileChatTheme.lightTextStrong : colors.textStrong))), if (canDelete) ...[const SizedBox(width: 4), InkWell(onTap: onDelete, child: Icon(Icons.delete_outline_rounded, size: 18, color: colors.textMuted))]]), const SizedBox(height: 4), Align(alignment: Alignment.centerRight, child: Text(compactCommentTime(comment.createdAt.toLocal()), style: TextStyle(color: mine ? MobileChatTheme.lightTextMuted : colors.textMuted, fontSize: 11))) ]),
     ));
   }
   String compactCommentTime(DateTime time) => '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
