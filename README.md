@@ -1,7 +1,7 @@
-# MobileChat
+# Koom
 
-Flutter Android chat app.
+Koom is a civic communication app for Android and iOS. It helps people connect with communities, organizations, and public institutions through official groups, public posts, requests, voting, comments, invitations, and QR-based group access.
 
-Latest mobile build includes Russian/Kyrgyz language switching, light/dark mode, group invite codes with QR, and publication UI updates.
+The current mobile build includes Russian/Kyrgyz language switching, light/dark mode, group invite codes with QR, public request publication tools, voting, comments, status updates, and photo attachments.
 
-Build trigger: 2026-05-15 latest APK rebuild.
+Previous project name: MobileChat.
