@@ -2,7 +2,7 @@ name: mobile_chat
 version: 0.5.0+5
 publish_to: none
 
-description: Flutter group post feed app for Android and iOS.
+description: Koom civic communication app for Android and iOS.
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
