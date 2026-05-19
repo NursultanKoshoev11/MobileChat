@@ -60,15 +60,19 @@ jobs:
             android/app/src/main/res/drawable/ic_launcher_foreground.xml \
             android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 
-      - name: Create Firebase Android config
+      - name: Verify Firebase Android config
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
-          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "GOOGLE_SERVICES_JSON_B64 secret is required for FCM push notifications."
+          if [ -s android/app/google-services.json ]; then
+            echo "Using committed android/app/google-services.json"
+          elif [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+            echo "Created android/app/google-services.json from GOOGLE_SERVICES_JSON_B64 secret"
+          else
+            echo "Firebase config is required for FCM push notifications. Add android/app/google-services.json or set GOOGLE_SERVICES_JSON_B64 secret."
             exit 1
           fi
-          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
           test -s android/app/google-services.json
 
       - name: Create Android local.properties
