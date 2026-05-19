@@ -7,20 +7,26 @@ import 'models.dart';
 import 'session_store.dart';
 
 class RealtimeEvent {
-  const RealtimeEvent({required this.type, required this.groupId, this.message});
+  const RealtimeEvent({required this.type, required this.groupId, required this.payload, this.message});
 
   final String type;
   final String groupId;
+  final Map<String, dynamic> payload;
   final ChatMessage? message;
 
+  String get requestId => payload['request_id'] as String? ?? '';
+
   factory RealtimeEvent.fromJson(Map<String, dynamic> json) {
+    final rawPayload = json['payload'];
+    final payload = rawPayload is Map<String, dynamic> ? rawPayload : <String, dynamic>{};
     ChatMessage? message;
-    if (json['type'] == 'message.created' && json['payload'] is Map<String, dynamic>) {
-      message = ChatMessage.fromJson(json['payload'] as Map<String, dynamic>);
+    if (json['type'] == 'message.created' && rawPayload is Map<String, dynamic>) {
+      message = ChatMessage.fromJson(rawPayload);
     }
     return RealtimeEvent(
       type: json['type'] as String? ?? 'unknown',
       groupId: json['group_id'] as String? ?? '',
+      payload: payload,
       message: message,
     );
   }
