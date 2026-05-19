@@ -6,6 +6,7 @@ import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
+import '../../data/public_requests_api.dart';
 import '../../shared/ui_helpers.dart';
 import '../group_creation/admin_group_creation_requests_screen.dart';
 import '../group_creation/group_creation_requests_screen.dart';
@@ -39,21 +40,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   Future<int> loadAdminRequestsCount() async {
     if (!isAdmin) return 0;
-    try {
-      final requests = await widget.api.fetchAdminGroupCreationRequests(status: 'pending');
-      return requests.length;
-    } catch (_) {
-      return 0;
-    }
+    try { return (await widget.api.fetchAdminGroupCreationRequests(status: 'pending')).length; } catch (_) { return 0; }
   }
 
   Future<int> loadInvitationsCount() async {
-    try {
-      final invitations = await widget.api.fetchInvitations();
-      return invitations.length;
-    } catch (_) {
-      return 0;
-    }
+    try { return (await widget.api.fetchInvitations()).length; } catch (_) { return 0; }
   }
 
   Future<void> refresh() async {
@@ -69,10 +60,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> createGroup() async {
-    if (!isAdmin) {
-      await openGroupRequests();
-      return;
-    }
+    if (!isAdmin) { await openGroupRequests(); return; }
     final group = await showModalBottomSheet<ChatGroup>(
       context: context,
       isScrollControlled: true,
@@ -80,10 +68,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => CreateGroupSheet(api: widget.api),
     );
-    if (group != null) {
-      await refresh();
-      if (mounted) openGroup(group);
-    }
+    if (group != null) { await refresh(); if (mounted) await openGroup(group); }
   }
 
   Future<void> openGroupRequests() async {
@@ -104,23 +89,18 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => JoinByCodeSheet(api: widget.api),
     );
-    if (group != null) {
-      await refresh();
-      if (mounted) openGroup(group);
-    }
+    if (group != null) { await refresh(); if (mounted) await openGroup(group); }
   }
 
   Future<void> scanGroupQr() async {
     final inviteCode = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
-
     try {
       final group = await widget.api.joinByInviteCode(formatGroupInviteCode(inviteCode));
       await refresh();
-      if (mounted) openGroup(group);
+      if (mounted) await openGroup(group);
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      if (mounted) showAppSnack(context, error.toString());
     }
   }
 
@@ -129,8 +109,36 @@ class _GroupsScreenState extends State<GroupsScreen> {
     await refresh();
   }
 
-  void openGroup(ChatGroup group) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));
+  Future<void> openGroup(ChatGroup group) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));
+    if (mounted) await refresh();
+  }
+
+  Future<void> leaveGroup(ChatGroup group) async {
+    final text = AppLanguageScope.textOf(context);
+    if (group.myRole == 'owner') {
+      showAppSnack(context, text.isKy ? 'Ээси топтон чыга албайт.' : 'Владелец группы не может выйти из группы.');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы'),
+        content: Text(text.isKy ? 'Бул топтон чыгууну каалайсызбы?' : 'Вы действительно хотите выйти из этой группы?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(text.isKy ? 'Жок' : 'Отмена')),
+          FilledButton.tonal(onPressed: () => Navigator.pop(dialogContext, true), child: Text(text.isKy ? 'Чыгуу' : 'Выйти')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore).leaveGroup(group.id);
+      await refresh();
+      if (mounted) showAppSnack(context, text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.');
+    } catch (error) {
+      if (mounted) showAppSnack(context, error.toString());
+    }
   }
 
   Future<void> showMainMenu() async {
@@ -183,7 +191,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               itemCount: groups.length,
-              itemBuilder: (_, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index])),
+              itemBuilder: (_, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index]), onLeave: () => leaveGroup(groups[index])),
             );
           },
         ),
@@ -193,19 +201,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 }
 
 class MainGroupsMenuSheet extends StatelessWidget {
-  const MainGroupsMenuSheet({
-    super.key,
-    required this.isAdmin,
-    required this.adminRequestsCount,
-    required this.invitationsCount,
-    required this.onJoinByCode,
-    required this.onScanQr,
-    required this.onInvitations,
-    required this.onMyRequests,
-    required this.onAdminRequests,
-    required this.onLogout,
-  });
-
+  const MainGroupsMenuSheet({super.key, required this.isAdmin, required this.adminRequestsCount, required this.invitationsCount, required this.onJoinByCode, required this.onScanQr, required this.onInvitations, required this.onMyRequests, required this.onAdminRequests, required this.onLogout});
   final bool isAdmin;
   final int adminRequestsCount;
   final int invitationsCount;
@@ -231,23 +227,16 @@ class MainGroupsMenuSheet extends StatelessWidget {
         if (isAdmin) _MenuTile(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, badge: adminRequestsCount, onTap: () => _closeAndRun(context, onAdminRequests)),
         const SizedBox(height: 8),
         Divider(color: context.appColors.border),
-        _MenuTile(icon: Icons.logout_rounded, title: text.logout, danger: true, onTap: () async {
-          Navigator.pop(context);
-          await onLogout();
-        }),
+        _MenuTile(icon: Icons.logout_rounded, title: text.logout, danger: true, onTap: () async { Navigator.pop(context); await onLogout(); }),
       ]),
     );
   }
 
-  void _closeAndRun(BuildContext context, VoidCallback action) {
-    Navigator.pop(context);
-    action();
-  }
+  void _closeAndRun(BuildContext context, VoidCallback action) { Navigator.pop(context); action(); }
 }
 
 class _MenuTile extends StatelessWidget {
   const _MenuTile({required this.icon, required this.title, required this.onTap, this.badge = 0, this.danger = false});
-
   final IconData icon;
   final String title;
   final VoidCallback onTap;
@@ -270,12 +259,7 @@ class _MenuTile extends StatelessWidget {
             Icon(icon, color: accent),
             const SizedBox(width: 12),
             Expanded(child: Text(title, style: TextStyle(color: danger ? accent : colors.textStrong, fontWeight: FontWeight.w800))),
-            if (badge > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)),
-                child: Text('$badge', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
-              ),
+            if (badge > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4), decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)), child: Text('$badge', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12))),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right_rounded, color: colors.textMuted),
           ]),
@@ -307,9 +291,11 @@ class _EmptyGroups extends StatelessWidget {
 }
 
 class GroupTile extends StatelessWidget {
-  const GroupTile({super.key, required this.group, required this.onTap});
+  const GroupTile({super.key, required this.group, required this.onTap, required this.onLeave});
   final ChatGroup group;
   final VoidCallback onTap;
+  final VoidCallback onLeave;
+  bool get canLeave => group.myRole != 'owner';
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +323,14 @@ class GroupTile extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text('$visibility · ${group.memberCount} ${text.isKy ? 'мүчө' : 'участников'} · $role', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
               ])),
-              Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+              if (canLeave)
+                PopupMenuButton<String>(
+                  tooltip: text.isKy ? 'Топ менюсу' : 'Меню группы',
+                  onSelected: (value) { if (value == 'leave') onLeave(); },
+                  itemBuilder: (_) => [PopupMenuItem(value: 'leave', child: Row(children: [const Icon(Icons.logout_rounded, color: Colors.redAccent), const SizedBox(width: 10), Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700))]))],
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: colors.textMuted),
             ]),
           ),
         ),
@@ -352,12 +345,7 @@ class GroupTile extends StatelessWidget {
   }
 }
 
-class CreateGroupSheet extends StatefulWidget {
-  const CreateGroupSheet({super.key, required this.api});
-  final ApiClient api;
-  @override
-  State<CreateGroupSheet> createState() => _CreateGroupSheetState();
-}
+class CreateGroupSheet extends StatefulWidget { const CreateGroupSheet({super.key, required this.api}); final ApiClient api; @override State<CreateGroupSheet> createState() => _CreateGroupSheetState(); }
 
 class _CreateGroupSheetState extends State<CreateGroupSheet> {
   final titleController = TextEditingController();
@@ -365,7 +353,6 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
   String visibility = 'public';
   bool loading = false;
   String? error;
-
   @override
   void dispose() { titleController.dispose(); descriptionController.dispose(); super.dispose(); }
 
@@ -374,11 +361,7 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
     try {
       final group = await widget.api.createGroup(title: titleController.text.trim(), description: descriptionController.text.trim(), visibility: visibility);
       if (mounted) Navigator.of(context).pop(group);
-    } catch (e) {
-      if (mounted) setState(() => error = e.toString());
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+    } catch (e) { if (mounted) setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
   }
 
   @override
@@ -416,11 +399,7 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
     try {
       final group = await widget.api.joinByInviteCode(formatGroupInviteCode(codeController.text));
       if (mounted) Navigator.of(context).pop(group);
-    } catch (e) {
-      if (mounted) setState(() => error = e.toString());
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+    } catch (e) { if (mounted) setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
   }
 
   @override
@@ -431,15 +410,7 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(text.joinByCode, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(
-          controller: codeController,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [GroupInviteCodeFormatter()],
-          decoration: InputDecoration(
-            labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
-            hintText: 'AAA-666',
-          ),
-        ),
+        TextField(controller: codeController, textCapitalization: TextCapitalization.characters, inputFormatters: [GroupInviteCodeFormatter()], decoration: InputDecoration(labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения', hintText: 'AAA-666')),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
         FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Кирүүдө...' : 'Входим...') : text.joinByCode)),
@@ -459,9 +430,6 @@ class GroupInviteCodeFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final formatted = formatGroupInviteCode(newValue.text);
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
