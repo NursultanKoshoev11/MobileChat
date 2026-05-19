@@ -84,7 +84,7 @@ class AppText {
   final AppLanguage currentLanguage;
   bool get isKy => currentLanguage == AppLanguage.ky;
 
-  String get appTitle => 'MobileChat';
+  String get appTitle => 'Koom';
   String get languageLabel => isKy ? 'Тил' : 'Язык';
   String get groups => isKy ? 'Топтор' : 'Группы';
   String get adminRequests => isKy ? 'Админ өтүнүчтөрү' : 'Заявки админу';
