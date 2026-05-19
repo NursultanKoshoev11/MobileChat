@@ -33,6 +33,10 @@ class PublicRequestsApi {
     return (response as List<dynamic>).map((item) => PublicRequest.fromJson(item as Map<String, dynamic>)).toList();
   }
 
+  Future<void> leaveGroup(String groupId) async {
+    await _send('DELETE', '/api/groups/$groupId/leave');
+  }
+
   Future<GroupStatistics> fetchStatistics(String groupId, {String period = 'month', String granularity = 'day', DateTime? from, DateTime? to}) async {
     final query = <String, String>{
       'period': period,
