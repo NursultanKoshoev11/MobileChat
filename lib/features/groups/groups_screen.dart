@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +9,7 @@ import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
+import '../../services/user_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../group_creation/admin_group_creation_requests_screen.dart';
 import '../group_creation/group_creation_requests_screen.dart';
@@ -29,6 +32,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   late Future<List<ChatGroup>> groupsFuture;
   late Future<int> adminRequestsCountFuture;
   late Future<int> invitationsCountFuture;
+  late final UserRealtimeService userRealtime;
+  Timer? _realtimeRefreshDebounce;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
@@ -37,6 +42,34 @@ class _GroupsScreenState extends State<GroupsScreen> {
     groupsFuture = widget.api.fetchGroups();
     adminRequestsCountFuture = loadAdminRequestsCount();
     invitationsCountFuture = loadInvitationsCount();
+    userRealtime = UserRealtimeService(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    userRealtime.connect(onEvent: _handleUserRealtimeEvent);
+  }
+
+  @override
+  void dispose() {
+    _realtimeRefreshDebounce?.cancel();
+    userRealtime.close();
+    super.dispose();
+  }
+
+  void _handleUserRealtimeEvent(UserRealtimeEvent event) {
+    if (!mounted) return;
+    switch (event.type) {
+      case 'invite.created':
+      case 'invite.reviewed':
+      case 'group_creation_request.created':
+      case 'group_creation_request.reviewed':
+        _scheduleRealtimeRefresh();
+        break;
+    }
+  }
+
+  void _scheduleRealtimeRefresh() {
+    _realtimeRefreshDebounce?.cancel();
+    _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) refresh();
+    });
   }
 
   Future<int> loadAdminRequestsCount() async {
