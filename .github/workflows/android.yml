@@ -1,4 +1,4 @@
-name: Android APK
+name: Koom Android APK
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ env:
 
 jobs:
   build-android:
-    name: Android CI / APK
+    name: Koom Android CI / APK
     runs-on: ubuntu-latest
 
     steps:
@@ -105,16 +105,16 @@ jobs:
       - name: Prepare APK artifact
         run: |
           mkdir -p build-artifacts
-          cp build/app/outputs/flutter-apk/app-profile.apk build-artifacts/MobileChat-profile-arm64.apk
-          sha256sum build-artifacts/MobileChat-profile-arm64.apk > build-artifacts/MobileChat-profile-arm64.sha256.txt
+          cp build/app/outputs/flutter-apk/app-profile.apk build-artifacts/Koom-profile-arm64.apk
+          sha256sum build-artifacts/Koom-profile-arm64.apk > build-artifacts/Koom-profile-arm64.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-profile-arm64-apk
+          name: Koom-profile-arm64-apk
           path: |
-            build-artifacts/MobileChat-profile-arm64.apk
-            build-artifacts/MobileChat-profile-arm64.sha256.txt
+            build-artifacts/Koom-profile-arm64.apk
+            build-artifacts/Koom-profile-arm64.sha256.txt
           if-no-files-found: error
           retention-days: 14
