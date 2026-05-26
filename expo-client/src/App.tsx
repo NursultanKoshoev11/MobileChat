@@ -52,7 +52,8 @@ type ChatMessage = {
   created_at: string;
 };
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+const DEFAULT_API_BASE_URL = 'http://16.171.199.28:8080';
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
