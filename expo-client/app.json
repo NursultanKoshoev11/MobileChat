@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "KOOM",
+    "slug": "koom-expo-client",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "kg.koom.mobile"
+    },
+    "android": {
+      "package": "kg.koom.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
