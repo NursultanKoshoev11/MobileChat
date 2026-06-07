@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'api_client.dart';
 import 'models.dart';
-import 'session_store.dart';
 
 class RealtimeEvent {
   const RealtimeEvent({required this.type, required this.groupId, required this.payload, this.message});
@@ -33,10 +33,9 @@ class RealtimeEvent {
 }
 
 class RealtimeClient {
-  RealtimeClient({required this.baseUrl, required this.sessionStore});
+  RealtimeClient({required this.api});
 
-  final String baseUrl;
-  final SessionStore sessionStore;
+  final ApiClient api;
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
@@ -46,15 +45,16 @@ class RealtimeClient {
 
   Future<void> connectToGroup(String groupId) async {
     await disconnect();
-    final session = await sessionStore.read();
-    if (session == null) return;
 
-    final apiUri = Uri.parse(baseUrl);
+    final wsToken = await api.issueWebSocketToken();
+    if (wsToken.isEmpty) return;
+
+    final apiUri = Uri.parse(api.baseUrl);
     final scheme = apiUri.scheme == 'https' ? 'wss' : 'ws';
     final wsUri = apiUri.replace(
       scheme: scheme,
       path: '/api/groups/$groupId/ws',
-      queryParameters: {'token': session.accessToken},
+      queryParameters: {'token': wsToken},
     );
 
     _channel = WebSocketChannel.connect(wsUri);
