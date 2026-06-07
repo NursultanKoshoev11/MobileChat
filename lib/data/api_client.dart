@@ -54,6 +54,14 @@ class ApiClient {
     }
   }
 
+  Future<String> issueWebSocketToken() async {
+    final response = await _post('/api/ws-token', {});
+    if (response is Map<String, dynamic> && response['token'] is String) {
+      return response['token'] as String;
+    }
+    throw const ApiException('Server returned an invalid WebSocket token response.');
+  }
+
   Future<void> registerPushToken({required String token, required String platform}) async {
     await _post('/api/push/register', {'token': token, 'platform': platform});
   }
