@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
-import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
@@ -319,6 +318,7 @@ class GroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    final inviteCode = group.inviteCode ?? '';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -327,7 +327,7 @@ class GroupTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CircleAvatar(radius: 24, backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.12), child: Icon(group.visibility == 'public' ? Icons.public_rounded : Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary)),
+            CircleAvatar(radius: 24, backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12), child: Icon(group.visibility == 'public' ? Icons.public_rounded : Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary)),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(group.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
@@ -342,13 +342,13 @@ class GroupTile extends StatelessWidget {
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'copy') {
-                  await Clipboard.setData(ClipboardData(text: group.inviteCode));
+                  await Clipboard.setData(ClipboardData(text: inviteCode));
                   if (context.mounted) showAppSnack(context, text.inviteCodeCopied);
                 }
                 if (value == 'leave') onLeave();
               },
               itemBuilder: (_) => [
-                if (group.inviteCode.isNotEmpty) PopupMenuItem(value: 'copy', child: Text(text.copyInviteCode)),
+                if (inviteCode.isNotEmpty) PopupMenuItem(value: 'copy', child: Text(text.copyInviteCode)),
                 PopupMenuItem(value: 'leave', child: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы')),
               ],
             ),
