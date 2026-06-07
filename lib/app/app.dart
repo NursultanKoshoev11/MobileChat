@@ -62,7 +62,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
 
   Future<void> logout() async {
     await pushNotifications.unregisterDevice();
-    await sessionStore.clear();
+    await api.logout();
     if (!mounted) return;
     setState(() {
       bootFuture = Future.value(null);
