@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../data/session_store.dart';
+import '../data/api_client.dart';
 
 class GroupRealtimeEvent {
   const GroupRealtimeEvent({required this.type, required this.groupId, required this.payload});
@@ -28,10 +28,9 @@ class GroupRealtimeEvent {
 }
 
 class GroupRealtimeService {
-  GroupRealtimeService({required this.baseUrl, required this.sessionStore, required this.groupId});
+  GroupRealtimeService({required this.api, required this.groupId});
 
-  final String baseUrl;
-  final SessionStore sessionStore;
+  final ApiClient api;
   final String groupId;
 
   WebSocketChannel? _channel;
@@ -46,8 +45,7 @@ class GroupRealtimeService {
     _subscription = null;
     _channel = null;
 
-    final session = await sessionStore.read();
-    final token = session?.accessToken ?? '';
+    final token = await api.issueWebSocketToken();
     if (token.isEmpty) return;
 
     final uri = _webSocketUri(token);
@@ -81,7 +79,7 @@ class GroupRealtimeService {
   }
 
   Uri _webSocketUri(String token) {
-    final base = Uri.parse(baseUrl);
+    final base = Uri.parse(api.baseUrl);
     final scheme = base.scheme == 'https' ? 'wss' : 'ws';
     return base.replace(
       scheme: scheme,
