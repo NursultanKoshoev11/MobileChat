@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -15,6 +12,7 @@ import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../statistics/group_statistics_screen.dart';
+import 'public_requests_widgets.dart';
 
 class PublicRequestsScreen extends StatefulWidget {
   const PublicRequestsScreen({super.key, required this.api, required this.user, required this.group});
@@ -187,14 +185,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(24), children: [ErrorBanner(message: snapshot.error.toString())]);
             final requests = snapshot.data ?? const <PublicRequest>[];
             if (requests.isEmpty) {
-              return ListView(padding: const EdgeInsets.all(24), children: [
-                const SizedBox(height: 120),
-                const Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
-                const SizedBox(height: 16),
-                Text(text.noPostsYet, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text(text.postsDescription, textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
-              ]);
+              return EmptyPostsView(onCreate: createRequest);
             }
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
