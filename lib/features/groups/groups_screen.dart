@@ -42,7 +42,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     groupsFuture = widget.api.fetchGroups();
     adminRequestsCountFuture = loadAdminRequestsCount();
     invitationsCountFuture = loadInvitationsCount();
-    userRealtime = UserRealtimeService(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
   }
 
@@ -258,54 +258,33 @@ class MainGroupsMenuSheet extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.isKy ? 'Меню' : 'Меню', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-        const SizedBox(height: 12),
-        _MenuTile(icon: Icons.account_circle_outlined, title: text.isKy ? 'Профиль' : 'Профиль', onTap: () => _closeAndRun(context, onProfile)),
-        _MenuTile(icon: Icons.key_rounded, title: text.joinByCode, onTap: () => _closeAndRun(context, onJoinByCode)),
-        _MenuTile(icon: Icons.qr_code_scanner_rounded, title: text.isKy ? 'QR код сканерлөө' : 'Сканировать QR код', onTap: () => _closeAndRun(context, onScanQr)),
-        _MenuTile(icon: Icons.mark_email_unread_outlined, title: text.invitations, badge: invitationsCount, onTap: () => _closeAndRun(context, onInvitations)),
-        _MenuTile(icon: Icons.assignment_outlined, title: isAdmin ? text.myRequests : text.requestGroup, onTap: () => _closeAndRun(context, onMyRequests)),
-        if (isAdmin) _MenuTile(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, badge: adminRequestsCount, onTap: () => _closeAndRun(context, onAdminRequests)),
-        const SizedBox(height: 8),
-        Divider(color: context.appColors.border),
-        _MenuTile(icon: Icons.logout_rounded, title: text.logout, danger: true, onTap: () async { Navigator.pop(context); await onLogout(); }),
+        if (isAdmin) _MenuItem(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, count: adminRequestsCount, onTap: onAdminRequests),
+        _MenuItem(icon: Icons.verified_user_outlined, title: text.groupRequests, onTap: onMyRequests),
+        _MenuItem(icon: Icons.mark_email_unread_outlined, title: text.invitations, count: invitationsCount, onTap: onInvitations),
+        _MenuItem(icon: Icons.qr_code_rounded, title: text.joinByCode, onTap: onJoinByCode),
+        _MenuItem(icon: Icons.qr_code_scanner_rounded, title: text.scanQr, onTap: onScanQr),
+        const Divider(),
+        _MenuItem(icon: Icons.person_outline_rounded, title: text.profile, onTap: onProfile),
+        _MenuItem(icon: Icons.logout_rounded, title: text.logout, onTap: onLogout),
       ]),
     );
   }
-
-  void _closeAndRun(BuildContext context, VoidCallback action) { Navigator.pop(context); action(); }
 }
 
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.icon, required this.title, required this.onTap, this.badge = 0, this.danger = false});
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({required this.icon, required this.title, required this.onTap, this.count});
   final IconData icon;
   final String title;
   final VoidCallback onTap;
-  final int badge;
-  final bool danger;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final accent = danger ? Colors.redAccent : MobileChatTheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(18), border: Border.all(color: colors.border)),
-          child: Row(children: [
-            Icon(icon, color: accent),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: TextStyle(color: danger ? accent : colors.textStrong, fontWeight: FontWeight.w800))),
-            if (badge > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4), decoration: BoxDecoration(color: MobileChatTheme.primary, borderRadius: BorderRadius.circular(999)), child: Text('$badge', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12))),
-            const SizedBox(width: 6),
-            Icon(Icons.chevron_right_rounded, color: colors.textMuted),
-          ]),
-        ),
-      ),
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: count != null && count! > 0 ? Badge(label: Text('$count')) : null,
+      onTap: () { Navigator.pop(context); onTap(); },
     );
   }
 }
@@ -319,14 +298,14 @@ class _EmptyGroups extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return ListView(padding: const EdgeInsets.all(24), children: [
-      const SizedBox(height: 120),
-      const Icon(Icons.groups_2_outlined, size: 72, color: MobileChatTheme.primary),
-      const SizedBox(height: 16),
-      Text(text.noGroupsYet, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 48),
+      Icon(Icons.groups_2_outlined, size: 72, color: Theme.of(context).colorScheme.primary),
+      const SizedBox(height: 18),
+      Text(text.noGroups, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
       const SizedBox(height: 8),
-      Text(isAdmin ? text.createGroupOrApprove : text.sendGroupRequestOrJoin, textAlign: TextAlign.center, style: TextStyle(color: context.appColors.textMuted)),
-      const SizedBox(height: 20),
-      Center(child: FilledButton(onPressed: onCreate, child: Text(isAdmin ? text.createGroup : text.requestGroup))),
+      Text(text.isKy ? 'Топко кошулуңуз же жаңы топ түзүү сурамын жөнөтүңүз.' : 'Присоединитесь к группе или отправьте заявку на создание новой.', textAlign: TextAlign.center),
+      const SizedBox(height: 18),
+      FilledButton.icon(onPressed: onCreate, icon: Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined), label: Text(isAdmin ? text.newGroup : text.requestGroup)),
     ]);
   }
 }
@@ -336,141 +315,46 @@ class GroupTile extends StatelessWidget {
   final ChatGroup group;
   final VoidCallback onTap;
   final VoidCallback onLeave;
-  bool get canLeave => group.myRole != 'owner';
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final colors = context.appColors;
-    final visibility = group.isPublic ? (text.isKy ? 'Ачык' : 'Открытая') : (text.isKy ? 'Чакыруу менен' : 'По приглашению');
-    final role = roleLabel(group.myRole, text);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: colors.surface,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(children: [
-              CircleAvatar(radius: 26, backgroundColor: group.isPublic ? MobileChatTheme.primary : MobileChatTheme.primaryDark, child: Text(avatarText(group.title), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(group.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(group.description.isEmpty ? (text.isKy ? 'Сүрөттөмө жок' : 'Нет описания') : group.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted)),
-                const SizedBox(height: 8),
-                Text('$visibility · ${group.memberCount} ${text.isKy ? 'мүчө' : 'участников'} · $role', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w700, fontSize: 12)),
-              ])),
-              if (canLeave)
-                PopupMenuButton<String>(
-                  tooltip: text.isKy ? 'Топ менюсу' : 'Меню группы',
-                  onSelected: (value) { if (value == 'leave') onLeave(); },
-                  itemBuilder: (_) => [PopupMenuItem(value: 'leave', child: Row(children: [const Icon(Icons.logout_rounded, color: Colors.redAccent), const SizedBox(width: 10), Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700))]))],
-                )
-              else
-                Icon(Icons.chevron_right_rounded, color: colors.textMuted),
-            ]),
-          ),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            CircleAvatar(radius: 24, backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.12), child: Icon(group.visibility == 'public' ? Icons.public_rounded : Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary)),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(group.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              if (group.description.isNotEmpty) ...[const SizedBox(height: 4), Text(group.description, maxLines: 2, overflow: TextOverflow.ellipsis)],
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                Chip(label: Text(group.visibility == 'public' ? text.publicGroup : text.privateGroup)),
+                if (group.memberCount > 0) Chip(label: Text('${group.memberCount}')),
+                if (group.myRole != null) Chip(label: Text(group.myRole!)),
+              ]),
+            ])),
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'copy') {
+                  await Clipboard.setData(ClipboardData(text: group.inviteCode));
+                  if (context.mounted) showAppSnack(context, text.inviteCodeCopied);
+                }
+                if (value == 'leave') onLeave();
+              },
+              itemBuilder: (_) => [
+                if (group.inviteCode.isNotEmpty) PopupMenuItem(value: 'copy', child: Text(text.copyInviteCode)),
+                PopupMenuItem(value: 'leave', child: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы')),
+              ],
+            ),
+          ]),
         ),
       ),
     );
-  }
-
-  String roleLabel(String? role, AppText text) {
-    if (role == 'owner') return text.isKy ? 'ээси' : 'владелец';
-    if (role == 'admin') return text.isKy ? 'админ' : 'админ';
-    return text.isKy ? 'мүчө' : 'участник';
-  }
-}
-
-class CreateGroupSheet extends StatefulWidget { const CreateGroupSheet({super.key, required this.api}); final ApiClient api; @override State<CreateGroupSheet> createState() => _CreateGroupSheetState(); }
-
-class _CreateGroupSheetState extends State<CreateGroupSheet> {
-  final titleController = TextEditingController();
-  final descriptionController = TextEditingController();
-  String visibility = 'public';
-  bool loading = false;
-  String? error;
-  @override
-  void dispose() { titleController.dispose(); descriptionController.dispose(); super.dispose(); }
-
-  Future<void> submit() async {
-    setState(() { loading = true; error = null; });
-    try {
-      final group = await widget.api.createGroup(title: titleController.text.trim(), description: descriptionController.text.trim(), visibility: visibility);
-      if (mounted) Navigator.of(context).pop(group);
-    } catch (e) { if (mounted) setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.createGroup, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        TextField(controller: titleController, decoration: InputDecoration(labelText: text.isKy ? 'Топтун аты' : 'Название группы')),
-        const SizedBox(height: 12),
-        TextField(controller: descriptionController, decoration: InputDecoration(labelText: text.description)),
-        const SizedBox(height: 12),
-        SegmentedButton<String>(segments: [ButtonSegment(value: 'public', label: Text(text.isKy ? 'Ачык' : 'Открытая')), ButtonSegment(value: 'private', label: Text(text.isKy ? 'Чакыруу менен' : 'По приглашению'))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Түзүлүп жатат...' : 'Создаётся...') : text.createGroup)),
-      ]),
-    );
-  }
-}
-
-class JoinByCodeSheet extends StatefulWidget { const JoinByCodeSheet({super.key, required this.api}); final ApiClient api; @override State<JoinByCodeSheet> createState() => _JoinByCodeSheetState(); }
-
-class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
-  final codeController = TextEditingController();
-  bool loading = false;
-  String? error;
-  @override
-  void dispose() { codeController.dispose(); super.dispose(); }
-
-  Future<void> submit() async {
-    setState(() { loading = true; error = null; });
-    try {
-      final group = await widget.api.joinByInviteCode(formatGroupInviteCode(codeController.text));
-      if (mounted) Navigator.of(context).pop(group);
-    } catch (e) { if (mounted) setState(() => error = e.toString()); } finally { if (mounted) setState(() => loading = false); }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.joinByCode, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        TextField(controller: codeController, textCapitalization: TextCapitalization.characters, inputFormatters: [GroupInviteCodeFormatter()], decoration: InputDecoration(labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения', hintText: 'AAA-666')),
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Кирүүдө...' : 'Входим...') : text.joinByCode)),
-      ]),
-    );
-  }
-}
-
-String formatGroupInviteCode(String input) {
-  final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-  final shortened = compact.length > 6 ? compact.substring(0, 6) : compact;
-  if (shortened.length > 3) return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
-  return shortened;
-}
-
-class GroupInviteCodeFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final formatted = formatGroupInviteCode(newValue.text);
-    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
