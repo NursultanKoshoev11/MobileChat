@@ -43,6 +43,17 @@ class ApiClient {
     return session;
   }
 
+  Future<void> logout() async {
+    final session = await sessionStore.read();
+    try {
+      if (session != null && session.refreshToken.isNotEmpty) {
+        await _post('/api/auth/logout', {'refresh_token': session.refreshToken}, auth: false);
+      }
+    } finally {
+      await sessionStore.clear();
+    }
+  }
+
   Future<void> registerPushToken({required String token, required String platform}) async {
     await _post('/api/push/register', {'token': token, 'platform': platform});
   }
@@ -229,14 +240,20 @@ class ApiClient {
       await sessionStore.clear();
       return false;
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decode(response) as Map<String, dynamic>;
     await sessionStore.save(AppSession.fromJson(decoded));
     return true;
   }
 
   dynamic _decode(http.Response response) {
     final body = response.body.trim();
-    final decoded = body.isEmpty ? null : jsonDecode(body);
+    dynamic decoded;
+    try {
+      decoded = body.isEmpty ? null : jsonDecode(body);
+    } catch (_) {
+      throw const ApiException('Server returned an invalid response.');
+    }
+
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
     if (decoded is Map<String, dynamic> && decoded['error'] is String) throw ApiException(decoded['error'] as String);
     throw ApiException('Server error ${response.statusCode}');
