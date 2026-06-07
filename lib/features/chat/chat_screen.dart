@@ -36,7 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    realtime = RealtimeClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    realtime = RealtimeClient(api: widget.api);
     scrollController.addListener(handleScroll);
     loadInitialMessages();
     connectRealtime();
@@ -159,6 +159,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final inviteCode = widget.group.inviteCode ?? '';
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -193,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          if (!widget.group.isPublic && widget.group.inviteCode != null && widget.group.inviteCode!.isNotEmpty)
+          if (!widget.group.isPublic && inviteCode.isNotEmpty)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -203,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              child: SelectableText('Invite code: ${widget.group.inviteCode}'),
+              child: SelectableText('Invite code: $inviteCode'),
             ),
           if (!canPublishAnnouncement)
             Container(
