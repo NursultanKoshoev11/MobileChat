@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -31,7 +30,7 @@ class PushNotificationService {
         _debugLog('FCM token is empty.');
         return;
       }
-      _debugLog('FCM token received: ${token.substring(0, min(24, token.length))}...');
+      _debugLog('FCM token received.');
       await api.registerPushToken(token: token, platform: _platformName());
 
       if (!_tokenRefreshListenerStarted) {
