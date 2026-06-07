@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../data/session_store.dart';
+import '../data/api_client.dart';
 
 class UserRealtimeEvent {
   const UserRealtimeEvent({required this.type, required this.payload});
@@ -17,10 +17,9 @@ class UserRealtimeEvent {
 }
 
 class UserRealtimeService {
-  UserRealtimeService({required this.baseUrl, required this.sessionStore});
+  UserRealtimeService({required this.api});
 
-  final String baseUrl;
-  final SessionStore sessionStore;
+  final ApiClient api;
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
@@ -34,8 +33,7 @@ class UserRealtimeService {
     _subscription = null;
     _channel = null;
 
-    final session = await sessionStore.read();
-    final token = session?.accessToken ?? '';
+    final token = await api.issueWebSocketToken();
     if (token.isEmpty) return;
 
     final uri = _webSocketUri(token);
@@ -69,7 +67,7 @@ class UserRealtimeService {
   }
 
   Uri _webSocketUri(String token) {
-    final base = Uri.parse(baseUrl);
+    final base = Uri.parse(api.baseUrl);
     final scheme = base.scheme == 'https' ? 'wss' : 'ws';
     return base.replace(scheme: scheme, path: '/api/ws', queryParameters: {'token': token});
   }
