@@ -5,6 +5,8 @@ import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../shared/ui_helpers.dart';
 
+export 'group_sheets.dart';
+
 class GroupQrScanScreen extends StatefulWidget {
   const GroupQrScanScreen({super.key});
 
