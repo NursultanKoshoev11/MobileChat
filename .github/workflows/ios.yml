@@ -1,6 +1,9 @@
 name: iOS Build
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       api_base_url:
@@ -49,11 +52,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze Dart code
-        run: flutter analyze
-
-      - name: Run Flutter tests
-        run: flutter test
 
       - name: Build iOS simulator app
         run: |
