@@ -1,0 +1,24 @@
+name: Mobile Test Lab CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --set-exit-if-changed lib test integration_test
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --debug --dart-define=API_BASE_URL=https://kginnovation.duckdns.org --dart-define=TEST_AUTH_PHONE=+996700000001 --dart-define=TEST_AUTH_CODE=111111
