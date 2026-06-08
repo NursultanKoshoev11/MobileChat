@@ -6,7 +6,7 @@ on:
       api_base_url:
         description: "Backend API base URL for the Android build."
         required: false
-        default: "https://advice-cat-coordinate-category.trycloudflare.com"
+        default: "https://koom.servemp3.com"
   push:
     branches:
       - main
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  DEFAULT_API_BASE_URL: "https://advice-cat-coordinate-category.trycloudflare.com"
+  DEFAULT_API_BASE_URL: "https://koom.servemp3.com"
 
 jobs:
   build-android:
