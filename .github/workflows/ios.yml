@@ -57,7 +57,7 @@ jobs:
         run: |
           API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.servemp3.com' }}"
           echo "Building iOS simulator app with API_BASE_URL=$API_BASE_URL"
-          flutter build ios --debug --simulator -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build ios --debug --simulator -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
       - name: Prepare simulator artifact
         run: |
@@ -168,7 +168,7 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         run: |
           API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.servemp3.com' }}"
-          flutter build ipa --release -t lib/main_clean.dart --dart-define=API_BASE_URL="$API_BASE_URL" --export-options-plist=ios/ExportOptions.plist
+          flutter build ipa --release -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL" --export-options-plist=ios/ExportOptions.plist
 
       - name: Prepare IPA artifact
         if: steps.signing.outputs.ready == 'true'
