@@ -12,6 +12,7 @@ import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../statistics/group_statistics_screen.dart';
+import '../groups/group_sheets.dart';
 import 'public_requests_widgets.dart';
 
 class PublicRequestsScreen extends StatefulWidget {
@@ -134,7 +135,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await refresh();
   }
 
-  String get groupAccessCode => (widget.group.inviteCode ?? '').trim().toUpperCase();
+  String get groupAccessCode => formatGroupInviteCode(widget.group.inviteCode ?? '');
 
   Future<void> showGroupAccess() async {
     final code = groupAccessCode;

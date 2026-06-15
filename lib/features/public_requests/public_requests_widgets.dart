@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
@@ -55,7 +55,7 @@ class GroupAccessSheet extends StatelessWidget {
           const SizedBox(height: 16),
           Center(child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: QrImageView(data: code, version: QrVersions.auto, size: 210, backgroundColor: Colors.white))),
           const SizedBox(height: 12),
-          Text(text.isKy ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз.' : 'Передайте этот код или QR другому пользователю.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600)),
+          Text(text.isKy ? 'Р‘СѓР» РєРѕРґРґСѓ Р¶Рµ QR РєРѕРґРґСѓ Р±Р°С€РєР° РєРѕР»РґРѕРЅСѓСѓС‡СѓРіР° Р±РµСЂРёТЈРёР·.' : 'РџРµСЂРµРґР°Р№С‚Рµ СЌС‚РѕС‚ РєРѕРґ РёР»Рё QR РґСЂСѓРіРѕРјСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -91,7 +91,7 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
       await widget.api.inviteUserByPhone(groupId: widget.group.id, mobile: phoneController.text);
       if (!mounted) return;
       Navigator.of(context).pop();
-      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Чакыруу жөнөтүлдү.' : 'Приглашение отправлено.');
+      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Р§Р°РєС‹СЂСѓСѓ Р¶У©РЅУ©С‚ТЇР»РґТЇ.' : 'РџСЂРёРіР»Р°С€РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ.');
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -105,12 +105,12 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(text.isKy ? 'РўРµР»РµС„РѕРЅ РјРµРЅРµРЅ С‡Р°РєС‹СЂСѓСѓ' : 'РџСЂРёРіР»Р°СЃРёС‚СЊ РїРѕ С‚РµР»РµС„РѕРЅСѓ', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
         TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded))),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'))),
+        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Р§Р°РєС‹СЂСѓСѓ Р¶У©РЅУ©С‚ТЇТЇ' : 'РћС‚РїСЂР°РІРёС‚СЊ РїСЂРёРіР»Р°С€РµРЅРёРµ'))),
       ]),
     );
   }
@@ -131,6 +131,14 @@ class PublicRequestCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
+        elevation: 2,
+        shadowColor: colors.shadow,
+        color: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: colors.border),
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: request.interactionMode == 'discussion' ? onTap : null,
@@ -143,7 +151,7 @@ class PublicRequestCard extends StatelessWidget {
                 Text(request.displayBody, maxLines: 3, overflow: TextOverflow.ellipsis),
               ],
               const SizedBox(height: 10),
-              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
+              Text('${text.isKy ? 'РђРІС‚РѕСЂ' : 'РђРІС‚РѕСЂ'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 if (request.interactionMode == 'discussion') FilledButton.tonal(onPressed: onTap, child: Text(text.read)),
@@ -244,7 +252,7 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   }
 }
 
-class PublicRequestDetailsScreen extends StatelessWidget {
+class PublicRequestDetailsScreen extends StatefulWidget {
   const PublicRequestDetailsScreen({super.key, required this.api, required this.request, required this.canModerate, required this.currentUserId, this.onStatusChanged});
   final PublicRequestsApi api;
   final PublicRequest request;
@@ -253,14 +261,195 @@ class PublicRequestDetailsScreen extends StatelessWidget {
   final ValueChanged<String>? onStatusChanged;
 
   @override
+  State<PublicRequestDetailsScreen> createState() => _PublicRequestDetailsScreenState();
+}
+
+class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen> {
+  final commentController = TextEditingController();
+  late Future<List<PublicRequestComment>> commentsFuture;
+  bool sending = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    commentsFuture = widget.api.listComments(widget.request.id);
+  }
+
+  @override
+  void dispose() {
+    commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> refreshComments() async {
+    final next = widget.api.listComments(widget.request.id);
+    setState(() => commentsFuture = next);
+    await next;
+  }
+
+  Future<void> submitComment() async {
+    final body = commentController.text.trim();
+    if (body.isEmpty || sending || widget.request.interactionMode != 'discussion') return;
+    setState(() {
+      sending = true;
+      error = null;
+    });
+    try {
+      await widget.api.addComment(requestId: widget.request.id, body: body);
+      commentController.clear();
+      await refreshComments();
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  Future<void> deleteComment(PublicRequestComment comment) async {
+    if (!widget.canModerate && comment.authorId != widget.currentUserId) return;
+    try {
+      await widget.api.deleteComment(comment.id);
+      await refreshComments();
+    } catch (e) {
+      if (mounted) showAppSnack(context, e.toString());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
     return Scaffold(
       appBar: AppBar(title: Text(text.readPost), actions: const [AppSettingsButton()]),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        PublicRequestCard(request: request, onTap: () {}, onVote: (_) {}, canModerate: canModerate, onStatus: onStatusChanged),
-        const SizedBox(height: 12),
-        Text(request.displayBody.isEmpty ? request.title : request.displayBody),
+      body: RefreshIndicator(
+        onRefresh: refreshComments,
+        child: FutureBuilder<List<PublicRequestComment>>(
+          future: commentsFuture,
+          builder: (context, snapshot) {
+            final comments = snapshot.data ?? const <PublicRequestComment>[];
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                PublicRequestCard(
+                  request: widget.request,
+                  onTap: () {},
+                  onVote: (_) {},
+                  canModerate: widget.canModerate,
+                  onStatus: widget.onStatusChanged,
+                ),
+                const SizedBox(height: 12),
+                if (widget.request.displayBody.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Text(widget.request.displayBody, style: TextStyle(color: colors.textStrong, height: 1.35)),
+                  ),
+                const SizedBox(height: 18),
+                Text(text.comments, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 10),
+                if (error != null) ...[
+                  ErrorBanner(message: error!),
+                  const SizedBox(height: 10),
+                ],
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (snapshot.hasError)
+                  ErrorBanner(message: snapshot.error.toString())
+                else if (comments.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Text(text.isKy ? 'РљРѕРјРјРµРЅС‚Р°СЂРёР№ Р°Р·С‹СЂС‹РЅС‡Р° Р¶РѕРє.' : 'РљРѕРјРјРµРЅС‚Р°СЂРёРµРІ РїРѕРєР° РЅРµС‚.', style: TextStyle(color: colors.textMuted)),
+                  )
+                else
+                  ...comments.map((comment) => _CommentTile(
+                        comment: comment,
+                        canDelete: widget.canModerate || comment.authorId == widget.currentUserId,
+                        onDelete: () => deleteComment(comment),
+                      )),
+              ],
+            );
+          },
+        ),
+      ),
+      bottomNavigationBar: widget.request.interactionMode == 'discussion'
+          ? SafeArea(
+              top: false,
+              child: Container(
+                padding: EdgeInsets.only(left: 12, right: 12, top: 10, bottom: MediaQuery.of(context).viewInsets.bottom + 10),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(top: BorderSide(color: colors.border)),
+                ),
+                child: Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: commentController,
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => submitComment(),
+                      decoration: InputDecoration(hintText: text.isKy ? 'РљРѕРјРјРµРЅС‚Р°СЂРёР№ РєРѕС€СѓСѓ' : 'Р”РѕР±Р°РІРёС‚СЊ РєРѕРјРјРµРЅС‚Р°СЂРёР№'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: sending ? null : submitComment,
+                    icon: sending
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send_rounded),
+                  ),
+                ]),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _CommentTile extends StatelessWidget {
+  const _CommentTile({required this.comment, required this.canDelete, required this.onDelete});
+  final PublicRequestComment comment;
+  final bool canDelete;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+          child: Text(comment.authorName.isEmpty ? '?' : comment.authorName.substring(0, 1).toUpperCase(), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(comment.authorName, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text(comment.body, style: TextStyle(color: colors.textStrong, height: 1.3)),
+        ])),
+        if (canDelete) IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline_rounded)),
       ]),
     );
   }

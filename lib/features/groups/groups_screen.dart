@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
+import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
@@ -318,9 +319,18 @@ class GroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
     final inviteCode = group.inviteCode ?? '';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shadowColor: colors.shadow,
+      color: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: colors.border),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
