@@ -209,9 +209,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-  Future<void> changeRoleById() async {
+  Future<void> changeRoleByPhone() async {
     if (!canChangeRoles) return;
-    final controller = TextEditingController();
+    final text = AppLanguageScope.textOf(context);
+    final phoneController = TextEditingController(text: '+996');
     var loading = false;
     await showModalBottomSheet<void>(
       context: context,
@@ -221,16 +222,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
           Future<void> changeRole(String role) async {
-            final userId = controller.text.trim();
-            if (userId.isEmpty || loading) return;
+            final phone = phoneController.text.trim();
+            if (phone.isEmpty || loading) return;
             setSheetState(() => loading = true);
             try {
-              await requestsApi.updateGroupMemberRole(
-                  groupId: widget.group.id, userId: userId, role: role);
+              await requestsApi.updateGroupMemberRoleByPhone(
+                  groupId: widget.group.id, phone: phone, role: role);
               if (!context.mounted) return;
               Navigator.pop(sheetContext);
               showAppSnack(context,
-                  role == 'admin' ? 'Admin assigned.' : 'Admin removed.');
+                  role == 'admin' ? text.adminAssigned : text.adminRemoved);
             } catch (error) {
               if (context.mounted) showAppSnack(context, error.toString());
             } finally {
@@ -247,36 +248,37 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Manage admins',
+                  Text(text.manageAdmins,
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
                           ?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
-                  const Text('Enter a group member user ID.'),
+                  Text(text.manageAdminsDescription),
                   const SizedBox(height: 14),
                   TextField(
-                      controller: controller,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                          labelText: 'User ID',
-                          prefixIcon: Icon(Icons.badge_outlined))),
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                          labelText: text.mobileNumber,
+                          hintText: '+996700123456',
+                          prefixIcon: const Icon(Icons.phone_iphone_rounded))),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                       onPressed: loading ? null : () => changeRole('admin'),
                       icon: const Icon(Icons.admin_panel_settings_rounded),
-                      label: Text(loading ? 'Please wait...' : 'Make admin')),
+                      label: Text(loading ? text.pleaseWait : text.makeAdmin)),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                       onPressed: loading ? null : () => changeRole('member'),
                       icon: const Icon(Icons.person_outline_rounded),
-                      label: const Text('Remove admin')),
+                      label: Text(text.removeAdmin)),
                 ]),
           );
         },
       ),
     );
-    controller.dispose();
+    phoneController.dispose();
   }
 
   @override
@@ -288,30 +290,24 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         actions: [
           IconButton(
             onPressed: openStatistics,
-            tooltip: text.isKy
-                ? 'Р РЋРЎвЂљР В°РЎвЂљР С‘РЎРѓРЎвЂљР С‘Р С”Р В°'
-                : 'Р РЋРЎвЂљР В°РЎвЂљР С‘РЎРѓРЎвЂљР С‘Р С”Р В°',
+            tooltip: text.statistics,
             icon: const Icon(Icons.analytics_outlined),
           ),
           IconButton(
             onPressed: showGroupAccess,
-            tooltip: text.isKy
-                ? 'Р С™Р С•Р Т‘ Р В¶Р В°Р Р…Р В° QR'
-                : 'Р С™Р С•Р Т‘ Р С‘ QR',
+            tooltip: text.codeAndQr,
             icon: const Icon(Icons.qr_code_rounded),
           ),
           if (canChangeRoles)
             IconButton(
-              onPressed: changeRoleById,
-              tooltip: 'Manage admins',
+              onPressed: changeRoleByPhone,
+              tooltip: text.manageAdmins,
               icon: const Icon(Icons.admin_panel_settings_outlined),
             ),
           if (canInvite)
             IconButton(
               onPressed: inviteByPhone,
-              tooltip: text.isKy
-                  ? 'Р СћР ВµР В»Р ВµРЎвЂћР С•Р Р… Р СР ВµР Р…Р ВµР Р… РЎвЂЎР В°Р С”РЎвЂ№РЎР‚РЎС“РЎС“'
-                  : 'Р СџРЎР‚Р С‘Р С–Р В»Р В°РЎРѓР С‘РЎвЂљРЎРЉ Р С—Р С• РЎвЂљР ВµР В»Р ВµРЎвЂћР С•Р Р…РЎС“',
+              tooltip: text.inviteByPhone,
               icon: const Icon(Icons.person_add_alt_1_rounded),
             ),
           const AppSettingsButton(),

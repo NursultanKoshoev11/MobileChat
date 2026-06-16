@@ -82,6 +82,19 @@ class PublicRequestsApi {
     return GroupMember.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<GroupMember> updateGroupMemberRoleByPhone({
+    required String groupId,
+    required String phone,
+    required String role,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/api/groups/$groupId/members/role-by-phone',
+      body: {'phone': phone, 'role': role},
+    );
+    return GroupMember.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<GroupStatistics> fetchStatistics(
     String groupId, {
     String period = 'month',

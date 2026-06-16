@@ -21,10 +21,15 @@ class AppAppearanceController extends ChangeNotifier {
 }
 
 class AppAppearanceScope extends InheritedNotifier<AppAppearanceController> {
-  const AppAppearanceScope({super.key, required AppAppearanceController controller, required super.child}) : super(notifier: controller);
+  const AppAppearanceScope(
+      {super.key,
+      required AppAppearanceController controller,
+      required super.child})
+      : super(notifier: controller);
 
   static AppAppearanceController controllerOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AppAppearanceScope>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<AppAppearanceScope>();
     assert(scope != null, 'AppAppearanceScope not found in widget tree');
     return scope!.notifier!;
   }
@@ -39,7 +44,9 @@ class ThemeModeButton extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final dark = controller.isDark;
     return IconButton(
-      tooltip: dark ? (text.isKy ? 'Жарык режим' : 'Светлый режим') : (text.isKy ? 'Караңгы режим' : 'Тёмный режим'),
+      tooltip: dark
+          ? (text.isKy ? 'Жарык режим' : 'Светлый режим')
+          : (text.isKy ? 'Караңгы режим' : 'Тёмный режим'),
       onPressed: controller.toggleTheme,
       icon: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
       color: MobileChatTheme.primary,
@@ -89,38 +96,86 @@ class AppSettingsSheet extends StatelessWidget {
           color: colors.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: colors.border),
-          boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 24, offset: const Offset(0, 12))],
+          boxShadow: [
+            BoxShadow(
+                color: colors.shadow,
+                blurRadius: 24,
+                offset: const Offset(0, 12))
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Center(child: Container(width: 44, height: 5, decoration: BoxDecoration(color: colors.textMuted.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999)))),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: Text(text.isKy ? 'Жөндөөлөр' : 'Настройки', style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 24))),
-              IconButton.filledTonal(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-                tooltip: text.isKy ? 'Жабуу' : 'Закрыть',
-              ),
-            ]),
-            const SizedBox(height: 14),
-            Text(text.isKy ? 'Тема' : 'Тема', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _SettingsOption(label: text.isKy ? 'Жарык режим' : 'Светлый режим', icon: Icons.light_mode_rounded, selected: !appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.light))),
-              const SizedBox(width: 10),
-              Expanded(child: _SettingsOption(label: text.isKy ? 'Караңгы режим' : 'Тёмный режим', icon: Icons.dark_mode_rounded, selected: appearance.isDark, onTap: () => appearance.setThemeMode(ThemeMode.dark))),
-            ]),
-            const SizedBox(height: 16),
-            Text(text.languageLabel, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _SettingsOption(label: 'Русский', icon: Icons.language_rounded, selected: language.language == AppLanguage.ru, onTap: () => language.setLanguage(AppLanguage.ru))),
-              const SizedBox(width: 10),
-              Expanded(child: _SettingsOption(label: 'Кыргызча', icon: Icons.language_rounded, selected: language.language == AppLanguage.ky, onTap: () => language.setLanguage(AppLanguage.ky))),
-            ]),
-          ]),
+          child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                    child: Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                            color: colors.textMuted.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(999)))),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                      child: Text(text.settings,
+                          style: TextStyle(
+                              color: colors.textStrong,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 24))),
+                  IconButton.filledTonal(
+                    onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                        backgroundColor: colors.surfaceSoft,
+                        foregroundColor: colors.textStrong),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: text.close,
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                Text(text.isKy ? 'Тема' : 'Тема',
+                    style: TextStyle(
+                        color: colors.textMuted, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                      child: _SettingsOption(
+                          label: text.lightMode,
+                          icon: Icons.light_mode_rounded,
+                          selected: !appearance.isDark,
+                          onTap: () =>
+                              appearance.setThemeMode(ThemeMode.light))),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: _SettingsOption(
+                          label: text.darkMode,
+                          icon: Icons.dark_mode_rounded,
+                          selected: appearance.isDark,
+                          onTap: () =>
+                              appearance.setThemeMode(ThemeMode.dark))),
+                ]),
+                const SizedBox(height: 16),
+                Text(text.languageLabel,
+                    style: TextStyle(
+                        color: colors.textMuted, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                      child: _SettingsOption(
+                          label: 'Русский',
+                          icon: Icons.language_rounded,
+                          selected: language.language == AppLanguage.ru,
+                          onTap: () => language.setLanguage(AppLanguage.ru))),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: _SettingsOption(
+                          label: 'Кыргызча',
+                          icon: Icons.language_rounded,
+                          selected: language.language == AppLanguage.ky,
+                          onTap: () => language.setLanguage(AppLanguage.ky))),
+                ]),
+              ]),
         ),
       ),
     );
@@ -128,7 +183,11 @@ class AppSettingsSheet extends StatelessWidget {
 }
 
 class _SettingsOption extends StatelessWidget {
-  const _SettingsOption({required this.label, required this.icon, required this.selected, required this.onTap});
+  const _SettingsOption(
+      {required this.label,
+      required this.icon,
+      required this.selected,
+      required this.onTap});
 
   final String label;
   final IconData icon;
@@ -150,13 +209,20 @@ class _SettingsOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? MobileChatTheme.primary : colors.border, width: selected ? 1.5 : 1),
+          border: Border.all(
+              color: selected ? MobileChatTheme.primary : colors.border,
+              width: selected ? 1.5 : 1),
         ),
         child: Row(children: [
           Icon(icon, color: iconColor),
           const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(color: foreground, fontWeight: FontWeight.w800))),
-          if (selected) const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+          Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      color: foreground, fontWeight: FontWeight.w800))),
+          if (selected)
+            const Icon(Icons.check_circle_rounded,
+                color: Colors.white, size: 18),
         ]),
       ),
     );
