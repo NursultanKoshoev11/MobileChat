@@ -40,7 +40,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   bool get canModerate =>
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
   bool get canInvite => widget.group.canInvite;
-  bool get canChangeRoles => widget.group.myRole == 'owner';
+  bool get canChangeRoles => widget.group.ownerId == widget.user.id;
 
   @override
   void initState() {
@@ -138,8 +138,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         showAppSnack(
           context,
           AppLanguageScope.textOf(context).isKy
-              ? 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р В¶Р В°РўР€РЎвЂ№РЎР‚РЎвЂљРЎвЂ№Р В»Р Т‘РЎвЂ№.'
-              : 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р….',
+              ? 'Р В Р Р‹Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњР РЋР С“ Р В Р’В¶Р В Р’В°Р СћР в‚¬Р РЋРІР‚в„–Р РЋР вЂљР РЋРІР‚С™Р РЋРІР‚в„–Р В Р’В»Р В РўвЂР РЋРІР‚в„–.'
+              : 'Р В Р Р‹Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњР РЋР С“ Р В РЎвЂўР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р РЋРІР‚ВР В Р вЂ¦.',
         );
     } catch (e) {
       if (mounted) showAppSnack(context, e.toString());
@@ -183,8 +183,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       showAppSnack(
         context,
         AppLanguageScope.textOf(context).isKy
-            ? 'Р СћР С•Р С—РЎвЂљРЎС“Р Р… Р С”Р С•Р Т‘РЎС“ Р В°Р В·РЎвЂ№РЎР‚РЎвЂ№Р Р…РЎвЂЎР В° РЎвЂљРўР‡Р В·РўР‡Р В»Р С–РЈВ©Р Р… РЎРЊР СР ВµРЎРѓ.'
-            : 'Р С™Р С•Р Т‘ Р С–РЎР‚РЎС“Р С—Р С—РЎвЂ№ Р ВµРЎвЂ°РЎвЂ Р Р…Р Вµ РЎРѓР С•Р В·Р Т‘Р В°Р Р….',
+            ? 'Р В РЎС›Р В РЎвЂўР В РЎвЂ”Р РЋРІР‚С™Р РЋРЎвЂњР В Р вЂ¦ Р В РЎвЂќР В РЎвЂўР В РўвЂР РЋРЎвЂњ Р В Р’В°Р В Р’В·Р РЋРІР‚в„–Р РЋР вЂљР РЋРІР‚в„–Р В Р вЂ¦Р РЋРІР‚РЋР В Р’В° Р РЋРІР‚С™Р СћР вЂЎР В Р’В·Р СћР вЂЎР В Р’В»Р В РЎвЂ“Р Р€Р’В©Р В Р вЂ¦ Р РЋР РЉР В РЎВР В Р’ВµР РЋР С“.'
+            : 'Р В РЎв„ўР В РЎвЂўР В РўвЂ Р В РЎвЂ“Р РЋР вЂљР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂ”Р РЋРІР‚в„– Р В Р’ВµР РЋРІР‚В°Р РЋРІР‚В Р В Р вЂ¦Р В Р’Вµ Р РЋР С“Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р В Р вЂ¦.',
       );
       return;
     }
