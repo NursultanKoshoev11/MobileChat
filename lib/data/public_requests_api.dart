@@ -61,6 +61,27 @@ class PublicRequestsApi {
     return ChatGroup.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<List<GroupMember>> listGroupMembers(String groupId) async {
+    final response = await _send('GET', '/api/groups/$groupId/members');
+    return (response as List)
+        .whereType<Map<String, dynamic>>()
+        .map(GroupMember.fromJson)
+        .toList();
+  }
+
+  Future<GroupMember> updateGroupMemberRole({
+    required String groupId,
+    required String userId,
+    required String role,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/api/groups/$groupId/members/$userId/role',
+      body: {'role': role},
+    );
+    return GroupMember.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<GroupStatistics> fetchStatistics(
     String groupId, {
     String period = 'month',

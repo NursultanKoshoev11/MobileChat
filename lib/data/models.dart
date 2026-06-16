@@ -106,6 +106,29 @@ class ChatGroup {
   }
 }
 
+class GroupMember {
+  const GroupMember({
+    required this.userId,
+    required this.displayName,
+    required this.role,
+    this.phone,
+  });
+
+  final String userId;
+  final String displayName;
+  final String role;
+  final String? phone;
+
+  factory GroupMember.fromJson(Map<String, dynamic> json) {
+    return GroupMember(
+      userId: json['user_id'] as String,
+      displayName: json['display_name'] as String? ?? 'User',
+      phone: json['phone'] as String?,
+      role: json['role'] as String? ?? 'member',
+    );
+  }
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,

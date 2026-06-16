@@ -40,6 +40,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   bool get canModerate =>
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
   bool get canInvite => widget.group.canInvite;
+  bool get canChangeRoles => widget.group.myRole == 'owner';
 
   @override
   void initState() {
@@ -137,8 +138,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         showAppSnack(
           context,
           AppLanguageScope.textOf(context).isKy
-              ? 'Статус жаңыртылды.'
-              : 'Статус обновлён.',
+              ? 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р В¶Р В°РўР€РЎвЂ№РЎР‚РЎвЂљРЎвЂ№Р В»Р Т‘РЎвЂ№.'
+              : 'Р РЋРЎвЂљР В°РЎвЂљРЎС“РЎРѓ Р С•Р В±Р Р…Р С•Р Р†Р В»РЎвЂР Р….',
         );
     } catch (e) {
       if (mounted) showAppSnack(context, e.toString());
@@ -154,9 +155,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           request: request,
           canModerate: canModerate,
           currentUserId: widget.user.id,
-          onStatusChanged: canModerate
-              ? (status) => updateStatus(request, status)
-              : null,
+          onStatusChanged:
+              canModerate ? (status) => updateStatus(request, status) : null,
         ),
       ),
     );
@@ -183,8 +183,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       showAppSnack(
         context,
         AppLanguageScope.textOf(context).isKy
-            ? 'Топтун коду азырынча түзүлгөн эмес.'
-            : 'Код группы ещё не создан.',
+            ? 'Р СћР С•Р С—РЎвЂљРЎС“Р Р… Р С”Р С•Р Т‘РЎС“ Р В°Р В·РЎвЂ№РЎР‚РЎвЂ№Р Р…РЎвЂЎР В° РЎвЂљРўР‡Р В·РўР‡Р В»Р С–РЈВ©Р Р… РЎРЊР СР ВµРЎРѓ.'
+            : 'Р С™Р С•Р Т‘ Р С–РЎР‚РЎС“Р С—Р С—РЎвЂ№ Р ВµРЎвЂ°РЎвЂ Р Р…Р Вµ РЎРѓР С•Р В·Р Т‘Р В°Р Р….',
       );
       return;
     }
@@ -209,6 +209,76 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
+  Future<void> changeRoleById() async {
+    if (!canChangeRoles) return;
+    final controller = TextEditingController();
+    var loading = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> changeRole(String role) async {
+            final userId = controller.text.trim();
+            if (userId.isEmpty || loading) return;
+            setSheetState(() => loading = true);
+            try {
+              await requestsApi.updateGroupMemberRole(
+                  groupId: widget.group.id, userId: userId, role: role);
+              if (!context.mounted) return;
+              Navigator.pop(sheetContext);
+              showAppSnack(context,
+                  role == 'admin' ? 'Admin assigned.' : 'Admin removed.');
+            } catch (error) {
+              if (context.mounted) showAppSnack(context, error.toString());
+            } finally {
+              if (context.mounted) setSheetState(() => loading = false);
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Manage admins',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  const Text('Enter a group member user ID.'),
+                  const SizedBox(height: 14),
+                  TextField(
+                      controller: controller,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                          labelText: 'User ID',
+                          prefixIcon: Icon(Icons.badge_outlined))),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                      onPressed: loading ? null : () => changeRole('admin'),
+                      icon: const Icon(Icons.admin_panel_settings_rounded),
+                      label: Text(loading ? 'Please wait...' : 'Make admin')),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                      onPressed: loading ? null : () => changeRole('member'),
+                      icon: const Icon(Icons.person_outline_rounded),
+                      label: const Text('Remove admin')),
+                ]),
+          );
+        },
+      ),
+    );
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
@@ -218,20 +288,30 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         actions: [
           IconButton(
             onPressed: openStatistics,
-            tooltip: text.isKy ? 'Статистика' : 'Статистика',
+            tooltip: text.isKy
+                ? 'Р РЋРЎвЂљР В°РЎвЂљР С‘РЎРѓРЎвЂљР С‘Р С”Р В°'
+                : 'Р РЋРЎвЂљР В°РЎвЂљР С‘РЎРѓРЎвЂљР С‘Р С”Р В°',
             icon: const Icon(Icons.analytics_outlined),
           ),
           IconButton(
             onPressed: showGroupAccess,
-            tooltip: text.isKy ? 'Код жана QR' : 'Код и QR',
+            tooltip: text.isKy
+                ? 'Р С™Р С•Р Т‘ Р В¶Р В°Р Р…Р В° QR'
+                : 'Р С™Р С•Р Т‘ Р С‘ QR',
             icon: const Icon(Icons.qr_code_rounded),
           ),
+          if (canChangeRoles)
+            IconButton(
+              onPressed: changeRoleById,
+              tooltip: 'Manage admins',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+            ),
           if (canInvite)
             IconButton(
               onPressed: inviteByPhone,
               tooltip: text.isKy
-                  ? 'Телефон менен чакыруу'
-                  : 'Пригласить по телефону',
+                  ? 'Р СћР ВµР В»Р ВµРЎвЂћР С•Р Р… Р СР ВµР Р…Р ВµР Р… РЎвЂЎР В°Р С”РЎвЂ№РЎР‚РЎС“РЎС“'
+                  : 'Р СџРЎР‚Р С‘Р С–Р В»Р В°РЎРѓР С‘РЎвЂљРЎРЉ Р С—Р С• РЎвЂљР ВµР В»Р ВµРЎвЂћР С•Р Р…РЎС“',
               icon: const Icon(Icons.person_add_alt_1_rounded),
             ),
           const AppSettingsButton(),
