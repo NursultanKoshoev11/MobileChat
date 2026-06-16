@@ -16,35 +16,69 @@ class PublicRequestsApi {
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
 
-  Future<PublicRequest> createRequest({required String groupId, required String type, required String interactionMode, required String title, required String body}) async {
-    final response = await _send('POST', '/api/groups/$groupId/requests', body: {
-      'request_type': type,
-      'interaction_mode': interactionMode,
-      'title': title,
-      'body': body,
-    });
+  Future<PublicRequest> createRequest({
+    required String groupId,
+    required String type,
+    required String interactionMode,
+    required String title,
+    required String body,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/api/groups/$groupId/requests',
+      body: {
+        'request_type': type,
+        'interaction_mode': interactionMode,
+        'title': title,
+        'body': body,
+      },
+    );
     return PublicRequest.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<List<PublicRequest>> listRequests(String groupId, {bool mineOnly = false}) async {
+  Future<List<PublicRequest>> listRequests(
+    String groupId, {
+    bool mineOnly = false,
+  }) async {
     final query = <String, String>{'limit': '50'};
     if (mineOnly) query['mine'] = 'true';
-    final response = await _send('GET', '/api/groups/$groupId/requests', query: query);
-    return (response as List<dynamic>).map((item) => PublicRequest.fromJson(item as Map<String, dynamic>)).toList();
+    final response = await _send(
+      'GET',
+      '/api/groups/$groupId/requests',
+      query: query,
+    );
+    return (response as List<dynamic>)
+        .map((item) => PublicRequest.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> leaveGroup(String groupId) async {
     await _send('DELETE', '/api/groups/$groupId/leave');
   }
 
-  Future<GroupStatistics> fetchStatistics(String groupId, {String period = 'month', String granularity = 'day', DateTime? from, DateTime? to}) async {
+  Future<ChatGroup> ensureGroupInviteCode(String groupId) async {
+    final response = await _send('POST', '/api/groups/$groupId/invite-code');
+    return ChatGroup.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<GroupStatistics> fetchStatistics(
+    String groupId, {
+    String period = 'month',
+    String granularity = 'day',
+    DateTime? from,
+    DateTime? to,
+  }) async {
     final query = <String, String>{
       'period': period,
       'granularity': granularity,
     };
     if (from != null) query['from'] = from.toUtc().toIso8601String();
     if (to != null) query['to'] = to.toUtc().toIso8601String();
-    final response = await _send('GET', '/api/groups/$groupId/statistics', query: query);
+    final response = await _send(
+      'GET',
+      '/api/groups/$groupId/statistics',
+      query: query,
+    );
     return GroupStatistics.fromJson(response as Map<String, dynamic>);
   }
 
@@ -62,11 +96,22 @@ class PublicRequestsApi {
 
   Future<List<PublicRequestComment>> listComments(String requestId) async {
     final response = await _send('GET', '/api/requests/$requestId/comments');
-    return (response as List<dynamic>).map((item) => PublicRequestComment.fromJson(item as Map<String, dynamic>)).toList();
+    return (response as List<dynamic>)
+        .map(
+          (item) => PublicRequestComment.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
   }
 
-  Future<PublicRequestComment> addComment({required String requestId, required String body}) async {
-    final response = await _send('POST', '/api/requests/$requestId/comments', body: {'body': body});
+  Future<PublicRequestComment> addComment({
+    required String requestId,
+    required String body,
+  }) async {
+    final response = await _send(
+      'POST',
+      '/api/requests/$requestId/comments',
+      body: {'body': body},
+    );
     return PublicRequestComment.fromJson(response as Map<String, dynamic>);
   }
 
@@ -78,8 +123,15 @@ class PublicRequestsApi {
     await _send('POST', '/api/requests/$requestId/hide');
   }
 
-  Future<void> updateStatus({required String requestId, required String status}) async {
-    await _send('POST', '/api/requests/$requestId/status', body: {'status': status});
+  Future<void> updateStatus({
+    required String requestId,
+    required String status,
+  }) async {
+    await _send(
+      'POST',
+      '/api/requests/$requestId/status',
+      body: {'status': status},
+    );
   }
 
   Future<dynamic> _send(
@@ -90,7 +142,8 @@ class PublicRequestsApi {
     bool retrying = false,
   }) async {
     final session = await sessionStore.read();
-    if (session == null) throw const ApiException('Session expired. Please sign in again.');
+    if (session == null)
+      throw const ApiException('Session expired. Please sign in again.');
 
     final uri = Uri.parse(baseUrl).replace(path: path, queryParameters: query);
     final headers = {
@@ -106,7 +159,9 @@ class PublicRequestsApi {
       } else if (method == 'DELETE') {
         response = await http.delete(uri, headers: headers).timeout(_timeout);
       } else {
-        response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+        response = await http
+            .post(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .timeout(_timeout);
       }
 
       if (response.statusCode == 401 && !retrying) {
@@ -132,7 +187,10 @@ class PublicRequestsApi {
     final response = await http
         .post(
           uri,
-          headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
+          headers: const {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept': 'application/json',
+          },
           body: jsonEncode({'refresh_token': session.refreshToken}),
         )
         .timeout(_timeout);
@@ -141,7 +199,8 @@ class PublicRequestsApi {
       await sessionStore.clear();
       return false;
     }
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     await sessionStore.save(AppSession.fromJson(decoded));
     return true;
   }
