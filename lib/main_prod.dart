@@ -371,7 +371,7 @@ class ApiClient {
   }
 
   dynamic _decode(http.Response response) {
-    final body = response.body.trim();
+    final body = utf8.decode(response.bodyBytes).trim();
     final decoded = body.isEmpty ? null : jsonDecode(body);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
     if (decoded is Map<String, dynamic> && decoded['error'] is String) {

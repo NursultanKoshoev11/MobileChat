@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
@@ -55,7 +55,7 @@ class GroupAccessSheet extends StatelessWidget {
           const SizedBox(height: 16),
           Center(child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: QrImageView(data: code, version: QrVersions.auto, size: 210, backgroundColor: Colors.white))),
           const SizedBox(height: 12),
-          Text(text.isKy ? 'Р‘СѓР» РєРѕРґРґСѓ Р¶Рµ QR РєРѕРґРґСѓ Р±Р°С€РєР° РєРѕР»РґРѕРЅСѓСѓС‡СѓРіР° Р±РµСЂРёТЈРёР·.' : 'РџРµСЂРµРґР°Р№С‚Рµ СЌС‚РѕС‚ РєРѕРґ РёР»Рё QR РґСЂСѓРіРѕРјСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600)),
+          Text(text.isKy ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз.' : 'Передайте этот код или QR другому пользователю.', textAlign: TextAlign.center, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -91,7 +91,7 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
       await widget.api.inviteUserByPhone(groupId: widget.group.id, mobile: phoneController.text);
       if (!mounted) return;
       Navigator.of(context).pop();
-      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Р§Р°РєС‹СЂСѓСѓ Р¶У©РЅУ©С‚ТЇР»РґТЇ.' : 'РџСЂРёРіР»Р°С€РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ.');
+      showAppSnack(context, AppLanguageScope.textOf(context).isKy ? 'Чакыруу жөнөтүлдү.' : 'Приглашение отправлено.');
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -105,12 +105,12 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.isKy ? 'РўРµР»РµС„РѕРЅ РјРµРЅРµРЅ С‡Р°РєС‹СЂСѓСѓ' : 'РџСЂРёРіР»Р°СЃРёС‚СЊ РїРѕ С‚РµР»РµС„РѕРЅСѓ', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
         TextField(controller: phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded))),
         if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
         const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Р§Р°РєС‹СЂСѓСѓ Р¶У©РЅУ©С‚ТЇТЇ' : 'РћС‚РїСЂР°РІРёС‚СЊ РїСЂРёРіР»Р°С€РµРЅРёРµ'))),
+        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.pleaseWait : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'))),
       ]),
     );
   }
@@ -128,6 +128,60 @@ class PublicRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    String typeLabel(String value) {
+      switch (value) {
+        case 'announcement':
+          return text.announcement;
+        case 'suggestion':
+          return text.suggestion;
+        case 'complaint':
+          return text.complaint;
+        case 'requirement':
+          return text.requirement;
+        case 'problem':
+          return text.problem;
+        case 'idea':
+          return text.idea;
+        default:
+          return value;
+      }
+    }
+
+    String modeLabel(String value) {
+      switch (value) {
+        case 'read_only':
+          return text.textOnly;
+        case 'vote_only':
+          return text.votingOnly;
+        case 'discussion':
+          return text.discussionWithComments;
+        default:
+          return value;
+      }
+    }
+
+    String statusLabel(String value) {
+      switch (value) {
+        case 'new':
+          return text.statusNew;
+        case 'under_review':
+          return text.statusUnderReview;
+        case 'resolved':
+          return text.statusResolved;
+        case 'rejected':
+          return text.statusRejected;
+        default:
+          return value;
+      }
+    }
+
+    final statusText = [
+      typeLabel(request.requestType),
+      modeLabel(request.interactionMode),
+      statusLabel(request.status),
+      if (canModerate && onStatus != null) text.adminStatus,
+    ].join(' · ');
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
@@ -145,17 +199,26 @@ class PublicRequestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Text(
+                    statusText,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.textMuted, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                if (canModerate && onStatus != null) _StatusButton(onChanged: onStatus!),
+              ]),
+              const SizedBox(height: 6),
               Text(request.title, style: TextStyle(color: colors.textStrong, fontSize: 17, fontWeight: FontWeight.w800)),
               if (request.displayBody.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(request.displayBody, maxLines: 3, overflow: TextOverflow.ellipsis),
               ],
               const SizedBox(height: 10),
-              Text('${text.isKy ? 'РђРІС‚РѕСЂ' : 'РђРІС‚РѕСЂ'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
+              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}', style: TextStyle(color: colors.textMuted, fontSize: 12)),
               const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
+              Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
                 if (request.interactionMode == 'discussion') FilledButton.tonal(onPressed: onTap, child: Text(text.read)),
-                if (canModerate && onStatus != null) _StatusButton(onChanged: onStatus!),
                 if (request.interactionMode != 'read_only') OutlinedButton.icon(onPressed: () => onVote('support'), icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${request.supportCount}')),
                 if (request.interactionMode != 'read_only') OutlinedButton.icon(onPressed: () => onVote('oppose'), icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${request.opposeCount}')),
                 Text('${request.commentCount} ${text.comments}', style: TextStyle(color: colors.textMuted)),
@@ -183,7 +246,11 @@ class _StatusButton extends StatelessWidget {
         PopupMenuItem(value: 'new', child: Text(text.statusNew)),
         PopupMenuItem(value: 'rejected', child: Text(text.statusRejected)),
       ],
-      child: OutlinedButton.icon(onPressed: null, icon: const Icon(Icons.sync_alt_rounded), label: Text(text.adminStatus)),
+      tooltip: text.adminStatus,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Icon(Icons.sync_alt_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
+      ),
     );
   }
 }
@@ -372,7 +439,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: colors.border),
                     ),
-                    child: Text(text.isKy ? 'РљРѕРјРјРµРЅС‚Р°СЂРёР№ Р°Р·С‹СЂС‹РЅС‡Р° Р¶РѕРє.' : 'РљРѕРјРјРµРЅС‚Р°СЂРёРµРІ РїРѕРєР° РЅРµС‚.', style: TextStyle(color: colors.textMuted)),
+                    child: Text(text.isKy ? 'Комментарий азырынча жок.' : 'Комментариев пока нет.', style: TextStyle(color: colors.textMuted)),
                   )
                 else
                   ...comments.map((comment) => _CommentTile(
@@ -402,7 +469,7 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => submitComment(),
-                      decoration: InputDecoration(hintText: text.isKy ? 'РљРѕРјРјРµРЅС‚Р°СЂРёР№ РєРѕС€СѓСѓ' : 'Р”РѕР±Р°РІРёС‚СЊ РєРѕРјРјРµРЅС‚Р°СЂРёР№'),
+                      decoration: InputDecoration(hintText: text.isKy ? 'Комментарий кошуу' : 'Добавить комментарий'),
                     ),
                   ),
                   const SizedBox(width: 8),

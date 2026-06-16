@@ -239,6 +239,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 }
 
+
+String _groupRoleLabel(String role) {
+  switch (role) {
+    case 'owner':
+      return 'owner';
+    case 'admin':
+      return 'admin';
+    case 'member':
+      return 'member';
+    default:
+      return role;
+  }
+}
+
 class MainGroupsMenuSheet extends StatelessWidget {
   const MainGroupsMenuSheet({super.key, required this.isAdmin, required this.adminRequestsCount, required this.invitationsCount, required this.onProfile, required this.onJoinByCode, required this.onScanQr, required this.onInvitations, required this.onMyRequests, required this.onAdminRequests, required this.onLogout});
   final bool isAdmin;
@@ -340,14 +354,17 @@ class GroupTile extends StatelessWidget {
             CircleAvatar(radius: 24, backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12), child: Icon(group.visibility == 'public' ? Icons.public_rounded : Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary)),
             const SizedBox(width: 14),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                [
+                  group.visibility == 'public' ? text.publicGroup : text.privateGroup,
+                  if (group.memberCount > 0) '${group.memberCount}',
+                  if (group.myRole != null) _groupRoleLabel(group.myRole!),
+                ].join(' · '),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.textMuted, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
               Text(group.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               if (group.description.isNotEmpty) ...[const SizedBox(height: 4), Text(group.description, maxLines: 2, overflow: TextOverflow.ellipsis)],
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: [
-                Chip(label: Text(group.visibility == 'public' ? text.publicGroup : text.privateGroup)),
-                if (group.memberCount > 0) Chip(label: Text('${group.memberCount}')),
-                if (group.myRole != null) Chip(label: Text(group.myRole!)),
-              ]),
             ])),
             PopupMenuButton<String>(
               onSelected: (value) async {

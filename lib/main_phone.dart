@@ -94,7 +94,7 @@ class PhoneAuthApi {
       final response = await http
           .post(
             uri,
-            headers: const {'Content-Type': 'application/json'},
+            headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
             body: jsonEncode(body),
           )
           .timeout(prod.AppConfig.networkTimeout);
@@ -108,7 +108,7 @@ class PhoneAuthApi {
   }
 
   dynamic _decode(http.Response response) {
-    final body = response.body.trim();
+    final body = utf8.decode(response.bodyBytes).trim();
     final decoded = body.isEmpty ? null : jsonDecode(body);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
     if (decoded is Map<String, dynamic> && decoded['error'] is String) {

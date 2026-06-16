@@ -208,7 +208,7 @@ class ApiClient {
   }) async {
     final base = Uri.parse(baseUrl);
     final uri = base.replace(path: path, queryParameters: query);
-    final headers = {'Content-Type': 'application/json'};
+    final headers = {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'};
     if (auth) {
       final session = await sessionStore.read();
       if (session == null) throw const ApiException('Session expired. Please sign in again.');
@@ -243,7 +243,7 @@ class ApiClient {
     if (session == null || session.refreshToken.isEmpty) return false;
     final base = Uri.parse(baseUrl);
     final uri = base.replace(path: '/api/auth/refresh');
-    final response = await http.post(uri, headers: const {'Content-Type': 'application/json'}, body: jsonEncode({'refresh_token': session.refreshToken})).timeout(_timeout);
+    final response = await http.post(uri, headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'}, body: jsonEncode({'refresh_token': session.refreshToken})).timeout(_timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       await sessionStore.clear();
       return false;
@@ -254,7 +254,7 @@ class ApiClient {
   }
 
   dynamic _decode(http.Response response) {
-    final body = response.body.trim();
+    final body = utf8.decode(response.bodyBytes).trim();
     dynamic decoded;
     try {
       decoded = body.isEmpty ? null : jsonDecode(body);

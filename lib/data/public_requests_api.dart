@@ -94,7 +94,8 @@ class PublicRequestsApi {
 
     final uri = Uri.parse(baseUrl).replace(path: path, queryParameters: query);
     final headers = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Accept': 'application/json',
       'Authorization': 'Bearer ${session.accessToken}',
     };
 
@@ -131,7 +132,7 @@ class PublicRequestsApi {
     final response = await http
         .post(
           uri,
-          headers: const {'Content-Type': 'application/json'},
+          headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
           body: jsonEncode({'refresh_token': session.refreshToken}),
         )
         .timeout(_timeout);
@@ -140,13 +141,13 @@ class PublicRequestsApi {
       await sessionStore.clear();
       return false;
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     await sessionStore.save(AppSession.fromJson(decoded));
     return true;
   }
 
   dynamic _decode(http.Response response) {
-    final text = response.body.trim();
+    final text = utf8.decode(response.bodyBytes).trim();
     final decoded = text.isEmpty ? null : jsonDecode(text);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
     if (decoded is Map<String, dynamic> && decoded['error'] is String) {
