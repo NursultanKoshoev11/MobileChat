@@ -41,6 +41,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
   bool get canInvite => widget.group.canInvite;
   bool get canChangeRoles => widget.group.ownerId == widget.user.id;
+  bool get canMuteComments => canModerate;
 
   @override
   void initState() {
@@ -281,6 +282,151 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     phoneController.dispose();
   }
 
+  Future<void> muteCommentsByPhone() async {
+    if (!canMuteComments) return;
+    final text = AppLanguageScope.textOf(context);
+    final phoneController = TextEditingController(text: '+996');
+    final reasonController = TextEditingController();
+    var durationMinutes = 60;
+    var loading = false;
+
+    String durationLabel(int minutes) {
+      switch (minutes) {
+        case 60:
+          return text.oneHour;
+        case 180:
+          return text.threeHours;
+        case 360:
+          return text.sixHours;
+        case 720:
+          return text.twelveHours;
+        case 1440:
+          return text.oneDay;
+        case 10080:
+          return text.sevenDays;
+        case 43200:
+          return text.thirtyDays;
+        case 0:
+          return text.forever;
+        default:
+          return '$minutes min';
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> mute() async {
+            final phone = phoneController.text.trim();
+            if (phone.isEmpty || loading) return;
+            setSheetState(() => loading = true);
+            try {
+              await requestsApi.setCommentMuteByPhone(
+                groupId: widget.group.id,
+                phone: phone,
+                durationMinutes: durationMinutes,
+                reason: reasonController.text.trim(),
+              );
+              if (!context.mounted) return;
+              Navigator.pop(sheetContext);
+              showAppSnack(context, text.mutedDone);
+            } catch (error) {
+              if (context.mounted) showAppSnack(context, error.toString());
+            } finally {
+              if (context.mounted) setSheetState(() => loading = false);
+            }
+          }
+
+          Future<void> unmute() async {
+            final phone = phoneController.text.trim();
+            if (phone.isEmpty || loading) return;
+            setSheetState(() => loading = true);
+            try {
+              await requestsApi.clearCommentMuteByPhone(
+                  groupId: widget.group.id, phone: phone);
+              if (!context.mounted) return;
+              Navigator.pop(sheetContext);
+              showAppSnack(context, text.unmutedDone);
+            } catch (error) {
+              if (context.mounted) showAppSnack(context, error.toString());
+            } finally {
+              if (context.mounted) setSheetState(() => loading = false);
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(text.blockComments,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  Text(text.blockCommentsDescription),
+                  const SizedBox(height: 14),
+                  TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                          labelText: text.mobileNumber,
+                          hintText: '+996700123456',
+                          prefixIcon: const Icon(Icons.phone_iphone_rounded))),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    value: durationMinutes,
+                    decoration: InputDecoration(
+                        labelText: text.blockDuration,
+                        prefixIcon: const Icon(Icons.timer_outlined)),
+                    items: const [60, 180, 360, 720, 1440, 10080, 43200, 0]
+                        .map((minutes) => DropdownMenuItem<int>(
+                            value: minutes,
+                            child: Text(durationLabel(minutes))))
+                        .toList(),
+                    onChanged: loading
+                        ? null
+                        : (value) =>
+                            setSheetState(() => durationMinutes = value ?? 60),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: reasonController,
+                      minLines: 1,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                          labelText: text.blockReason,
+                          prefixIcon: const Icon(Icons.note_alt_outlined))),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                      onPressed: loading ? null : mute,
+                      icon: const Icon(Icons.block_rounded),
+                      label: Text(loading
+                          ? text.pleaseWait
+                          : text.blockCommentsButton)),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                      onPressed: loading ? null : unmute,
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: Text(text.unblockCommentsButton)),
+                ]),
+          );
+        },
+      ),
+    );
+    phoneController.dispose();
+    reasonController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
@@ -303,6 +449,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               onPressed: changeRoleByPhone,
               tooltip: text.manageAdmins,
               icon: const Icon(Icons.admin_panel_settings_outlined),
+            ),
+          if (canMuteComments)
+            IconButton(
+              onPressed: muteCommentsByPhone,
+              tooltip: text.blockComments,
+              icon: const Icon(Icons.block_rounded),
             ),
           if (canInvite)
             IconButton(

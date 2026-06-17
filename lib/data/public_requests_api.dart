@@ -95,6 +95,34 @@ class PublicRequestsApi {
     return GroupMember.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<void> setCommentMuteByPhone({
+    required String groupId,
+    required String phone,
+    required int durationMinutes,
+    String reason = '',
+  }) async {
+    await _send(
+      'POST',
+      '/api/groups/$groupId/comment-mutes/by-phone',
+      body: {
+        'phone': phone,
+        'duration_minutes': durationMinutes,
+        'reason': reason
+      },
+    );
+  }
+
+  Future<void> clearCommentMuteByPhone({
+    required String groupId,
+    required String phone,
+  }) async {
+    await _send(
+      'POST',
+      '/api/groups/$groupId/comment-mutes/unmute-by-phone',
+      body: {'phone': phone},
+    );
+  }
+
   Future<GroupStatistics> fetchStatistics(
     String groupId, {
     String period = 'month',

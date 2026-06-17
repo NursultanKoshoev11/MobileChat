@@ -226,4 +226,25 @@ class AppText {
   String get darkMode => isKy ? 'Караңгы режим' : 'Тёмный режим';
   String get settings => isKy ? 'Жөндөөлөр' : 'Настройки';
   String get close => isKy ? 'Жабуу' : 'Закрыть';
+  String get blockComments =>
+      isKy ? 'Комментарийди бөгөттөө' : 'Блок комментариев';
+  String get blockCommentsDescription => isKy
+      ? 'Колдонуучу окуй алат, бирок комментарий жаза албайт.'
+      : 'Пользователь сможет читать, но не сможет писать комментарии.';
+  String get blockCommentsButton => isKy ? 'Бөгөттөө' : 'Заблокировать';
+  String get unblockCommentsButton =>
+      isKy ? 'Бөгөттөн чыгаруу' : 'Разблокировать';
+  String get blockDuration => isKy ? 'Мөөнөт' : 'Срок';
+  String get blockReason => isKy ? 'Себеп' : 'Причина';
+  String get mutedDone =>
+      isKy ? 'Комментарий жазуу бөгөттөлдү.' : 'Комментарии заблокированы.';
+  String get unmutedDone => isKy ? 'Бөгөт алынды.' : 'Блок снят.';
+  String get oneHour => isKy ? '1 саат' : '1 час';
+  String get threeHours => isKy ? '3 саат' : '3 часа';
+  String get sixHours => isKy ? '6 саат' : '6 часов';
+  String get twelveHours => isKy ? '12 саат' : '12 часов';
+  String get oneDay => isKy ? '1 күн' : '1 день';
+  String get sevenDays => isKy ? '7 күн' : '7 дней';
+  String get thirtyDays => isKy ? '30 күн' : '30 дней';
+  String get forever => isKy ? 'Түбөлүк' : 'Навсегда';
 }
