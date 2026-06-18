@@ -284,11 +284,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> muteCommentsByPhone() async {
     if (!canMuteComments) return;
+    final rootContext = context;
     final text = AppLanguageScope.textOf(context);
     final phoneController = TextEditingController(text: '+996');
     final reasonController = TextEditingController();
+    final membersFuture = requestsApi.listGroupMembers(widget.group.id);
     var durationMinutes = 60;
     var loading = false;
+    String? errorText;
+    String? successText;
 
     String durationLabel(int minutes) {
       switch (minutes) {
@@ -314,16 +318,30 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     }
 
     await showModalBottomSheet<void>(
-      context: context,
+      context: rootContext,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: Theme.of(rootContext).cardColor,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
+          void showResult({String? error, String? success}) {
+            setSheetState(() {
+              errorText = error;
+              successText = success;
+            });
+            if (rootContext.mounted) {
+              showAppSnack(rootContext, error ?? success ?? '');
+            }
+          }
+
           Future<void> mute() async {
             final phone = phoneController.text.trim();
             if (phone.isEmpty || loading) return;
-            setSheetState(() => loading = true);
+            setSheetState(() {
+              loading = true;
+              errorText = null;
+              successText = null;
+            });
             try {
               await requestsApi.setCommentMuteByPhone(
                 groupId: widget.group.id,
@@ -331,11 +349,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 durationMinutes: durationMinutes,
                 reason: reasonController.text.trim(),
               );
-              if (!context.mounted) return;
-              Navigator.pop(sheetContext);
-              showAppSnack(context, text.mutedDone);
+              showResult(success: text.mutedDone);
             } catch (error) {
-              if (context.mounted) showAppSnack(context, error.toString());
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -344,15 +361,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           Future<void> unmute() async {
             final phone = phoneController.text.trim();
             if (phone.isEmpty || loading) return;
-            setSheetState(() => loading = true);
+            setSheetState(() {
+              loading = true;
+              errorText = null;
+              successText = null;
+            });
             try {
               await requestsApi.clearCommentMuteByPhone(
                   groupId: widget.group.id, phone: phone);
-              if (!context.mounted) return;
-              Navigator.pop(sheetContext);
-              showAppSnack(context, text.unmutedDone);
+              showResult(success: text.unmutedDone);
             } catch (error) {
-              if (context.mounted) showAppSnack(context, error.toString());
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -363,62 +383,113 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 left: 20,
                 right: 20,
                 bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-            child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(text.blockComments,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  Text(text.blockCommentsDescription),
-                  const SizedBox(height: 14),
-                  TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
+            child: SingleChildScrollView(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(text.blockComments,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 8),
+                    Text(text.blockCommentsDescription),
+                    const SizedBox(height: 14),
+                    FutureBuilder<List<GroupMember>>(
+                      future: membersFuture,
+                      builder: (context, snapshot) {
+                        final members = (snapshot.data ?? const <GroupMember>[])
+                            .where((member) =>
+                                member.phone != null &&
+                                member.phone!.trim().isNotEmpty)
+                            .toList();
+                        if (members.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              DropdownButtonFormField<String>(
+                                decoration: InputDecoration(
+                                    labelText: text.mobileNumber,
+                                    prefixIcon: const Icon(
+                                        Icons.people_outline_rounded)),
+                                items: members
+                                    .map((member) => DropdownMenuItem<String>(
+                                          value: member.phone,
+                                          child: Text(
+                                              '${member.displayName} · ${member.phone} · ${member.role}'),
+                                        ))
+                                    .toList(),
+                                onChanged: loading
+                                    ? null
+                                    : (value) => setSheetState(() =>
+                                        phoneController.text =
+                                            value ?? phoneController.text),
+                              ),
+                              const SizedBox(height: 12),
+                            ]);
+                      },
+                    ),
+                    TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                            labelText: text.mobileNumber,
+                            hintText: '+996700123456',
+                            prefixIcon:
+                                const Icon(Icons.phone_iphone_rounded))),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      value: durationMinutes,
                       decoration: InputDecoration(
-                          labelText: text.mobileNumber,
-                          hintText: '+996700123456',
-                          prefixIcon: const Icon(Icons.phone_iphone_rounded))),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    value: durationMinutes,
-                    decoration: InputDecoration(
-                        labelText: text.blockDuration,
-                        prefixIcon: const Icon(Icons.timer_outlined)),
-                    items: const [60, 180, 360, 720, 1440, 10080, 43200, 0]
-                        .map((minutes) => DropdownMenuItem<int>(
-                            value: minutes,
-                            child: Text(durationLabel(minutes))))
-                        .toList(),
-                    onChanged: loading
-                        ? null
-                        : (value) =>
-                            setSheetState(() => durationMinutes = value ?? 60),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: reasonController,
-                      minLines: 1,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                          labelText: text.blockReason,
-                          prefixIcon: const Icon(Icons.note_alt_outlined))),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                      onPressed: loading ? null : mute,
-                      icon: const Icon(Icons.block_rounded),
-                      label: Text(loading
-                          ? text.pleaseWait
-                          : text.blockCommentsButton)),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                      onPressed: loading ? null : unmute,
-                      icon: const Icon(Icons.lock_open_rounded),
-                      label: Text(text.unblockCommentsButton)),
-                ]),
+                          labelText: text.blockDuration,
+                          prefixIcon: const Icon(Icons.timer_outlined)),
+                      items: const [60, 180, 360, 720, 1440, 10080, 43200, 0]
+                          .map((minutes) => DropdownMenuItem<int>(
+                              value: minutes,
+                              child: Text(durationLabel(minutes))))
+                          .toList(),
+                      onChanged: loading
+                          ? null
+                          : (value) => setSheetState(
+                              () => durationMinutes = value ?? 60),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                        controller: reasonController,
+                        minLines: 1,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                            labelText: text.blockReason,
+                            prefixIcon: const Icon(Icons.note_alt_outlined))),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 12),
+                      Text(errorText!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                    if (successText != null) ...[
+                      const SizedBox(height: 12),
+                      Text(successText!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                        onPressed: loading ? null : mute,
+                        icon: const Icon(Icons.block_rounded),
+                        label: Text(loading
+                            ? text.pleaseWait
+                            : text.blockCommentsButton)),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                        onPressed: loading ? null : unmute,
+                        icon: const Icon(Icons.lock_open_rounded),
+                        label: Text(text.unblockCommentsButton)),
+                  ]),
+            ),
           );
         },
       ),
