@@ -286,11 +286,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (!canMuteComments) return;
     final rootContext = context;
     final text = AppLanguageScope.textOf(context);
-    final phoneController = TextEditingController(text: '+996');
     final reasonController = TextEditingController();
     final membersFuture = requestsApi.listGroupMembers(widget.group.id);
     var durationMinutes = 60;
     var loading = false;
+    String? selectedUserId;
     String? errorText;
     String? successText;
 
@@ -317,6 +317,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       }
     }
 
+    bool canSelectMember(GroupMember member) {
+      if (member.userId == widget.user.id) return false;
+      if (member.role == 'owner') return false;
+      if (widget.group.ownerId == widget.user.id) return true;
+      return member.role == 'member';
+    }
+
     await showModalBottomSheet<void>(
       context: rootContext,
       isScrollControlled: true,
@@ -335,17 +342,17 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           }
 
           Future<void> mute() async {
-            final phone = phoneController.text.trim();
-            if (phone.isEmpty || loading) return;
+            final userId = selectedUserId;
+            if (userId == null || userId.isEmpty || loading) return;
             setSheetState(() {
               loading = true;
               errorText = null;
               successText = null;
             });
             try {
-              await requestsApi.setCommentMuteByPhone(
+              await requestsApi.setCommentMute(
                 groupId: widget.group.id,
-                phone: phone,
+                userId: userId,
                 durationMinutes: durationMinutes,
                 reason: reasonController.text.trim(),
               );
@@ -359,16 +366,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           }
 
           Future<void> unmute() async {
-            final phone = phoneController.text.trim();
-            if (phone.isEmpty || loading) return;
+            final userId = selectedUserId;
+            if (userId == null || userId.isEmpty || loading) return;
             setSheetState(() {
               loading = true;
               errorText = null;
               successText = null;
             });
             try {
-              await requestsApi.clearCommentMuteByPhone(
-                  groupId: widget.group.id, phone: phone);
+              await requestsApi.clearCommentMute(
+                  groupId: widget.group.id, userId: userId);
               showResult(success: text.unmutedDone);
             } catch (error) {
               showResult(
@@ -399,45 +406,47 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     FutureBuilder<List<GroupMember>>(
                       future: membersFuture,
                       builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator()));
+                        }
                         final members = (snapshot.data ?? const <GroupMember>[])
-                            .where((member) =>
-                                member.phone != null &&
-                                member.phone!.trim().isNotEmpty)
+                            .where(canSelectMember)
                             .toList();
-                        if (members.isEmpty) return const SizedBox.shrink();
-                        return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              DropdownButtonFormField<String>(
-                                decoration: InputDecoration(
-                                    labelText: text.mobileNumber,
-                                    prefixIcon: const Icon(
-                                        Icons.people_outline_rounded)),
-                                items: members
-                                    .map((member) => DropdownMenuItem<String>(
-                                          value: member.phone,
-                                          child: Text(
-                                              '${member.displayName} · ${member.phone} · ${member.role}'),
-                                        ))
-                                    .toList(),
-                                onChanged: loading
-                                    ? null
-                                    : (value) => setSheetState(() =>
-                                        phoneController.text =
-                                            value ?? phoneController.text),
-                              ),
-                              const SizedBox(height: 12),
-                            ]);
+                        if (members.isEmpty) {
+                          return Text(
+                            text.isKy
+                                ? 'Бөгөттөй турган катышуучу жок.'
+                                : 'Нет участников, которых можно заблокировать.',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.w700),
+                          );
+                        }
+                        selectedUserId ??= members.first.userId;
+                        return DropdownButtonFormField<String>(
+                          value: selectedUserId,
+                          decoration: InputDecoration(
+                              labelText: text.mobileNumber,
+                              prefixIcon:
+                                  const Icon(Icons.people_outline_rounded)),
+                          items: members
+                              .map((member) => DropdownMenuItem<String>(
+                                    value: member.userId,
+                                    child: Text(
+                                        '${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
+                                  ))
+                              .toList(),
+                          onChanged: loading
+                              ? null
+                              : (value) =>
+                                  setSheetState(() => selectedUserId = value),
+                        );
                       },
                     ),
-                    TextField(
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                            labelText: text.mobileNumber,
-                            hintText: '+996700123456',
-                            prefixIcon:
-                                const Icon(Icons.phone_iphone_rounded))),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       value: durationMinutes,
@@ -478,14 +487,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     ],
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                        onPressed: loading ? null : mute,
+                        onPressed:
+                            loading || selectedUserId == null ? null : mute,
                         icon: const Icon(Icons.block_rounded),
                         label: Text(loading
                             ? text.pleaseWait
                             : text.blockCommentsButton)),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
-                        onPressed: loading ? null : unmute,
+                        onPressed:
+                            loading || selectedUserId == null ? null : unmute,
                         icon: const Icon(Icons.lock_open_rounded),
                         label: Text(text.unblockCommentsButton)),
                   ]),
@@ -494,7 +505,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         },
       ),
     );
-    phoneController.dispose();
     reasonController.dispose();
   }
 
