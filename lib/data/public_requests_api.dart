@@ -77,6 +77,23 @@ class PublicRequestsApi {
         .toList();
   }
 
+  Future<int> countModerationItems(
+    String groupId, {
+    String status = 'pending',
+  }) async {
+    final query = <String, String>{};
+    if (status.trim().isNotEmpty) query['status'] = status.trim();
+    final response = await _send(
+      'GET',
+      '/api/groups/$groupId/moderation/items/count',
+      query: query,
+    );
+    if (response is Map<String, dynamic>) {
+      return response['count'] as int? ?? 0;
+    }
+    return 0;
+  }
+
   Future<void> approveModerationItem(String itemId) async {
     await _send('POST', '/api/moderation/items/$itemId/approve');
   }

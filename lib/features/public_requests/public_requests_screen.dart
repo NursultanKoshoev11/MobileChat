@@ -31,6 +31,7 @@ class PublicRequestsScreen extends StatefulWidget {
 class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late final PublicRequestsApi requestsApi;
   late Future<List<PublicRequest>> requestsFuture;
+  late Future<int> moderationCountFuture;
 
   bool get canModerate =>
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
@@ -43,6 +44,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       sessionStore: widget.api.sessionStore,
     );
     requestsFuture = loadRequests();
+    moderationCountFuture = loadModerationCount();
   }
 
   Future<List<PublicRequest>> loadRequests() async {
@@ -51,10 +53,25 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
+  Future<int> loadModerationCount() async {
+    if (!canModerate) return 0;
+    try {
+      return await requestsApi.countModerationItems(widget.group.id);
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<void> refresh() async {
     final next = loadRequests();
-    if (mounted) setState(() => requestsFuture = next);
-    await next;
+    final nextModerationCount = loadModerationCount();
+    if (mounted) {
+      setState(() {
+        requestsFuture = next;
+        moderationCountFuture = nextModerationCount;
+      });
+    }
+    await Future.wait([next, nextModerationCount]);
   }
 
   Future<void> createRequest() async {
@@ -140,10 +157,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         title: Text(widget.group.title),
         actions: [
           if (canModerate)
-            IconButton(
-              onPressed: openModerationQueue,
-              tooltip: 'On review',
-              icon: const Icon(Icons.fact_check_outlined),
+            FutureBuilder<int>(
+              future: moderationCountFuture,
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                final button = IconButton(
+                  onPressed: openModerationQueue,
+                  tooltip: 'On review',
+                  icon: const Icon(Icons.fact_check_outlined),
+                );
+                if (count <= 0) return button;
+                return Badge(label: Text('$count'), child: button);
+              },
             ),
           const AppSettingsButton(),
         ],

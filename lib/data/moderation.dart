@@ -84,6 +84,10 @@ class ContentModerationItem {
         return 'повтор символов';
       case 'excessive_caps':
         return 'много CAPS';
+      case 'media_attachment_review':
+        return 'медиа на проверке';
+      case 'image_ocr_review_pending':
+        return 'фото/OCR проверка';
       default:
         if (reason.startsWith('openai:')) return 'AI: ${reason.substring(7)}';
         if (reason.startsWith('huggingface:')) return 'AI: ${reason.substring(12)}';
