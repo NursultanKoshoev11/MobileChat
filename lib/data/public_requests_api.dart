@@ -9,6 +9,14 @@ import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
 
+class ModerationPendingException implements Exception {
+  const ModerationPendingException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 class PublicRequestsApi {
   PublicRequestsApi({required this.baseUrl, required this.sessionStore});
 
@@ -33,7 +41,11 @@ class PublicRequestsApi {
         'body': body,
       },
     );
-    return PublicRequest.fromJson(response as Map<String, dynamic>);
+    final payload = response as Map<String, dynamic>;
+    if (payload['status'] == 'pending_review') {
+      throw const ModerationPendingException('Публикация отправлена на проверку администратору.');
+    }
+    return PublicRequest.fromJson(payload);
   }
 
   Future<List<PublicRequest>> listRequests(
@@ -194,7 +206,11 @@ class PublicRequestsApi {
       '/api/requests/$requestId/comments',
       body: {'body': body},
     );
-    return PublicRequestComment.fromJson(response as Map<String, dynamic>);
+    final payload = response as Map<String, dynamic>;
+    if (payload['status'] == 'pending_review') {
+      throw const ModerationPendingException('Комментарий отправлен на проверку администратору.');
+    }
+    return PublicRequestComment.fromJson(payload);
   }
 
   Future<void> deleteComment(String commentId) async {

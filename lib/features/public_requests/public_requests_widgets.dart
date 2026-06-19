@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
@@ -190,6 +194,97 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
   }
 }
 
+
+Uint8List? _decodePostPhoto(String value) {
+  final raw = value.trim();
+  if (raw.isEmpty) return null;
+  final data = raw.contains(',') ? raw.split(',').last : raw;
+  try {
+    return base64Decode(data);
+  } catch (_) {
+    return null;
+  }
+}
+
+String _photoLabel(BuildContext context) {
+  final text = AppLanguageScope.textOf(context);
+  return text.isKy ? 'Фото' : 'Фото';
+}
+
+class _PostPhotoPreview extends StatelessWidget {
+  const _PostPhotoPreview({required this.photos, this.compact = true});
+
+  final List<PublicRequestPhoto> photos;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePhotos = photos
+        .where((photo) => photo.base64Data.trim().isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    if (visiblePhotos.isEmpty) return const SizedBox.shrink();
+    final decoded = _decodePostPhoto(visiblePhotos.first.base64Data);
+    if (decoded == null) return const SizedBox.shrink();
+    final radius = BorderRadius.circular(18);
+    final image = Image.memory(
+      decoded,
+      width: double.infinity,
+      height: compact ? 170 : null,
+      fit: compact ? BoxFit.cover : BoxFit.contain,
+      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Icon(Icons.photo_outlined, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: context.appColors.textMuted,
+                ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _openPhotoViewer(context, decoded),
+          child: ClipRRect(borderRadius: radius, child: image),
+        ),
+      ],
+    );
+  }
+}
+
+void _openPhotoViewer(BuildContext context, Uint8List bytes) {
+  showDialog<void>(
+    context: context,
+    builder: (_) => Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          InteractiveViewer(
+            minScale: 0.7,
+            maxScale: 4,
+            child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton.filledTonal(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class PublicRequestCard extends StatelessWidget {
   const PublicRequestCard(
       {super.key,
@@ -208,6 +303,7 @@ class PublicRequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final requestPhotos = request.content.photos;
     String typeLabel(String value) {
       switch (value) {
         case 'announcement':
@@ -302,6 +398,10 @@ class PublicRequestCard extends StatelessWidget {
                 Text(request.displayBody,
                     maxLines: 3, overflow: TextOverflow.ellipsis),
               ],
+              if (requestPhotos.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _PostPhotoPreview(photos: requestPhotos),
+              ],
               const SizedBox(height: 10),
               Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
                   style: TextStyle(color: colors.textMuted, fontSize: 12)),
@@ -382,8 +482,53 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   final bodyController = TextEditingController();
   String type = 'announcement';
   String interactionMode = 'read_only';
+  final ImagePicker imagePicker = ImagePicker();
+  final List<PublicRequestPhoto> photos = [];
   bool loading = false;
   String? error;
+
+  static const int maxPhotoBytes = 900 * 1024;
+
+  Future<void> pickPhoto() async {
+    if (loading) return;
+    try {
+      final image = await imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        imageQuality: 72,
+      );
+      if (image == null) return;
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+      if (bytes.length > maxPhotoBytes) {
+        setState(() => error = AppLanguageScope.textOf(context).isKy
+            ? 'Фото өтө чоң. Башка сүрөт тандаңыз.'
+            : 'Фото слишком большое. Выберите другое фото.');
+        return;
+      }
+      setState(() {
+        photos
+          ..clear()
+          ..add(PublicRequestPhoto(
+            name: image.name.isNotEmpty ? image.name : 'photo.jpg',
+            sizeBytes: bytes.length,
+            base64Data: base64Encode(bytes),
+          ));
+        error = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = AppLanguageScope.textOf(context).isKy
+            ? 'Фото тандалган жок: $e'
+            : 'Не удалось выбрать фото: $e');
+      }
+    }
+  }
+
+  void removePhoto() {
+    if (loading) return;
+    setState(() => photos.clear());
+  }
 
   @override
   void dispose() {
@@ -393,6 +538,17 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   }
 
   Future<void> submit() async {
+    final bodyText = bodyController.text.trim();
+    if (bodyText.isEmpty && photos.isEmpty) {
+      setState(() => error = AppLanguageScope.textOf(context).isKy
+          ? 'Текст же фото кошуңуз.'
+          : 'Добавьте текст или фото.');
+      return;
+    }
+    final payload = PublicRequestContent(
+      text: bodyText,
+      photos: List.of(photos),
+    ).toPayload();
     setState(() {
       loading = true;
       error = null;
@@ -402,8 +558,7 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
           groupId: widget.group.id,
           type: type,
           interactionMode: interactionMode,
-          title: titleController.text.trim(),
-          body: bodyController.text.trim());
+          title: titleController.text.trim(), body: payload);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -478,6 +633,39 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
                   minLines: 4,
                   maxLines: 8,
                   decoration: InputDecoration(labelText: text.description)),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: loading ? null : pickPhoto,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(photos.isEmpty
+                    ? (text.isKy ? 'Фото кошуу' : 'Добавить фото')
+                    : (text.isKy ? 'Фото алмаштыруу' : 'Заменить фото')),
+              ),
+              if (photos.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Stack(
+                  children: [
+                    _PostPhotoPreview(photos: photos, compact: false),
+                    Positioned(
+                      top: 32,
+                      right: 8,
+                      child: IconButton.filledTonal(
+                        onPressed: removePhoto,
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        tooltip: text.isKy ? 'Фото өчүрүү' : 'Удалить фото',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${(photos.first.sizeBytes / 1024).round()} KB',
+                  style: TextStyle(
+                    color: context.appColors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               if (error != null) ...[
                 const SizedBox(height: 12),
                 ErrorBanner(message: error!)
@@ -549,6 +737,13 @@ class _PublicRequestDetailsScreenState
       await widget.api.addComment(requestId: widget.request.id, body: body);
       commentController.clear();
       await refreshComments();
+    } on ModerationPendingException catch (e) {
+      commentController.clear();
+      if (mounted) {
+        setState(() => error = null);
+        showAppSnack(context, e.message);
+      }
+      await refreshComments();
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -603,6 +798,13 @@ class _PublicRequestDetailsScreenState
                         style:
                             TextStyle(color: colors.textStrong, height: 1.35)),
                   ),
+                if (widget.request.content.photos.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _PostPhotoPreview(
+                    photos: widget.request.content.photos,
+                    compact: false,
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Text(text.comments,
                     style: Theme.of(context)
