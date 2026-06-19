@@ -38,7 +38,7 @@ class PublicRequest {
   bool get supportedByMe => myVote == 'support';
   bool get opposedByMe => myVote == 'oppose';
   PublicRequestContent get content => PublicRequestContent.tryParse(body);
-  String get displayBody => content.text.isNotEmpty || content.photos.isNotEmpty ? content.text : body;
+  String get displayBody => content.hasMedia || content.text.isNotEmpty ? content.text : body;
 
   factory PublicRequest.fromJson(Map<String, dynamic> json) {
     return PublicRequest(
@@ -62,41 +62,87 @@ class PublicRequest {
 }
 
 class PublicRequestContent {
-  const PublicRequestContent({required this.text, required this.photos});
+  const PublicRequestContent({
+    required this.text,
+    required this.photos,
+    this.videos = const [],
+  });
 
   final String text;
   final List<PublicRequestPhoto> photos;
+  final List<PublicRequestVideo> videos;
 
-  static const empty = PublicRequestContent(text: '', photos: []);
+  static const empty = PublicRequestContent(text: '', photos: [], videos: []);
+
+  bool get hasMedia => photos.isNotEmpty || videos.isNotEmpty;
+
+  String moderationSummary() {
+    final parts = <String>[text.trim()];
+    if (photos.isNotEmpty) {
+      parts.add('Attached photos: ${photos.length}.');
+      for (final photo in photos) {
+        parts.add('Photo file: ${photo.name}, ${photo.sizeBytes} bytes.');
+      }
+    }
+    if (videos.isNotEmpty) {
+      parts.add('Attached videos: ${videos.length}.');
+      for (final video in videos) {
+        parts.add('Video file: ${video.name}, ${video.sizeBytes} bytes, ${video.mimeType}.');
+      }
+    }
+    return parts.where((part) => part.trim().isNotEmpty).join('\n');
+  }
 
   String toPayload() {
-    if (photos.isEmpty) return text.trim();
+    if (!hasMedia) return text.trim();
     return jsonEncode({
-      'version': 1,
+      'version': 2,
       'text': text.trim(),
+      'moderation_text': moderationSummary(),
       'photos': photos.map((photo) => photo.toJson()).toList(),
+      'videos': videos.map((video) => video.toJson()).toList(),
     });
   }
 
   static PublicRequestContent tryParse(String value) {
     final raw = value.trim();
-    if (raw.isEmpty || !raw.startsWith('{')) return PublicRequestContent(text: value, photos: const []);
+    if (raw.isEmpty || !raw.startsWith('{')) {
+      return PublicRequestContent(text: value, photos: const [], videos: const []);
+    }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return PublicRequestContent(text: value, photos: const []);
+      if (decoded is! Map<String, dynamic>) {
+        return PublicRequestContent(text: value, photos: const [], videos: const []);
+      }
       final photosRaw = decoded['photos'];
+      final videosRaw = decoded['videos'];
       return PublicRequestContent(
         text: decoded['text'] as String? ?? '',
-        photos: photosRaw is List ? photosRaw.whereType<Map<String, dynamic>>().map(PublicRequestPhoto.fromJson).toList() : const [],
+        photos: photosRaw is List
+            ? photosRaw
+                .whereType<Map<String, dynamic>>()
+                .map(PublicRequestPhoto.fromJson)
+                .toList()
+            : const [],
+        videos: videosRaw is List
+            ? videosRaw
+                .whereType<Map<String, dynamic>>()
+                .map(PublicRequestVideo.fromJson)
+                .toList()
+            : const [],
       );
     } catch (_) {
-      return PublicRequestContent(text: value, photos: const []);
+      return PublicRequestContent(text: value, photos: const [], videos: const []);
     }
   }
 }
 
 class PublicRequestPhoto {
-  const PublicRequestPhoto({required this.name, required this.sizeBytes, required this.base64Data});
+  const PublicRequestPhoto({
+    required this.name,
+    required this.sizeBytes,
+    required this.base64Data,
+  });
 
   final String name;
   final int sizeBytes;
@@ -113,6 +159,36 @@ class PublicRequestPhoto {
       name: json['name'] as String? ?? 'photo.jpg',
       sizeBytes: json['size_bytes'] as int? ?? 0,
       base64Data: json['base64'] as String? ?? '',
+    );
+  }
+}
+
+class PublicRequestVideo {
+  const PublicRequestVideo({
+    required this.name,
+    required this.sizeBytes,
+    required this.base64Data,
+    this.mimeType = 'video/mp4',
+  });
+
+  final String name;
+  final int sizeBytes;
+  final String base64Data;
+  final String mimeType;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'size_bytes': sizeBytes,
+        'base64': base64Data,
+        'mime_type': mimeType,
+      };
+
+  factory PublicRequestVideo.fromJson(Map<String, dynamic> json) {
+    return PublicRequestVideo(
+      name: json['name'] as String? ?? 'video.mp4',
+      sizeBytes: json['size_bytes'] as int? ?? 0,
+      base64Data: json['base64'] as String? ?? '',
+      mimeType: json['mime_type'] as String? ?? 'video/mp4',
     );
   }
 }
