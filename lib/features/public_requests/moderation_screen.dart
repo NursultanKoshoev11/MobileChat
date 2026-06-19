@@ -6,6 +6,19 @@ import '../../data/moderation.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/ui_helpers.dart';
 
+const String _titleOnReview = String.fromCharCodes([1053,1072,32,1087,1088,1086,1074,1077,1088,1082,1077]);
+const String _refreshLabel = String.fromCharCodes([1054,1073,1085,1086,1074,1080,1090,1100]);
+const String _queueEmpty = String.fromCharCodes([1054,1095,1077,1088,1077,1076,1100,32,1087,1091,1089,1090,1072,1103]);
+const String _noItems = String.fromCharCodes([1053,1086,1074,1099,1093,32,1082,1086,1084,1084,1077,1085,1090,1072,1088,1080,1077,1074,32,1080,32,1087,1091,1073,1083,1080,1082,1072,1094,1080,1081,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1077,32,1085,1077,1090,46]);
+const String _approved = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1076,1086,1073,1088,1077,1085,46]);
+const String _rejected = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1090,1082,1083,1086,1085,1077,1085,46]);
+const String _author = String.fromCharCodes([1040,1074,1090,1086,1088]);
+const String _reason = String.fromCharCodes([1055,1088,1080,1095,1080,1085,1072]);
+const String _check = String.fromCharCodes([1055,1088,1086,1074,1077,1088,1082,1072]);
+const String _emptyText = String.fromCharCodes([1058,1077,1082,1089,1090,32,1087,1091,1089,1090,1086,1081]);
+const String _reject = String.fromCharCodes([1054,1090,1082,1083,1086,1085,1080,1090,1100]);
+const String _approve = String.fromCharCodes([1054,1076,1086,1073,1088,1080,1090,1100]);
+
 class GroupModerationScreen extends StatefulWidget {
   const GroupModerationScreen({
     super.key,
@@ -57,10 +70,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
       }
       await refresh();
       if (!mounted) return;
-      showAppSnack(
-        context,
-        approve ? 'Material approved.' : 'Material rejected.',
-      );
+      showAppSnack(context, approve ? _approved : _rejected);
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
     } finally {
@@ -73,11 +83,11 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('On review'),
+        title: const Text(_titleOnReview),
         actions: [
           IconButton(
             onPressed: refresh,
-            tooltip: 'Refresh',
+            tooltip: _refreshLabel,
             icon: const Icon(Icons.refresh_rounded),
           ),
           const AppSettingsButton(),
@@ -111,7 +121,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Review queue is empty',
+                    _queueEmpty,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
@@ -119,7 +129,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'There are no new comments or posts waiting for review.',
+                    _noItems,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
@@ -196,8 +206,8 @@ class _ModerationItemCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         item.authorName.isEmpty
-                            ? 'Author: User'
-                            : 'Author: ${item.authorName}',
+                            ? '$_author: User'
+                            : '$_author: ${item.authorName}',
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 12,
@@ -221,9 +231,9 @@ class _ModerationItemCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _InfoChip(label: 'Reason: ${item.reasonLabel}'),
+                _InfoChip(label: '$_reason: ${item.reasonLabel}'),
                 if (item.provider.isNotEmpty)
-                  _InfoChip(label: 'Check: ${item.provider}'),
+                  _InfoChip(label: '$_check: ${item.provider}'),
               ],
             ),
             if (item.title.isNotEmpty) ...[
@@ -238,7 +248,7 @@ class _ModerationItemCard extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Text(
-              item.body.isEmpty ? 'Empty text' : item.body,
+              item.body.isEmpty ? _emptyText : item.body,
               style: const TextStyle(height: 1.35),
             ),
             const SizedBox(height: 14),
@@ -248,7 +258,7 @@ class _ModerationItemCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: loading ? null : onReject,
                     icon: const Icon(Icons.close_rounded),
-                    label: const Text('Reject'),
+                    label: const Text(_reject),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -262,7 +272,7 @@ class _ModerationItemCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: const Text('Approve'),
+                    label: const Text(_approve),
                   ),
                 ),
               ],
