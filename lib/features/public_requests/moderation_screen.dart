@@ -258,7 +258,7 @@ class _ModerationItemCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: loading ? null : onReject,
                     icon: const Icon(Icons.close_rounded),
-                    label: const Text(_reject),
+                    label: Text(_reject),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -272,7 +272,7 @@ class _ModerationItemCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: const Text(_approve),
+                    label: Text(_approve),
                   ),
                 ),
               ],
