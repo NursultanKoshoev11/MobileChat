@@ -8,15 +8,10 @@ import 'group_statistics.dart';
 import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
+import 'moderation.dart';
 
-class ModerationPendingException implements Exception {
-  const ModerationPendingException(this.message);
+export 'moderation.dart';
 
-  final String message;
-
-  @override
-  String toString() => message;
-}
 class PublicRequestsApi {
   PublicRequestsApi({required this.baseUrl, required this.sessionStore});
 
@@ -43,7 +38,7 @@ class PublicRequestsApi {
     );
     final payload = response as Map<String, dynamic>;
     if (payload['status'] == 'pending_review') {
-      throw const ModerationPendingException('Публикация отправлена на проверку администратору.');
+      throw const ModerationPendingException('\u041f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430 \u043d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443 \u0430\u0434\u043c\u0438\u043d\u0443.');
     }
     return PublicRequest.fromJson(payload);
   }
@@ -62,6 +57,32 @@ class PublicRequestsApi {
     return (response as List<dynamic>)
         .map((item) => PublicRequest.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<List<ContentModerationItem>> listModerationItems(
+    String groupId, {
+    String status = 'pending',
+    int limit = 50,
+  }) async {
+    final query = <String, String>{'limit': '$limit'};
+    if (status.trim().isNotEmpty) query['status'] = status.trim();
+    final response = await _send(
+      'GET',
+      '/api/groups/$groupId/moderation/items',
+      query: query,
+    );
+    return (response as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map(ContentModerationItem.fromJson)
+        .toList();
+  }
+
+  Future<void> approveModerationItem(String itemId) async {
+    await _send('POST', '/api/moderation/items/$itemId/approve');
+  }
+
+  Future<void> rejectModerationItem(String itemId) async {
+    await _send('POST', '/api/moderation/items/$itemId/reject');
   }
 
   Future<void> leaveGroup(String groupId) async {
@@ -208,7 +229,7 @@ class PublicRequestsApi {
     );
     final payload = response as Map<String, dynamic>;
     if (payload['status'] == 'pending_review') {
-      throw const ModerationPendingException('Комментарий отправлен на проверку администратору.');
+      throw ModerationPendingException(String.fromCharCodes([1050,1086,1084,1084,1077,1085,1090,1072,1088,1080,1081,32,1086,1090,1087,1088,1072,1074,1083,1077,1085,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1091,32,1072,1076,1084,1080,1085,1080,1089,1090,1088,1072,1090,1086,1088,1091,46]));
     }
     return PublicRequestComment.fromJson(payload);
   }

@@ -560,6 +560,15 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
           interactionMode: interactionMode,
           title: titleController.text.trim(), body: payload);
       if (mounted) Navigator.of(context).pop(true);
+    } on ModerationPendingException catch (e) {
+      titleController.clear();
+      bodyController.clear();
+      photos.clear();
+      if (mounted) {
+        setState(() => error = null);
+        showAppSnack(context, e.message);
+        Navigator.of(context).pop(false);
+      }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {

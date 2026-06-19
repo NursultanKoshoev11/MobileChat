@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
+import '../../data/moderation.dart';
 import '../../data/realtime_client.dart';
 import '../../shared/ui_helpers.dart';
 
@@ -130,6 +131,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!messages.any((item) => item.id == message.id)) {
         setState(() => messages.add(message));
       }
+    } on ModerationPendingException catch (e) {
+      messageController.clear();
+      if (!mounted) return;
+      showAppSnack(context, e.message);
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());

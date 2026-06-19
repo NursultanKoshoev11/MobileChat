@@ -13,6 +13,7 @@ import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../statistics/group_statistics_screen.dart';
 import '../groups/group_sheets.dart';
+import 'moderation_screen.dart';
 import 'public_requests_widgets.dart';
 
 class PublicRequestsScreen extends StatefulWidget {
@@ -93,6 +94,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       MaterialPageRoute(
         builder: (_) =>
             GroupStatisticsScreen(api: requestsApi, group: widget.group),
+      ),
+    );
+    await refresh();
+  }
+
+  Future<void> openModerationQueue() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupModerationScreen(
+          api: requestsApi,
+          group: widget.group,
+        ),
       ),
     );
     await refresh();
@@ -515,6 +528,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
+          if (canModerate)
+            IconButton(
+              onPressed: openModerationQueue,
+              tooltip: '\u041d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0435',
+              icon: const Icon(Icons.fact_check_outlined),
+            ),
           IconButton(
             onPressed: openStatistics,
             tooltip: text.statistics,
