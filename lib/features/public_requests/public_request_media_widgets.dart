@@ -53,12 +53,13 @@ class PublicRequestMediaView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     final photos = content.photos.where((p) => p.base64Data.trim().isNotEmpty).take(3).toList(growable: false);
     final videos = content.videos.where((v) => v.base64Data.trim().isNotEmpty).toList(growable: false);
     if (photos.isEmpty && videos.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (photos.isNotEmpty) ...[
-        Text('Photos (${photos.length}/3)', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
+        Text('${text.isKy ? 'Сүрөттөр' : 'Фото'} (${photos.length}/3)', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
         const SizedBox(height: 8),
         SizedBox(
           height: compact ? 92 : 116,
@@ -99,7 +100,7 @@ class PublicRequestMediaView extends StatelessWidget {
       ],
       if (videos.isNotEmpty) ...[
         if (photos.isNotEmpty) const SizedBox(height: 12),
-        Text('Video', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
+        Text(text.isKy ? 'Видео' : 'Видео', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
         const SizedBox(height: 8),
         ...videos.map((video) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -183,7 +184,7 @@ class _VideoViewerState extends State<_VideoViewer> {
 
   Future<void> setup() async {
     final bytes = _decodeBase64(widget.video.base64Data);
-    if (bytes == null || bytes.isEmpty) throw Exception('Video is empty');
+    if (bytes == null || bytes.isEmpty) throw Exception('Видео пустое');
     final dir = await getTemporaryDirectory();
     final ext = widget.video.name.toLowerCase().endsWith('.mov') ? '.mov' : '.mp4';
     final file = File('${dir.path}/post_video_${DateTime.now().microsecondsSinceEpoch}$ext');
@@ -212,7 +213,7 @@ class _VideoViewerState extends State<_VideoViewer> {
             final current = controller;
             if (snapshot.connectionState != ConnectionState.done) return const CircularProgressIndicator();
             if (snapshot.hasError || current == null || !current.value.isInitialized) {
-              return Padding(padding: const EdgeInsets.all(24), child: Text(snapshot.error?.toString() ?? 'Video cannot be opened', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)));
+              return Padding(padding: const EdgeInsets.all(24), child: Text(snapshot.error?.toString() ?? 'Видео не открывается', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)));
             }
             return GestureDetector(
               onTap: () {
@@ -263,13 +264,14 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
   }
 
   Future<void> pickPhoto() async {
+    final text = AppLanguageScope.textOf(context);
     if (loading || photos.length >= maxPhotos) return;
     try {
       final image = await imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 1280, imageQuality: 72);
       if (image == null) return;
       final bytes = await image.readAsBytes();
       if (bytes.length > maxPhotoBytes) {
-        setState(() => error = 'Photo is too large. Choose another photo.');
+        setState(() => error = text.isKy ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.' : 'Фото слишком большое. Выберите другое фото.');
         return;
       }
       setState(() {
@@ -277,11 +279,12 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => error = 'Cannot pick photo: $e');
+      if (mounted) setState(() => error = text.isKy ? 'Сүрөт тандалган жок: $e' : 'Не удалось выбрать фото: $e');
     }
   }
 
   Future<void> pickVideo() async {
+    final text = AppLanguageScope.textOf(context);
     if (loading || videos.isNotEmpty) return;
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: false, withData: true);
@@ -290,7 +293,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
       final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
       if (bytes == null || bytes.isEmpty) return;
       if (bytes.length > maxVideoBytes) {
-        setState(() => error = 'Video is too large. Choose video up to 12 MB.');
+        setState(() => error = text.isKy ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.' : 'Видео слишком большое. Выберите видео до 12 MB.');
         return;
       }
       setState(() {
@@ -300,14 +303,15 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => error = 'Cannot pick video: $e');
+      if (mounted) setState(() => error = text.isKy ? 'Видео тандалган жок: $e' : 'Не удалось выбрать видео: $e');
     }
   }
 
   Future<void> submit() async {
+    final text = AppLanguageScope.textOf(context);
     final bodyText = bodyController.text.trim();
     if (bodyText.isEmpty && photos.isEmpty && videos.isEmpty) {
-      setState(() => error = 'Add text, photo or video.');
+      setState(() => error = text.isKy ? 'Текст, сүрөт же видео кошуңуз.' : 'Добавьте текст, фото или видео.');
       return;
     }
     final payload = PublicRequestContent(text: bodyText, photos: List.of(photos), videos: List.of(videos)).toPayload();
@@ -370,15 +374,15 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
           ),
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            OutlinedButton.icon(onPressed: loading || photos.length >= maxPhotos ? null : pickPhoto, icon: const Icon(Icons.photo_library_outlined), label: Text('Photo ${photos.length}/$maxPhotos')),
-            OutlinedButton.icon(onPressed: loading || videos.isNotEmpty ? null : pickVideo, icon: const Icon(Icons.video_library_outlined), label: Text(videos.isEmpty ? 'Add video' : 'Video added')),
+            OutlinedButton.icon(onPressed: loading || photos.length >= maxPhotos ? null : pickPhoto, icon: const Icon(Icons.photo_library_outlined), label: Text('${text.isKy ? 'Сүрөт' : 'Фото'} ${photos.length}/$maxPhotos')),
+            OutlinedButton.icon(onPressed: loading || videos.isNotEmpty ? null : pickVideo, icon: const Icon(Icons.video_library_outlined), label: Text(videos.isEmpty ? (text.isKy ? 'Видео кошуу' : 'Добавить видео') : (text.isKy ? 'Видео кошулду' : 'Видео добавлено'))),
           ]),
           if (content.hasMedia) ...[
             const SizedBox(height: 12),
             PublicRequestMediaView(content: content, compact: false, onRemovePhoto: (photo) => setState(() => photos.remove(photo)), onRemoveVideo: (video) => setState(() => videos.remove(video))),
           ],
           const SizedBox(height: 8),
-          Text('Max 3 photos. Video up to 12 MB.', style: TextStyle(color: _muted(context), fontSize: 12)),
+          Text(text.isKy ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.' : 'Максимум 3 фото. Видео до 12 MB.', style: TextStyle(color: _muted(context), fontSize: 12)),
           if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
           const SizedBox(height: 16),
           FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),

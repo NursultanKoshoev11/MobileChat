@@ -11,6 +11,55 @@ Color _border(BuildContext context) => Theme.of(context).dividerColor;
 Color _muted(BuildContext context) => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62);
 Color _strong(BuildContext context) => Theme.of(context).colorScheme.onSurface;
 
+String _requestTypeLabel(AppText text, String value) {
+  switch (value) {
+    case 'announcement':
+      return text.announcement;
+    case 'suggestion':
+      return text.suggestion;
+    case 'complaint':
+      return text.complaint;
+    case 'requirement':
+      return text.requirement;
+    case 'problem':
+      return text.problem;
+    case 'idea':
+      return text.idea;
+    default:
+      return value;
+  }
+}
+
+String _interactionModeLabel(AppText text, String value) {
+  switch (value) {
+    case 'read_only':
+      return text.textOnly;
+    case 'vote_only':
+      return text.votingOnly;
+    case 'discussion':
+      return text.discussionWithComments;
+    default:
+      return value;
+  }
+}
+
+String _statusLabel(AppText text, String value) {
+  switch (value) {
+    case 'new':
+      return text.statusNew;
+    case 'under_review':
+      return text.statusUnderReview;
+    case 'resolved':
+      return text.statusResolved;
+    case 'accepted':
+      return text.statusAccepted;
+    case 'rejected':
+      return text.statusRejected;
+    default:
+      return value;
+  }
+}
+
 class MediaPublicRequestCard extends StatelessWidget {
   const MediaPublicRequestCard({
     super.key,
@@ -49,7 +98,7 @@ class MediaPublicRequestCard extends StatelessWidget {
               Row(children: [
                 Expanded(
                   child: Text(
-                    '${request.requestType} · ${request.interactionMode} · ${request.status}',
+                    [_requestTypeLabel(text, request.requestType), _interactionModeLabel(text, request.interactionMode), _statusLabel(text, request.status)].join(' · '),
                     style: TextStyle(
                       color: _muted(context),
                       fontWeight: FontWeight.w800,
@@ -80,7 +129,7 @@ class MediaPublicRequestCard extends StatelessWidget {
                 PublicRequestMediaView(content: content),
               ],
               const SizedBox(height: 10),
-              Text('Author: ${request.authorName}', style: TextStyle(color: _muted(context), fontSize: 12)),
+              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}', style: TextStyle(color: _muted(context), fontSize: 12)),
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 if (request.interactionMode == 'discussion') FilledButton.tonal(onPressed: onTap, child: Text(text.read)),
