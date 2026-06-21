@@ -171,7 +171,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (request.interactionMode != 'discussion') return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MediaPublicRequestDetailsScreen(
+        builder: (_) => PublicRequestDetailsScreen(
           api: requestsApi,
           request: request,
           canModerate: canModerate,
