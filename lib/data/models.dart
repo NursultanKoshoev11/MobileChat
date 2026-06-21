@@ -73,6 +73,7 @@ class ChatGroup {
     required this.visibility,
     required this.ownerId,
     required this.memberCount,
+    required this.unreadPublicRequestCount,
     required this.inviteCode,
     required this.myRole,
     required this.createdAt,
@@ -84,6 +85,7 @@ class ChatGroup {
   final String visibility;
   final String ownerId;
   final int memberCount;
+  final int unreadPublicRequestCount;
   final String? inviteCode;
   final String? myRole;
   final DateTime? createdAt;
@@ -99,6 +101,7 @@ class ChatGroup {
       visibility: json['visibility'] as String,
       ownerId: json['owner_id'] as String? ?? '',
       memberCount: json['member_count'] as int? ?? 0,
+      unreadPublicRequestCount: json['unread_public_request_count'] as int? ?? 0,
       inviteCode: json['invite_code'] as String?,
       myRole: json['my_role'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),

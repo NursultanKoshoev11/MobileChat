@@ -76,6 +76,11 @@ class ApiClient {
     return (response as List<dynamic>).map((item) => ChatGroup.fromJson(item as Map<String, dynamic>)).toList();
   }
 
+  Future<void> markPublicRequestsRead(String groupId) async {
+    await _post('/api/groups/$groupId/requests/read', {});
+  }
+
+
   Future<List<ChatGroup>> searchPublicGroups(String query) async {
     final response = await _get('/api/groups/search', query: {'q': query});
     return (response as List<dynamic>).map((item) => ChatGroup.fromJson(item as Map<String, dynamic>)).toList();

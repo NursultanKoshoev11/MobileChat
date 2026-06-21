@@ -60,6 +60,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
       case 'invite.reviewed':
       case 'group_creation_request.created':
       case 'group_creation_request.reviewed':
+      case 'public_request.created':
+      case 'public_request.read':
         _scheduleRealtimeRefresh();
         break;
     }
@@ -148,6 +150,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> openGroup(ChatGroup group) async {
+    if (group.unreadPublicRequestCount > 0) {
+      try {
+        await widget.api.markPublicRequestsRead(group.id);
+        await refresh();
+      } catch (_) {}
+    }
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));
     if (mounted) await refresh();
   }
@@ -366,6 +374,13 @@ class GroupTile extends StatelessWidget {
               Text(group.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               if (group.description.isNotEmpty) ...[const SizedBox(height: 4), Text(group.description, maxLines: 2, overflow: TextOverflow.ellipsis)],
             ])),
+            if (group.unreadPublicRequestCount > 0) ...[
+              Badge(
+                label: Text('${group.unreadPublicRequestCount}'),
+                child: const Icon(Icons.article_outlined),
+              ),
+              const SizedBox(width: 8),
+            ],
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'copy') {
