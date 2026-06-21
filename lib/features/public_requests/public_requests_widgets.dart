@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -12,6 +13,7 @@ import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
+import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 
 class EmptyPostsView extends StatelessWidget {
@@ -712,6 +714,8 @@ class _PublicRequestDetailsScreenState
     extends State<PublicRequestDetailsScreen> {
   final commentController = TextEditingController();
   late Future<List<PublicRequestComment>> commentsFuture;
+  late final GroupRealtimeService realtime;
+  Timer? realtimeRefreshDebounce;
   bool sending = false;
   String? error;
 
@@ -719,10 +723,17 @@ class _PublicRequestDetailsScreenState
   void initState() {
     super.initState();
     commentsFuture = widget.api.listComments(widget.request.id);
+    realtime = GroupRealtimeService(
+      api: ApiClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
+      groupId: widget.request.groupId,
+    );
+    unawaited(realtime.connect(onEvent: handleRealtimeEvent));
   }
 
   @override
   void dispose() {
+    realtimeRefreshDebounce?.cancel();
+    realtime.close();
     commentController.dispose();
     super.dispose();
   }
@@ -732,6 +743,19 @@ class _PublicRequestDetailsScreenState
     setState(() => commentsFuture = next);
     await next;
   }
+
+  void handleRealtimeEvent(GroupRealtimeEvent event) {
+    if (!mounted || event.groupId != widget.request.groupId) return;
+    if (event.requestId != widget.request.id) return;
+    if (event.type == 'public_request.comment_created' ||
+        event.type == 'public_request.comment_deleted') {
+      realtimeRefreshDebounce?.cancel();
+      realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
+        if (mounted) unawaited(refreshComments());
+      });
+    }
+  }
+
 
   Future<void> submitComment() async {
     final body = commentController.text.trim();
