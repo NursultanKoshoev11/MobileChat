@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
@@ -28,15 +27,11 @@ class SessionStore {
     final value = jsonEncode(session.toJson());
     await _storage.write(key: _key, value: value, aOptions: _androidOptions);
     await _storage.write(key: _key, value: value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, value);
   }
 
   Future<void> clear() async {
     await _storage.delete(key: _key, aOptions: _androidOptions);
     await _storage.delete(key: _key);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
   }
 
   Future<String?> _readRaw() async {
@@ -47,13 +42,6 @@ class SessionStore {
     if (legacy != null && legacy.isNotEmpty) {
       await _storage.write(key: _key, value: legacy, aOptions: _androidOptions);
       return legacy;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final fallback = prefs.getString(_key);
-    if (fallback != null && fallback.isNotEmpty) {
-      await _storage.write(
-          key: _key, value: fallback, aOptions: _androidOptions);
-      return fallback;
     }
     return null;
   }

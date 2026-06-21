@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -36,6 +37,7 @@ class GroupRealtimeService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
   bool _closed = false;
 
   Future<void> connect({required void Function(GroupRealtimeEvent event) onEvent, void Function(Object error)? onError}) async {
@@ -51,6 +53,7 @@ class GroupRealtimeService {
     final uri = _webSocketUri(token);
     final channel = WebSocketChannel.connect(uri);
     _channel = channel;
+    _reconnectAttempts = 0;
     _subscription = channel.stream.listen(
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
@@ -90,7 +93,9 @@ class GroupRealtimeService {
 
   void _scheduleReconnect({required void Function(GroupRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
     if (_closed || _reconnectTimer != null) return;
-    _reconnectTimer = Timer(const Duration(seconds: 3), () async {
+    final delaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
       _reconnectTimer = null;
       if (_closed) return;
       try {

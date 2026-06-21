@@ -23,6 +23,7 @@ class ApiClient {
   final String baseUrl;
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
+  static const int _maxNetworkRetries = 2;
 
   Future<RequestCodeResult> requestPhoneCode(String mobile) async {
     final response = await _post('/api/auth/request-code', {'mobile': mobile}, auth: false);
@@ -234,6 +235,10 @@ class ApiClient {
       } else {
         response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
       }
+      if (_isRetryable(response.statusCode) && !retrying) {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+      }
 
       if (response.statusCode == 401 && auth && !retrying) {
         final refreshed = await _refreshSession();
@@ -241,12 +246,22 @@ class ApiClient {
       }
       return _decode(response);
     } on TimeoutException {
+      if (!retrying) {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+      }
       throw const ApiException('Connection timed out. Please check the server and try again.');
     } catch (error) {
       if (error is ApiException) rethrow;
+      if (!retrying) {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+      }
       throw ApiException('Network error: $error');
     }
   }
+
+  bool _isRetryable(int statusCode) => statusCode == 429 || statusCode == 502 || statusCode == 503 || statusCode == 504;
 
   Future<bool> _refreshSession() async {
     final session = await sessionStore.read();
