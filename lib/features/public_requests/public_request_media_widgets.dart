@@ -320,12 +320,12 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
       error = null;
     });
     try {
-      await widget.api.createRequest(groupId: widget.groupId, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: payload);
-      if (mounted) Navigator.of(context).pop(true);
+      final request = await widget.api.createRequest(groupId: widget.groupId, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: payload);
+      if (mounted) Navigator.of(context).pop(request);
     } on ModerationPendingException catch (e) {
       if (mounted) {
         showAppSnack(context, e.message);
-        Navigator.of(context).pop(false);
+        Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());

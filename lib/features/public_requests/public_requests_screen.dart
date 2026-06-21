@@ -38,6 +38,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late final GroupRealtimeService realtime;
   late Future<List<PublicRequest>> requestsFuture;
   late Future<int> moderationCountFuture;
+  List<PublicRequest> cachedRequests = const <PublicRequest>[];
   Timer? _refreshDebounce;
   String? ensuredInviteCode;
 
@@ -83,9 +84,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<List<PublicRequest>> loadRequests() async {
-    final requests = await requestsApi.listRequests(widget.group.id);
-    return List<PublicRequest>.from(requests)
+    final requests = List<PublicRequest>.from(await requestsApi.listRequests(widget.group.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    cachedRequests = requests;
+    return requests;
   }
 
   Future<int> loadModerationCount() async {
@@ -119,7 +121,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> createRequest() async {
-    final created = await showModalBottomSheet<bool>(
+    final created = await showModalBottomSheet<PublicRequest>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -129,11 +131,20 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         groupId: widget.group.id,
       ),
     );
-    if (created == true) {
-      await refresh();
+    if (created != null) {
+      final updated = [
+        created,
+        ...cachedRequests.where((request) => request.id != created.id),
+      ];
+      cachedRequests = updated;
       if (mounted) {
+        setState(() {
+          requestsFuture = Future.value(updated);
+          moderationCountFuture = loadModerationCount();
+        });
         showAppSnack(context, AppLanguageScope.textOf(context).postPublished);
       }
+      unawaited(refresh(silent: true).catchError((_) {}));
     }
   }
 

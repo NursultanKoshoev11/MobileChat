@@ -77,20 +77,7 @@ class PublicRequestContent {
   bool get hasMedia => photos.isNotEmpty || videos.isNotEmpty;
 
   String moderationSummary() {
-    final parts = <String>[text.trim()];
-    if (photos.isNotEmpty) {
-      parts.add('Attached photos: ${photos.length}.');
-      for (final photo in photos) {
-        parts.add('Photo file: ${photo.name}, ${photo.sizeBytes} bytes.');
-      }
-    }
-    if (videos.isNotEmpty) {
-      parts.add('Attached videos: ${videos.length}.');
-      for (final video in videos) {
-        parts.add('Video file: ${video.name}, ${video.sizeBytes} bytes, ${video.mimeType}.');
-      }
-    }
-    return parts.where((part) => part.trim().isNotEmpty).join('\n');
+    return text.trim();
   }
 
   String toPayload() {
