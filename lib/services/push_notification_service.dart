@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +10,10 @@ import '../data/api_client.dart';
 
 class PushNotificationService {
   PushNotificationService({required this.api});
+
+  static final StreamController<Map<String, String>> _foregroundDataController = StreamController<Map<String, String>>.broadcast();
+
+  static Stream<Map<String, String>> get foregroundDataStream => _foregroundDataController.stream;
 
   final ApiClient api;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
@@ -89,6 +94,9 @@ class PushNotificationService {
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
+    if (message.data.isNotEmpty && !_foregroundDataController.isClosed) {
+      _foregroundDataController.add(Map<String, String>.from(message.data));
+    }
     final title = message.notification?.title ?? message.data['title'] ?? 'Коом';
     final body = message.notification?.body ?? message.data['body'] ?? 'Откройте приложение, чтобы посмотреть обновление.';
     const details = NotificationDetails(

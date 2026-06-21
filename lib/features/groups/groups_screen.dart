@@ -9,6 +9,7 @@ import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
+import '../../services/push_notification_service.dart';
 import '../../services/user_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
 import '../group_creation/admin_group_creation_requests_screen.dart';
@@ -33,6 +34,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   late Future<int> adminRequestsCountFuture;
   late Future<int> invitationsCountFuture;
   late final UserRealtimeService userRealtime;
+  StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
   Timer? _realtimeRefreshDebounce;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
@@ -44,10 +46,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
     invitationsCountFuture = loadInvitationsCount();
     userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
+    _foregroundPushSubscription = PushNotificationService.foregroundDataStream.listen(_handleForegroundPushData);
   }
 
   @override
   void dispose() {
+    _foregroundPushSubscription?.cancel();
     _realtimeRefreshDebounce?.cancel();
     userRealtime.close();
     super.dispose();
@@ -62,6 +66,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
       case 'group_creation_request.reviewed':
       case 'public_request.created':
       case 'public_request.read':
+        _scheduleRealtimeRefresh();
+        break;
+    }
+  }
+
+  void _handleForegroundPushData(Map<String, String> data) {
+    if (!mounted) return;
+    switch (data['type']) {
+      case 'public_request.created':
+      case 'invite.created':
+      case 'invite.reviewed':
+      case 'group_creation_request.created':
+      case 'group_creation_request.reviewed':
+      case 'content_moderation.pending_review':
         _scheduleRealtimeRefresh();
         break;
     }
