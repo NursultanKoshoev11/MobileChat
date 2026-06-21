@@ -40,8 +40,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   Timer? _refreshDebounce;
-  Timer? _autoRefreshTimer;
-  bool _refreshInFlight = false;
   String? ensuredInviteCode;
 
   bool get canModerate =>
@@ -61,14 +59,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     requestsFuture = loadRequests();
     moderationCountFuture = loadModerationCount();
     realtime.connect(onEvent: _handleRealtimeEvent);
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
-    });
   }
 
   @override
   void dispose() {
-    _autoRefreshTimer?.cancel();
     _refreshDebounce?.cancel();
     realtime.close();
     super.dispose();
@@ -76,16 +70,68 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   void _handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != widget.group.id) return;
-    if (event.type.startsWith('public_request.') ||
-        event.type.startsWith('content_moderation.')) {
-      _scheduleRealtimeRefresh();
+    switch (event.type) {
+      case 'public_request.created':
+        upsertRequestFromPayload(event.payload);
+        break;
+      case 'public_request.comment_created':
+        updateRequestCommentCount(event.requestId, 1);
+        break;
+      case 'public_request.comment_deleted':
+        updateRequestCommentCount(event.requestId, -1);
+        break;
+      case 'public_request.status_updated':
+        updateRequestStatus(event.requestId, event.payload);
+        break;
+      case 'public_request.voted':
+      case 'public_request.vote_cleared':
+      case 'content_moderation.reviewed':
+      case 'content_moderation.pending_review':
+        _scheduleRealtimeRefresh();
+        break;
     }
+  }
+
+  void upsertRequestFromPayload(dynamic payload) {
+    if (payload is! Map<String, dynamic>) return;
+    final request = PublicRequest.fromJson(payload);
+    final updated = [
+      request,
+      ...cachedRequests.where((item) => item.id != request.id),
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    setRequests(updated);
+  }
+
+  void updateRequestCommentCount(String requestId, int delta) {
+    if (requestId.isEmpty) return;
+    final updated = cachedRequests
+        .map((request) => request.id == requestId
+            ? request.copyWith(commentCount: request.commentCount + delta < 0 ? 0 : request.commentCount + delta)
+            : request)
+        .toList();
+    setRequests(updated);
+  }
+
+  void updateRequestStatus(String requestId, dynamic payload) {
+    if (requestId.isEmpty || payload is! Map<String, dynamic>) return;
+    final status = payload['status'] as String?;
+    if (status == null || status.isEmpty) return;
+    final updated = cachedRequests
+        .map((request) => request.id == requestId ? request.copyWith(status: status) : request)
+        .toList();
+    setRequests(updated);
+  }
+
+  void setRequests(List<PublicRequest> requests) {
+    if (!mounted) return;
+    cachedRequests = requests;
+    setState(() => requestsFuture = Future.value(requests));
   }
 
   void _scheduleRealtimeRefresh() {
     _refreshDebounce?.cancel();
     _refreshDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) refresh(silent: true);
+      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
     });
   }
 
@@ -106,32 +152,26 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> refresh({bool silent = false}) async {
-    if (_refreshInFlight) return;
-    _refreshInFlight = true;
     final next = loadRequests();
     final nextModerationCount = loadModerationCount();
-    try {
-      if (silent) {
-        final requests = await next;
-        final moderationCount = await nextModerationCount;
-        if (mounted) {
-          setState(() {
-            requestsFuture = Future.value(requests);
-            moderationCountFuture = Future.value(moderationCount);
-          });
-        }
-        return;
-      }
+    if (silent) {
+      final requests = await next;
+      final moderationCount = await nextModerationCount;
       if (mounted) {
         setState(() {
-          requestsFuture = next;
-          moderationCountFuture = nextModerationCount;
+          requestsFuture = Future.value(requests);
+          moderationCountFuture = Future.value(moderationCount);
         });
       }
-      await Future.wait([next, nextModerationCount]);
-    } finally {
-      _refreshInFlight = false;
+      return;
     }
+    if (mounted) {
+      setState(() {
+        requestsFuture = next;
+        moderationCountFuture = nextModerationCount;
+      });
+    }
+    await Future.wait([next, nextModerationCount]);
   }
 
   Future<void> openStatistics() async {

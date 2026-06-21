@@ -34,10 +34,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
   late Future<int> adminRequestsCountFuture;
   late Future<int> invitationsCountFuture;
   late final UserRealtimeService userRealtime;
+  List<ChatGroup> currentGroups = const <ChatGroup>[];
+  final Set<String> seenPublicRequestEvents = <String>{};
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
   Timer? _realtimeRefreshDebounce;
-  Timer? _autoRefreshTimer;
-  bool _refreshInFlight = false;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
@@ -49,14 +49,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
     userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
     _foregroundPushSubscription = PushNotificationService.foregroundDataStream.listen(_handleForegroundPushData);
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
-    });
   }
 
   @override
   void dispose() {
-    _autoRefreshTimer?.cancel();
     _foregroundPushSubscription?.cancel();
     _realtimeRefreshDebounce?.cancel();
     userRealtime.close();
@@ -66,12 +62,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void _handleUserRealtimeEvent(UserRealtimeEvent event) {
     if (!mounted) return;
     switch (event.type) {
+      case 'public_request.created':
+        incrementUnreadPublicRequests(event.groupId, event.requestId);
+        break;
+      case 'public_request.read':
+        setUnreadPublicRequests(event.groupId, 0);
+        break;
       case 'invite.created':
       case 'invite.reviewed':
       case 'group_creation_request.created':
       case 'group_creation_request.reviewed':
-      case 'public_request.created':
-      case 'public_request.read':
         _scheduleRealtimeRefresh();
         break;
     }
@@ -81,6 +81,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (!mounted) return;
     switch (data['type']) {
       case 'public_request.created':
+        incrementUnreadPublicRequests(data['group_id'] ?? '', data['request_id'] ?? '');
+        break;
       case 'invite.created':
       case 'invite.reviewed':
       case 'group_creation_request.created':
@@ -91,6 +93,31 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  void incrementUnreadPublicRequests(String groupId, String requestId) {
+    if (groupId.isEmpty) return;
+    if (requestId.isNotEmpty && !seenPublicRequestEvents.add(requestId)) return;
+    final updated = currentGroups
+        .map((group) => group.id == groupId
+            ? group.copyWith(unreadPublicRequestCount: group.unreadPublicRequestCount + 1)
+            : group)
+        .toList();
+    setGroups(updated);
+  }
+
+  void setUnreadPublicRequests(String groupId, int count) {
+    if (groupId.isEmpty) return;
+    final updated = currentGroups
+        .map((group) => group.id == groupId ? group.copyWith(unreadPublicRequestCount: count) : group)
+        .toList();
+    setGroups(updated);
+  }
+
+  void setGroups(List<ChatGroup> groups) {
+    if (!mounted) return;
+    currentGroups = groups;
+    setState(() => groupsFuture = Future.value(groups));
+  }
+
   void _scheduleRealtimeRefresh() {
     _realtimeRefreshDebounce?.cancel();
     _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
@@ -99,7 +126,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<List<ChatGroup>> loadGroups() async {
-    return widget.api.fetchGroups();
+    final groups = await widget.api.fetchGroups();
+    currentGroups = groups;
+    return groups;
   }
 
   Future<int> loadAdminRequestsCount() async {
@@ -112,36 +141,30 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> refresh({bool silent = false}) async {
-    if (_refreshInFlight) return;
-    _refreshInFlight = true;
     final nextGroups = loadGroups();
     final nextAdminCount = loadAdminRequestsCount();
     final nextInvitationsCount = loadInvitationsCount();
-    try {
-      if (silent) {
-        final groups = await nextGroups;
-        final adminCount = await nextAdminCount;
-        final invitationsCount = await nextInvitationsCount;
-        if (mounted) {
-          setState(() {
-            groupsFuture = Future.value(groups);
-            adminRequestsCountFuture = Future.value(adminCount);
-            invitationsCountFuture = Future.value(invitationsCount);
-          });
-        }
-        return;
-      }
+    if (silent) {
+      final groups = await nextGroups;
+      final adminCount = await nextAdminCount;
+      final invitationsCount = await nextInvitationsCount;
       if (mounted) {
         setState(() {
-          groupsFuture = nextGroups;
-          adminRequestsCountFuture = nextAdminCount;
-          invitationsCountFuture = nextInvitationsCount;
+          groupsFuture = Future.value(groups);
+          adminRequestsCountFuture = Future.value(adminCount);
+          invitationsCountFuture = Future.value(invitationsCount);
         });
       }
-      await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
-    } finally {
-      _refreshInFlight = false;
+      return;
     }
+    if (mounted) {
+      setState(() {
+        groupsFuture = nextGroups;
+        adminRequestsCountFuture = nextAdminCount;
+        invitationsCountFuture = nextInvitationsCount;
+      });
+    }
+    await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
   }
 
   Future<void> createGroup() async {
@@ -202,7 +225,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (group.unreadPublicRequestCount > 0) {
       try {
         await widget.api.markPublicRequestsRead(group.id);
-        await refresh();
+        setUnreadPublicRequests(group.id, 0);
       } catch (_) {}
     }
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));

@@ -107,6 +107,33 @@ class ChatGroup {
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
     );
   }
+
+  ChatGroup copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? visibility,
+    String? ownerId,
+    int? memberCount,
+    int? unreadPublicRequestCount,
+    String? inviteCode,
+    String? myRole,
+    DateTime? createdAt,
+  }) {
+    return ChatGroup(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      visibility: visibility ?? this.visibility,
+      ownerId: ownerId ?? this.ownerId,
+      memberCount: memberCount ?? this.memberCount,
+      unreadPublicRequestCount: unreadPublicRequestCount ?? this.unreadPublicRequestCount,
+      inviteCode: inviteCode ?? this.inviteCode,
+      myRole: myRole ?? this.myRole,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
 }
 
 class GroupMember {

@@ -715,9 +715,8 @@ class _PublicRequestDetailsScreenState
   final commentController = TextEditingController();
   late Future<List<PublicRequestComment>> commentsFuture;
   late final GroupRealtimeService realtime;
+  List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
   Timer? realtimeRefreshDebounce;
-  Timer? commentsAutoRefreshTimer;
-  bool commentsRefreshInFlight = false;
   bool sending = false;
   String? error;
 
@@ -730,14 +729,10 @@ class _PublicRequestDetailsScreenState
       groupId: widget.request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
-    commentsAutoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) unawaited(refreshComments(silent: true).catchError((_) {}));
-    });
   }
 
   @override
   void dispose() {
-    commentsAutoRefreshTimer?.cancel();
     realtimeRefreshDebounce?.cancel();
     realtime.close();
     commentController.dispose();
@@ -745,38 +740,57 @@ class _PublicRequestDetailsScreenState
   }
 
   Future<List<PublicRequestComment>> loadComments() async {
-    return widget.api.listComments(widget.request.id);
+    final comments = await widget.api.listComments(widget.request.id);
+    cachedComments = comments;
+    return comments;
   }
 
   Future<void> refreshComments({bool silent = false}) async {
-    if (commentsRefreshInFlight) return;
-    commentsRefreshInFlight = true;
     final next = loadComments();
-    try {
-      if (silent) {
-        final comments = await next;
-        if (mounted) setState(() => commentsFuture = Future.value(comments));
-        return;
-      }
-      setState(() => commentsFuture = next);
-      await next;
-    } finally {
-      commentsRefreshInFlight = false;
+    if (silent) {
+      final comments = await next;
+      if (mounted) setState(() => commentsFuture = Future.value(comments));
+      return;
     }
+    setState(() => commentsFuture = next);
+    await next;
   }
 
   void handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != widget.request.groupId) return;
     if (event.requestId != widget.request.id) return;
-    if (event.type == 'public_request.comment_created' ||
-        event.type == 'public_request.comment_deleted') {
-      realtimeRefreshDebounce?.cancel();
-      realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
-        if (mounted) unawaited(refreshComments());
-      });
+    switch (event.type) {
+      case 'public_request.comment_created':
+        final payload = event.payload;
+        if (payload is Map<String, dynamic>) {
+          final commentPayload = payload['comment'];
+          if (commentPayload is Map<String, dynamic>) addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+        }
+        break;
+      case 'public_request.comment_deleted':
+        final payload = event.payload;
+        if (payload is Map<String, dynamic>) removeRealtimeComment(payload['comment_id'] as String? ?? '');
+        break;
     }
   }
 
+  void addRealtimeComment(PublicRequestComment comment) {
+    if (cachedComments.any((item) => item.id == comment.id)) return;
+    final updated = [...cachedComments, comment]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    setComments(updated);
+  }
+
+  void removeRealtimeComment(String commentId) {
+    if (commentId.isEmpty) return;
+    final updated = cachedComments.where((comment) => comment.id != commentId).toList();
+    setComments(updated);
+  }
+
+  void setComments(List<PublicRequestComment> comments) {
+    if (!mounted) return;
+    cachedComments = comments;
+    setState(() => commentsFuture = Future.value(comments));
+  }
 
   Future<void> submitComment() async {
     final body = commentController.text.trim();

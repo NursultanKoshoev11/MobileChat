@@ -6,13 +6,20 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../data/api_client.dart';
 
 class UserRealtimeEvent {
-  const UserRealtimeEvent({required this.type, required this.payload});
+  const UserRealtimeEvent({required this.type, required this.groupId, required this.payload});
 
   final String type;
+  final String groupId;
   final dynamic payload;
 
+  String get requestId {
+    final value = payload;
+    if (value is Map<String, dynamic>) return value['request_id'] as String? ?? value['id'] as String? ?? '';
+    return '';
+  }
+
   factory UserRealtimeEvent.fromJson(Map<String, dynamic> json) {
-    return UserRealtimeEvent(type: json['type'] as String? ?? '', payload: json['payload']);
+    return UserRealtimeEvent(type: json['type'] as String? ?? '', groupId: json['group_id'] as String? ?? '', payload: json['payload']);
   }
 }
 

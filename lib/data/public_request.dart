@@ -59,6 +59,43 @@ class PublicRequest {
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
+
+  PublicRequest copyWith({
+    String? id,
+    String? groupId,
+    String? authorId,
+    String? authorName,
+    String? requestType,
+    String? interactionMode,
+    String? title,
+    String? body,
+    String? status,
+    int? supportCount,
+    int? opposeCount,
+    int? commentCount,
+    String? myVote,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return PublicRequest(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      authorId: authorId ?? this.authorId,
+      authorName: authorName ?? this.authorName,
+      requestType: requestType ?? this.requestType,
+      interactionMode: interactionMode ?? this.interactionMode,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      status: status ?? this.status,
+      supportCount: supportCount ?? this.supportCount,
+      opposeCount: opposeCount ?? this.opposeCount,
+      commentCount: commentCount ?? this.commentCount,
+      myVote: myVote ?? this.myVote,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
 }
 
 class PublicRequestContent {
