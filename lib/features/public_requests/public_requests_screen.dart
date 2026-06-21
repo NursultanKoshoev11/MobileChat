@@ -554,22 +554,115 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     reasonController.dispose();
   }
 
-  Widget moderationButton(BuildContext context) {
+  PopupMenuItem<String> groupMenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label)),
+      ]),
+    );
+  }
+
+  Future<void> handleGroupMenuAction(String value) async {
+    switch (value) {
+      case 'statistics':
+        await openStatistics();
+        break;
+      case 'access':
+        await showGroupAccess();
+        break;
+      case 'admins':
+        await changeRoleByPhone();
+        break;
+      case 'mute':
+        await muteCommentsByPhone();
+        break;
+      case 'invite':
+        await inviteByPhone();
+        break;
+      case 'moderation':
+        await openModerationQueue();
+        break;
+      case 'settings':
+        if (mounted) await showAppSettingsSheet(context);
+        break;
+    }
+  }
+
+  Widget groupMenuButton(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return FutureBuilder<int>(
       future: moderationCountFuture,
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
-        final button = IconButton(
-          onPressed: openModerationQueue,
-          tooltip: text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке',
-          icon: const Icon(Icons.fact_check_outlined),
+        final reviewLabel = count > 0
+            ? (text.isKy
+                ? 'Текшерүүдөгү материалдар ($count)'
+                : 'Материалы на проверке ($count)')
+            : (text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке');
+        final icon = count > 0
+            ? Badge(
+                label: Text('$count'),
+                child: const Icon(Icons.more_vert_rounded),
+              )
+            : const Icon(Icons.more_vert_rounded);
+        return PopupMenuButton<String>(
+          tooltip: text.isKy ? 'Меню' : 'Меню',
+          icon: icon,
+          onSelected: handleGroupMenuAction,
+          itemBuilder: (_) => [
+            groupMenuItem(
+              value: 'statistics',
+              icon: Icons.analytics_outlined,
+              label: text.statistics,
+            ),
+            groupMenuItem(
+              value: 'access',
+              icon: Icons.qr_code_rounded,
+              label: text.codeAndQr,
+            ),
+            if (canChangeRoles)
+              groupMenuItem(
+                value: 'admins',
+                icon: Icons.admin_panel_settings_outlined,
+                label: text.manageAdmins,
+              ),
+            if (canMuteComments)
+              groupMenuItem(
+                value: 'mute',
+                icon: Icons.block_rounded,
+                label: text.blockComments,
+              ),
+            if (canInvite)
+              groupMenuItem(
+                value: 'invite',
+                icon: Icons.person_add_alt_1_rounded,
+                label: text.inviteByPhone,
+              ),
+            if (canModerate)
+              groupMenuItem(
+                value: 'moderation',
+                icon: Icons.fact_check_outlined,
+                label: reviewLabel,
+              ),
+            const PopupMenuDivider(),
+            groupMenuItem(
+              value: 'settings',
+              icon: Icons.settings_rounded,
+              label: text.settings,
+            ),
+          ],
         );
-        if (count <= 0) return button;
-        return Badge(label: Text('$count'), child: button);
       },
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -578,36 +671,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
-          IconButton(
-            onPressed: openStatistics,
-            tooltip: text.statistics,
-            icon: const Icon(Icons.analytics_outlined),
-          ),
-          IconButton(
-            onPressed: showGroupAccess,
-            tooltip: text.codeAndQr,
-            icon: const Icon(Icons.qr_code_rounded),
-          ),
-          if (canChangeRoles)
-            IconButton(
-              onPressed: changeRoleByPhone,
-              tooltip: text.manageAdmins,
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-            ),
-          if (canMuteComments)
-            IconButton(
-              onPressed: muteCommentsByPhone,
-              tooltip: text.blockComments,
-              icon: const Icon(Icons.block_rounded),
-            ),
-          if (canInvite)
-            IconButton(
-              onPressed: inviteByPhone,
-              tooltip: text.inviteByPhone,
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-            ),
-          if (canModerate) moderationButton(context),
-          const AppSettingsButton(),
+          groupMenuButton(context),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
