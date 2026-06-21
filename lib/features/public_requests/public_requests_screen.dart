@@ -40,6 +40,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   Timer? _refreshDebounce;
+  Timer? _autoRefreshTimer;
+  bool _refreshInFlight = false;
   String? ensuredInviteCode;
 
   bool get canModerate =>
@@ -59,10 +61,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     requestsFuture = loadRequests();
     moderationCountFuture = loadModerationCount();
     realtime.connect(onEvent: _handleRealtimeEvent);
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
+    });
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _refreshDebounce?.cancel();
     realtime.close();
     super.dispose();
@@ -100,15 +106,32 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> refresh({bool silent = false}) async {
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
     final next = loadRequests();
     final nextModerationCount = loadModerationCount();
-    if (mounted) {
-      setState(() {
-        requestsFuture = next;
-        moderationCountFuture = nextModerationCount;
-      });
+    try {
+      if (silent) {
+        final requests = await next;
+        final moderationCount = await nextModerationCount;
+        if (mounted) {
+          setState(() {
+            requestsFuture = Future.value(requests);
+            moderationCountFuture = Future.value(moderationCount);
+          });
+        }
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          requestsFuture = next;
+          moderationCountFuture = nextModerationCount;
+        });
+      }
+      await Future.wait([next, nextModerationCount]);
+    } finally {
+      _refreshInFlight = false;
     }
-    await Future.wait([next, nextModerationCount]);
   }
 
   Future<void> openStatistics() async {

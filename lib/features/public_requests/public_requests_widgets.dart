@@ -716,32 +716,53 @@ class _PublicRequestDetailsScreenState
   late Future<List<PublicRequestComment>> commentsFuture;
   late final GroupRealtimeService realtime;
   Timer? realtimeRefreshDebounce;
+  Timer? commentsAutoRefreshTimer;
+  bool commentsRefreshInFlight = false;
   bool sending = false;
   String? error;
 
   @override
   void initState() {
     super.initState();
-    commentsFuture = widget.api.listComments(widget.request.id);
+    commentsFuture = loadComments();
     realtime = GroupRealtimeService(
       api: ApiClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
       groupId: widget.request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
+    commentsAutoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) unawaited(refreshComments(silent: true).catchError((_) {}));
+    });
   }
 
   @override
   void dispose() {
+    commentsAutoRefreshTimer?.cancel();
     realtimeRefreshDebounce?.cancel();
     realtime.close();
     commentController.dispose();
     super.dispose();
   }
 
-  Future<void> refreshComments() async {
-    final next = widget.api.listComments(widget.request.id);
-    setState(() => commentsFuture = next);
-    await next;
+  Future<List<PublicRequestComment>> loadComments() async {
+    return widget.api.listComments(widget.request.id);
+  }
+
+  Future<void> refreshComments({bool silent = false}) async {
+    if (commentsRefreshInFlight) return;
+    commentsRefreshInFlight = true;
+    final next = loadComments();
+    try {
+      if (silent) {
+        final comments = await next;
+        if (mounted) setState(() => commentsFuture = Future.value(comments));
+        return;
+      }
+      setState(() => commentsFuture = next);
+      await next;
+    } finally {
+      commentsRefreshInFlight = false;
+    }
   }
 
   void handleRealtimeEvent(GroupRealtimeEvent event) {

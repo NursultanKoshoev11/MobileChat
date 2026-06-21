@@ -36,21 +36,27 @@ class _GroupsScreenState extends State<GroupsScreen> {
   late final UserRealtimeService userRealtime;
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
   Timer? _realtimeRefreshDebounce;
+  Timer? _autoRefreshTimer;
+  bool _refreshInFlight = false;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
   void initState() {
     super.initState();
-    groupsFuture = widget.api.fetchGroups();
+    groupsFuture = loadGroups();
     adminRequestsCountFuture = loadAdminRequestsCount();
     invitationsCountFuture = loadInvitationsCount();
     userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
     _foregroundPushSubscription = PushNotificationService.foregroundDataStream.listen(_handleForegroundPushData);
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
+    });
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _foregroundPushSubscription?.cancel();
     _realtimeRefreshDebounce?.cancel();
     userRealtime.close();
@@ -88,8 +94,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void _scheduleRealtimeRefresh() {
     _realtimeRefreshDebounce?.cancel();
     _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) refresh();
+      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
     });
+  }
+
+  Future<List<ChatGroup>> loadGroups() async {
+    return widget.api.fetchGroups();
   }
 
   Future<int> loadAdminRequestsCount() async {
@@ -101,16 +111,37 @@ class _GroupsScreenState extends State<GroupsScreen> {
     try { return (await widget.api.fetchInvitations()).length; } catch (_) { return 0; }
   }
 
-  Future<void> refresh() async {
-    final nextGroups = widget.api.fetchGroups();
+  Future<void> refresh({bool silent = false}) async {
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
+    final nextGroups = loadGroups();
     final nextAdminCount = loadAdminRequestsCount();
     final nextInvitationsCount = loadInvitationsCount();
-    setState(() {
-      groupsFuture = nextGroups;
-      adminRequestsCountFuture = nextAdminCount;
-      invitationsCountFuture = nextInvitationsCount;
-    });
-    await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
+    try {
+      if (silent) {
+        final groups = await nextGroups;
+        final adminCount = await nextAdminCount;
+        final invitationsCount = await nextInvitationsCount;
+        if (mounted) {
+          setState(() {
+            groupsFuture = Future.value(groups);
+            adminRequestsCountFuture = Future.value(adminCount);
+            invitationsCountFuture = Future.value(invitationsCount);
+          });
+        }
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          groupsFuture = nextGroups;
+          adminRequestsCountFuture = nextAdminCount;
+          invitationsCountFuture = nextInvitationsCount;
+        });
+      }
+      await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
+    } finally {
+      _refreshInFlight = false;
+    }
   }
 
   Future<void> createGroup() async {
