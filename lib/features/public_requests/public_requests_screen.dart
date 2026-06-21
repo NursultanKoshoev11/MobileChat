@@ -606,15 +606,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 ? 'Текшерүүдөгү материалдар ($count)'
                 : 'Материалы на проверке ($count)')
             : (text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке');
-        final icon = count > 0
-            ? Badge(
-                label: Text('$count'),
-                child: const Icon(Icons.more_vert_rounded),
-              )
-            : const Icon(Icons.more_vert_rounded);
         return PopupMenuButton<String>(
           tooltip: text.isKy ? 'Меню' : 'Меню',
-          icon: icon,
+          icon: const Icon(Icons.more_vert_rounded),
           onSelected: (value) {
             handleGroupMenuAction(value);
           },
@@ -653,7 +647,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 icon: Icons.fact_check_outlined,
                 label: reviewLabel,
               ),
-            const PopupMenuDivider(),
             groupMenuItem(
               value: 'settings',
               icon: Icons.settings_rounded,
