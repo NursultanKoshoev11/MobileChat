@@ -615,7 +615,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         return PopupMenuButton<String>(
           tooltip: text.isKy ? 'Меню' : 'Меню',
           icon: icon,
-          onSelected: handleGroupMenuAction,
+          onSelected: (value) {
+            handleGroupMenuAction(value);
+          },
           itemBuilder: (_) => [
             groupMenuItem(
               value: 'statistics',
