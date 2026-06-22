@@ -45,8 +45,8 @@ android {
 
     defaultConfig {
         applicationId "com.nursultankoshoev.mobilechat"
-        minSdk 24
-        targetSdk 36
+        minSdk 23
+        targetSdk 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
