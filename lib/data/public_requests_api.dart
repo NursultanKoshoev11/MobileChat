@@ -9,6 +9,7 @@ import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
 import 'network_guard.dart';
+import 'offline_outbox.dart';
 import 'moderation.dart';
 
 export 'moderation.dart';
@@ -271,6 +272,18 @@ class PublicRequestsApi {
       '/api/requests/$requestId/status',
       body: {'status': status},
     );
+  }
+
+  Future<void> flushOfflinePublicRequests() async {
+    await OfflineOutbox.instance.flushPublicRequests((draft) async {
+      await createRequest(
+        groupId: draft.groupId,
+        type: draft.requestType,
+        interactionMode: draft.interactionMode,
+        title: draft.title,
+        body: draft.body,
+      );
+    });
   }
 
   Future<dynamic> _send(
