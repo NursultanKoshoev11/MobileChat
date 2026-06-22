@@ -8,6 +8,7 @@ import 'group_statistics.dart';
 import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
+import 'network_guard.dart';
 import 'moderation.dart';
 
 export 'moderation.dart';
@@ -18,6 +19,8 @@ class PublicRequestsApi {
   final String baseUrl;
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
+  static const int _maxAttempts = 3;
+  final NetworkGuard _networkGuard = NetworkGuard();
 
   Future<PublicRequest> createRequest({
     required String groupId,
@@ -276,7 +279,9 @@ class PublicRequestsApi {
     Map<String, String>? query,
     Map<String, dynamic>? body,
     bool retrying = false,
+    int attempt = 0,
   }) async {
+    _networkGuard.ensureAllowed();
     final session = await sessionStore.read();
     if (session == null)
       throw const ApiException('Session expired. Please sign in again.');
@@ -300,17 +305,37 @@ class PublicRequestsApi {
             .timeout(_timeout);
       }
 
+      if (_networkGuard.isRetryableStatus(response.statusCode) && attempt + 1 < _maxAttempts) {
+        _networkGuard.recordFailure();
+        await _networkGuard.waitBeforeRetry(attempt);
+        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+      }
+
       if (response.statusCode == 401 && !retrying) {
         final refreshed = await _refreshSession();
         if (refreshed) {
-          return _send(method, path, query: query, body: body, retrying: true);
+          return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
         }
       }
-      return _decode(response);
+      final decoded = _decode(response);
+      _networkGuard.recordSuccess();
+      return decoded;
     } on TimeoutException {
+      _networkGuard.recordFailure();
+      if (attempt + 1 < _maxAttempts) {
+        await _networkGuard.waitBeforeRetry(attempt);
+        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+      }
       throw const ApiException('Connection timed out. Please try again.');
+    } on CircuitOpenException catch (error) {
+      throw ApiException(error.message);
     } catch (error) {
       if (error is ApiException) rethrow;
+      _networkGuard.recordFailure();
+      if (attempt + 1 < _maxAttempts) {
+        await _networkGuard.waitBeforeRetry(attempt);
+        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+      }
       throw ApiException('Network error: $error');
     }
   }

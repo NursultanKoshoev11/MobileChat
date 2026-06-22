@@ -33,13 +33,14 @@ class UserRealtimeService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
   int _reconnectAttempts = 0;
   bool _closed = false;
 
   Future<void> connect({required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) async {
     _closed = false;
     await _subscription?.cancel();
-    await _channel?.sink.close();
+    await _channel?.sink.close(1000, 'client closed');
     _subscription = null;
     _channel = null;
 
@@ -50,10 +51,12 @@ class UserRealtimeService {
     final channel = WebSocketChannel.connect(uri);
     _channel = channel;
     _reconnectAttempts = 0;
+    _startHeartbeat();
     _subscription = channel.stream.listen(
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
         final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic> && decoded['type'] == 'pong') return;
         if (decoded is Map<String, dynamic>) {
           final event = UserRealtimeEvent.fromJson(decoded);
           try {
@@ -80,12 +83,22 @@ class UserRealtimeService {
     _closed = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     await _subscription?.cancel();
     _subscription = null;
-    await _channel?.sink.close();
+    await _channel?.sink.close(1000, 'client closed');
     _channel = null;
   }
 
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (_closed) return;
+      _channel?.sink.add(jsonEncode({'type': 'ping', 'ts': DateTime.now().toUtc().toIso8601String()}));
+    });
+  }
 
   void _ack(String eventId) {
     if (eventId.isEmpty) return;
@@ -105,9 +118,10 @@ class UserRealtimeService {
 
   void _scheduleReconnect({required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
     if (_closed || _reconnectTimer != null) return;
-    final delaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
+    final baseDelaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
+    final jitterMs = Random().nextInt(750);
     _reconnectAttempts++;
-    _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
+    _reconnectTimer = Timer(Duration(seconds: baseDelaySeconds, milliseconds: jitterMs), () async {
       _reconnectTimer = null;
       if (_closed) return;
       try {
