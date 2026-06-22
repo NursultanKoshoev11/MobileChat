@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class MobileChatTheme {
   static const Color primary = Color(0xFF2AABEE);
@@ -217,3 +217,4 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
 extension MobileChatThemeContext on BuildContext {
   MobileChatColors get appColors => Theme.of(this).extension<MobileChatColors>()!;
 }
+
