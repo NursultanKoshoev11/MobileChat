@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -263,13 +264,29 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     super.dispose();
   }
 
+  Future<Uint8List> _compressedPhotoBytesWithoutExif(XFile image) async {
+    final tempDir = await getTemporaryDirectory();
+    final targetPath = '${tempDir.path}/public_request_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final compressed = await FlutterImageCompress.compressAndGetFile(
+      image.path,
+      targetPath,
+      minWidth: 1280,
+      minHeight: 720,
+      quality: 72,
+      keepExif: false,
+      format: CompressFormat.jpeg,
+    );
+    if (compressed == null) return image.readAsBytes();
+    return File(compressed.path).readAsBytes();
+  }
+
   Future<void> pickPhoto() async {
     final text = AppLanguageScope.textOf(context);
     if (loading || photos.length >= maxPhotos) return;
     try {
       final image = await imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 1280, imageQuality: 72);
       if (image == null) return;
-      final bytes = await image.readAsBytes();
+      final bytes = await _compressedPhotoBytesWithoutExif(image);
       if (bytes.length > maxPhotoBytes) {
         setState(() => error = text.isKy ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.' : 'Фото слишком большое. Выберите другое фото.');
         return;
