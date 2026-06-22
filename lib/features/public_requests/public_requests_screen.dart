@@ -71,6 +71,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void _handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != widget.group.id) return;
     switch (event.type) {
+      case 'connection.ready':
+        _scheduleRealtimeRefresh();
+        break;
       case 'public_request.created':
         upsertRequestFromPayload(event.payload);
         break;

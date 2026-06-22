@@ -37,6 +37,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   List<ChatGroup> currentGroups = const <ChatGroup>[];
   final Set<String> seenPublicRequestEvents = <String>{};
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
+  StreamSubscription<Map<String, String>>? _openedPushSubscription;
   Timer? _realtimeRefreshDebounce;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
@@ -49,11 +50,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
     _foregroundPushSubscription = PushNotificationService.foregroundDataStream.listen(_handleForegroundPushData);
+    _openedPushSubscription = PushNotificationService.openedDataStream.listen(_handleOpenedPushData);
   }
 
   @override
   void dispose() {
     _foregroundPushSubscription?.cancel();
+    _openedPushSubscription?.cancel();
     _realtimeRefreshDebounce?.cancel();
     userRealtime.close();
     super.dispose();
@@ -91,6 +94,24 @@ class _GroupsScreenState extends State<GroupsScreen> {
         _scheduleRealtimeRefresh();
         break;
     }
+  }
+
+  void _handleOpenedPushData(Map<String, String> data) {
+    _handleForegroundPushData(data);
+    final groupId = data['group_id'] ?? '';
+    if (groupId.isEmpty) return;
+    ChatGroup? target;
+    for (final group in currentGroups) {
+      if (group.id == groupId) {
+        target = group;
+        break;
+      }
+    }
+    if (target == null) {
+      _scheduleRealtimeRefresh();
+      return;
+    }
+    unawaited(openGroup(target));
   }
 
   void incrementUnreadPublicRequests(String groupId, String requestId) {

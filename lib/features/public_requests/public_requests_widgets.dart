@@ -758,6 +758,13 @@ class _PublicRequestDetailsScreenState
 
   void handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != widget.request.groupId) return;
+    if (event.type == 'connection.ready') {
+      realtimeRefreshDebounce?.cancel();
+      realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
+        if (mounted) unawaited(refreshComments(silent: true).catchError((_) {}));
+      });
+      return;
+    }
     if (event.requestId != widget.request.id) return;
     switch (event.type) {
       case 'public_request.comment_created':

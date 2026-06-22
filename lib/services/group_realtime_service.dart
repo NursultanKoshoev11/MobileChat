@@ -7,8 +7,9 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../data/api_client.dart';
 
 class GroupRealtimeEvent {
-  const GroupRealtimeEvent({required this.type, required this.groupId, required this.payload});
+  const GroupRealtimeEvent({required this.id, required this.type, required this.groupId, required this.payload});
 
+  final String id;
   final String type;
   final String groupId;
   final dynamic payload;
@@ -21,6 +22,7 @@ class GroupRealtimeEvent {
 
   factory GroupRealtimeEvent.fromJson(Map<String, dynamic> json) {
     return GroupRealtimeEvent(
+      id: json['id'] as String? ?? '',
       type: json['type'] as String? ?? '',
       groupId: json['group_id'] as String? ?? '',
       payload: json['payload'],
@@ -58,7 +60,16 @@ class GroupRealtimeService {
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
         final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) onEvent(GroupRealtimeEvent.fromJson(decoded));
+        if (decoded is Map<String, dynamic>) {
+          final event = GroupRealtimeEvent.fromJson(decoded);
+          try {
+            onEvent(event);
+            _ack(event.id);
+          } catch (error) {
+            _nack(event.id, error.toString());
+            rethrow;
+          }
+        }
       },
       onError: (error) {
         onError?.call(error);
@@ -79,6 +90,17 @@ class GroupRealtimeService {
     _subscription = null;
     await _channel?.sink.close();
     _channel = null;
+  }
+
+
+  void _ack(String eventId) {
+    if (eventId.isEmpty) return;
+    _channel?.sink.add(jsonEncode({'type': 'ack', 'event_id': eventId}));
+  }
+
+  void _nack(String eventId, String reason) {
+    if (eventId.isEmpty) return;
+    _channel?.sink.add(jsonEncode({'type': 'nack', 'event_id': eventId, 'reason': reason}));
   }
 
   Uri _webSocketUri(String token) {

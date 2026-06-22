@@ -12,8 +12,14 @@ class PushNotificationService {
   PushNotificationService({required this.api});
 
   static final StreamController<Map<String, String>> _foregroundDataController = StreamController<Map<String, String>>.broadcast();
+  static final StreamController<Map<String, String>> _openedDataController = StreamController<Map<String, String>>.broadcast();
 
   static Stream<Map<String, String>> get foregroundDataStream => _foregroundDataController.stream;
+  static Stream<Map<String, String>> get openedDataStream => _openedDataController.stream;
+
+  static Future<void> handleBackgroundMessage(RemoteMessage message) async {
+    await _showLocalNotificationFromMessage(message);
+  }
 
   final ApiClient api;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
@@ -53,6 +59,9 @@ class PushNotificationService {
       if (!_foregroundListenerStarted) {
         _foregroundListenerStarted = true;
         FirebaseMessaging.onMessage.listen(_showForegroundNotification);
+        FirebaseMessaging.onMessageOpenedApp.listen(_emitOpenedMessage);
+        final initialMessage = await messaging.getInitialMessage();
+        if (initialMessage != null) _emitOpenedMessage(initialMessage);
       }
     } catch (error) {
       _debugLog('FCM registration skipped: $error');
@@ -97,6 +106,31 @@ class PushNotificationService {
     if (message.data.isNotEmpty && !_foregroundDataController.isClosed) {
       _foregroundDataController.add(Map<String, String>.from(message.data));
     }
+    await _showLocalNotificationFromMessage(message);
+  }
+
+  static void _emitOpenedMessage(RemoteMessage message) {
+    if (message.data.isNotEmpty && !_openedDataController.isClosed) {
+      _openedDataController.add(Map<String, String>.from(message.data));
+    }
+  }
+
+  static Future<void> _showLocalNotificationFromMessage(RemoteMessage message) async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings = InitializationSettings(android: androidSettings);
+    await plugin.initialize(initializationSettings);
+
+    if (Platform.isAndroid) {
+      const channel = AndroidNotificationChannel(
+        'koom_default',
+        'Koom notifications',
+        description: 'Notifications about new posts and comments in Koom.',
+        importance: Importance.high,
+      );
+      await plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+    }
+
     final title = message.notification?.title ?? message.data['title'] ?? 'Коом';
     final body = message.notification?.body ?? message.data['body'] ?? 'Откройте приложение, чтобы посмотреть обновление.';
     const details = NotificationDetails(
@@ -109,7 +143,7 @@ class PushNotificationService {
         icon: '@mipmap/ic_launcher',
       ),
     );
-    await _localNotifications.show(message.hashCode, title, body, details, payload: message.data.toString());
+    await plugin.show(message.hashCode, title, body, details, payload: message.data.toString());
   }
 
   FirebaseMessaging? _messagingOrNull() {
