@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class MobileChatTheme {
   static const Color primary = Color(0xFF2AABEE);
@@ -147,7 +147,7 @@ class MobileChatTheme {
           textStrong: textStrongColor,
           textMuted: textMutedColor,
           chipBackground: scheme.brightness == Brightness.dark ? const Color(0xFF21374A) : const Color(0xFFEFF6FF),
-          shadow: scheme.brightness == Brightness.dark ? Colors.black.withValues(alpha: 0.30) : Colors.black.withValues(alpha: 0.08),
+          shadow: scheme.brightness == Brightness.dark ? Colors.black.withOpacity(0.30) : Colors.black.withOpacity(0.08),
         ),
       ],
     );
