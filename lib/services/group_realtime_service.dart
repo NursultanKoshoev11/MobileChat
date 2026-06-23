@@ -51,7 +51,10 @@ class GroupRealtimeService {
     _channel = null;
 
     final token = await api.issueWebSocketToken();
-    if (token.isEmpty) return;
+    if (token.isEmpty) {
+      _scheduleReconnect(onEvent: onEvent, onError: onError);
+      return;
+    }
 
     final uri = _webSocketUri(token);
     final channel = WebSocketChannel.connect(uri);
@@ -61,17 +64,23 @@ class GroupRealtimeService {
     _subscription = channel.stream.listen(
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic> && decoded['type'] == 'pong') return;
-        if (decoded is Map<String, dynamic>) {
-          final event = GroupRealtimeEvent.fromJson(decoded);
-          try {
-            onEvent(event);
-            _ack(event.id);
-          } catch (error) {
-            _nack(event.id, error.toString());
-            rethrow;
-          }
+        Map<String, dynamic> decoded;
+        try {
+          final value = jsonDecode(raw);
+          if (value is! Map<String, dynamic>) return;
+          decoded = value;
+        } catch (error) {
+          onError?.call(error);
+          return;
+        }
+        if (decoded['type'] == 'pong') return;
+        final event = GroupRealtimeEvent.fromJson(decoded);
+        try {
+          onEvent(event);
+          _ack(event.id);
+        } catch (error) {
+          _nack(event.id, error.toString());
+          onError?.call(error);
         }
       },
       onError: (error) {
