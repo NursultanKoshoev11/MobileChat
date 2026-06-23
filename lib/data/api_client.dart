@@ -140,7 +140,7 @@ class ApiClient {
     final response = await _post('/api/groups/$groupId/messages', {'text': text});
     final payload = response as Map<String, dynamic>;
     if (payload['status'] == 'pending_review') {
-      throw ModerationPendingException(String.fromCharCodes([1057,1086,1086,1073,1097,1077,1085,1080,1077,32,1086,1090,1087,1088,1072,1074,1083,1077,1085,1086,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1091,32,1072,1076,1084,1080,1085,1080,1089,1090,1088,1072,1090,1086,1088,1091,46]));
+      throw const ModerationPendingException('Сообщение отправлено на проверку администратору.');
     }
     return ChatMessage.fromJson(payload);
   }

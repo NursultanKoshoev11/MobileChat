@@ -85,7 +85,12 @@ class PushNotificationService {
     if (_localNotificationsInitialized) return;
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings = InitializationSettings(android: androidSettings);
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initializationSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await _localNotifications.initialize(initializationSettings);
 
     if (Platform.isAndroid) {
@@ -118,7 +123,12 @@ class PushNotificationService {
   static Future<void> _showLocalNotificationFromMessage(RemoteMessage message) async {
     final plugin = FlutterLocalNotificationsPlugin();
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings = InitializationSettings(android: androidSettings);
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initializationSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await plugin.initialize(initializationSettings);
 
     if (Platform.isAndroid) {
@@ -141,6 +151,11 @@ class PushNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
       ),
     );
     await plugin.show(message.hashCode, title, body, details, payload: message.data.toString());

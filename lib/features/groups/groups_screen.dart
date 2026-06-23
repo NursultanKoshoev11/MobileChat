@@ -341,14 +341,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
 }
 
 
-String _groupRoleLabel(String role) {
+String _groupRoleLabel(BuildContext context, String role) {
+  final text = AppLanguageScope.textOf(context);
   switch (role) {
     case 'owner':
-      return 'owner';
+      return text.isKy ? 'Ээси' : 'Владелец';
     case 'admin':
-      return 'admin';
+      return text.isKy ? 'Админ' : 'Админ';
     case 'member':
-      return 'member';
+      return text.isKy ? 'Мүчө' : 'Участник';
     default:
       return role;
   }
@@ -459,7 +460,7 @@ class GroupTile extends StatelessWidget {
                 [
                   group.visibility == 'public' ? text.publicGroup : text.privateGroup,
                   if (group.memberCount > 0) '${group.memberCount}',
-                  if (group.myRole != null) _groupRoleLabel(group.myRole!),
+                  if (group.myRole != null) _groupRoleLabel(context, group.myRole!),
                 ].join(' · '),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.textMuted, fontWeight: FontWeight.w800),
               ),

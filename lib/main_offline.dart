@@ -2,13 +2,42 @@ import 'package:flutter/material.dart';
 
 import 'app/theme.dart';
 
+const bool allowOfflineDemo = bool.fromEnvironment('ALLOW_OFFLINE_DEMO', defaultValue: false);
+
 const String adminDemoPhone = '+996000000000';
 const String adminDemoPhoneDigits = '996000000000';
 const String demoOtpCode = '1111';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!allowOfflineDemo) {
+    runApp(const OfflineDemoDisabledApp());
+    return;
+  }
   runApp(const OfflineDemoApp());
+}
+
+class OfflineDemoDisabledApp extends StatelessWidget {
+  const OfflineDemoDisabledApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'MobileChat Offline Demo Disabled',
+      home: const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Offline demo entrypoint is disabled. Build with --dart-define=ALLOW_OFFLINE_DEMO=true only for demo/testing.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class OfflineDemoApp extends StatelessWidget {

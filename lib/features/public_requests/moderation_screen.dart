@@ -6,18 +6,18 @@ import '../../data/moderation.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/ui_helpers.dart';
 
-final String _titleOnReview = String.fromCharCodes([1053,1072,32,1087,1088,1086,1074,1077,1088,1082,1077]);
-final String _refreshLabel = String.fromCharCodes([1054,1073,1085,1086,1074,1080,1090,1100]);
-final String _queueEmpty = String.fromCharCodes([1054,1095,1077,1088,1077,1076,1100,32,1087,1091,1089,1090,1072,1103]);
-final String _noItems = String.fromCharCodes([1053,1086,1074,1099,1093,32,1082,1086,1084,1084,1077,1085,1090,1072,1088,1080,1077,1074,32,1080,32,1087,1091,1073,1083,1080,1082,1072,1094,1080,1081,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1077,32,1085,1077,1090,46]);
-final String _approved = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1076,1086,1073,1088,1077,1085,46]);
-final String _rejected = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1090,1082,1083,1086,1085,1077,1085,46]);
-final String _author = String.fromCharCodes([1040,1074,1090,1086,1088]);
-final String _reason = String.fromCharCodes([1055,1088,1080,1095,1080,1085,1072]);
-final String _check = String.fromCharCodes([1055,1088,1086,1074,1077,1088,1082,1072]);
-final String _emptyText = String.fromCharCodes([1058,1077,1082,1089,1090,32,1087,1091,1089,1090,1086,1081]);
-final String _reject = String.fromCharCodes([1054,1090,1082,1083,1086,1085,1080,1090,1100]);
-final String _approve = String.fromCharCodes([1054,1076,1086,1073,1088,1080,1090,1100]);
+const String _titleOnReview = 'На проверке';
+const String _refreshLabel = 'Обновить';
+const String _queueEmpty = 'Очередь пустая';
+const String _noItems = 'Новых комментариев и публикаций на проверке нет.';
+const String _approved = 'Материал одобрен.';
+const String _rejected = 'Материал отклонен.';
+const String _author = 'Автор';
+const String _reason = 'Причина';
+const String _check = 'Проверка';
+const String _emptyText = 'Текст пустой';
+const String _reject = 'Отклонить';
+const String _approve = 'Одобрить';
 
 class GroupModerationScreen extends StatefulWidget {
   const GroupModerationScreen({

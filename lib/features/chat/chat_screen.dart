@@ -123,7 +123,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> send() async {
     final text = messageController.text.trim();
-    if (text.isEmpty || sending || !canPublishAnnouncement) return;
+    if (text.isEmpty || sending) return;
+    if (!canPublishAnnouncement) {
+      if (mounted) {
+        showAppSnack(context, 'Only group owners and administrators can publish official announcements.');
+      }
+      return;
+    }
     setState(() => sending = true);
     try {
       final message = await widget.api.sendMessage(groupId: widget.group.id, text: text);
@@ -232,7 +238,13 @@ class _ChatScreenState extends State<ChatScreen> {
               child: buildMessages(),
             ),
           ),
-          if (canPublishAnnouncement) buildAnnouncementComposer(),
+          if (canPublishAnnouncement)
+            buildAnnouncementComposer()
+          else
+            const SafeArea(
+              top: false,
+              child: SizedBox(height: 12),
+            ),
         ],
       ),
     );
