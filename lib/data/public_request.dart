@@ -165,17 +165,23 @@ class PublicRequestPhoto {
   const PublicRequestPhoto({
     required this.name,
     required this.sizeBytes,
-    required this.base64Data,
+    this.base64Data = '',
+    this.fileId = '',
+    this.url = '',
   });
 
   final String name;
   final int sizeBytes;
   final String base64Data;
+  final String fileId;
+  final String url;
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'size_bytes': sizeBytes,
-        'base64': base64Data,
+        if (fileId.isNotEmpty) 'file_id': fileId,
+        if (url.isNotEmpty) 'url': url,
+        if (base64Data.isNotEmpty) 'base64': base64Data,
       };
 
   factory PublicRequestPhoto.fromJson(Map<String, dynamic> json) {
@@ -183,6 +189,8 @@ class PublicRequestPhoto {
       name: json['name'] as String? ?? 'photo.jpg',
       sizeBytes: json['size_bytes'] as int? ?? 0,
       base64Data: json['base64'] as String? ?? '',
+      fileId: (json['file_id'] ?? json['id']) as String? ?? '',
+      url: json['url'] as String? ?? '',
     );
   }
 }

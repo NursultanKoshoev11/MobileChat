@@ -55,7 +55,7 @@ class PublicRequestMediaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final photos = content.photos.where((p) => p.base64Data.trim().isNotEmpty).take(3).toList(growable: false);
+    final photos = content.photos.where((p) => p.base64Data.trim().isNotEmpty || p.url.trim().isNotEmpty).take(3).toList(growable: false);
     final videos = content.videos.where((v) => v.base64Data.trim().isNotEmpty).toList(growable: false);
     if (photos.isEmpty && videos.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -70,15 +70,18 @@ class PublicRequestMediaView extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final photo = photos[index];
-              final bytes = _decodeBase64(photo.base64Data);
-              if (bytes == null) return const SizedBox.shrink();
+              final remoteUrl = photo.url.trim();
+              final bytes = remoteUrl.isEmpty ? _decodeBase64(photo.base64Data) : null;
+              if (remoteUrl.isEmpty && bytes == null) return const SizedBox.shrink();
               final size = compact ? 92.0 : 116.0;
               return Stack(children: [
                 GestureDetector(
-                  onTap: () => openPublicRequestPhoto(context, bytes),
+                  onTap: bytes == null ? null : () => openPublicRequestPhoto(context, bytes),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.memory(bytes, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                    child: remoteUrl.isNotEmpty
+                        ? Image.network(remoteUrl, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink())
+                        : Image.memory(bytes!, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                   ),
                 ),
                 if (onRemovePhoto != null)
@@ -291,8 +294,15 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         setState(() => error = text.isKy ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.' : 'Фото слишком большое. Выберите другое фото.');
         return;
       }
+      final fileName = image.name.isNotEmpty ? image.name : 'photo.jpg';
+      final uploaded = await widget.api.uploadPublicRequestFile(groupId: widget.groupId, kind: 'photo', fileName: fileName, bytes: bytes);
       setState(() {
-        photos.add(PublicRequestPhoto(name: image.name.isNotEmpty ? image.name : 'photo.jpg', sizeBytes: bytes.length, base64Data: base64Encode(bytes)));
+        photos.add(PublicRequestPhoto(
+          name: uploaded['file_name'] as String? ?? fileName,
+          sizeBytes: uploaded['size_bytes'] as int? ?? bytes.length,
+          fileId: uploaded['id'] as String? ?? '',
+          url: uploaded['url'] as String? ?? '',
+        ));
         error = null;
       });
     } catch (e) {

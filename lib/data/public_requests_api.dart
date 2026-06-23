@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -45,6 +46,35 @@ class PublicRequestsApi {
       throw const ModerationPendingException('\u041f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430 \u043d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443 \u0430\u0434\u043c\u0438\u043d\u0443.');
     }
     return PublicRequest.fromJson(payload);
+  }
+
+  Future<Map<String, dynamic>> uploadPublicRequestFile({
+    required String groupId,
+    required String kind,
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    final session = await sessionStore.read();
+    if (session == null) {
+      throw const ApiException('Session expired. Please sign in again.');
+    }
+    final uri = Uri.parse(baseUrl).replace(path: '/api/groups/$groupId/files');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer ${session.accessToken}'
+      ..fields['kind'] = kind
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    final streamed = await request.send().timeout(_timeout);
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException('Upload failed: ${response.statusCode}');
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final url = decoded['url'] as String? ?? '';
+    if (url.startsWith('/')) {
+      decoded['url'] = Uri.parse(baseUrl).replace(path: url).toString();
+    }
+    return decoded;
   }
 
   Future<List<PublicRequest>> listRequests(
