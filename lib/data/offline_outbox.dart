@@ -74,8 +74,13 @@ class OfflineOutbox {
         continue;
       }
       final draft = OfflinePublicRequestDraft.fromJson(raw);
-      await sender(draft);
-      await box.delete(key);
+      try {
+        await sender(draft);
+        await box.delete(key);
+      } catch (_) {
+        // Keep the failed draft in the outbox and continue with the remaining items.
+        continue;
+      }
     }
   }
 }
