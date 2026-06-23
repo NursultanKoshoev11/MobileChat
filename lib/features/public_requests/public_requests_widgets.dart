@@ -46,9 +46,10 @@ class EmptyPostsView extends StatelessWidget {
 
 class GroupAccessSheet extends StatelessWidget {
   const GroupAccessSheet(
-      {super.key, required this.groupTitle, required this.code});
+      {super.key, required this.groupTitle, required this.code, String? qrValue}) : qrValue = qrValue ?? code;
   final String groupTitle;
   final String code;
+  final String qrValue;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +95,7 @@ class GroupAccessSheet extends StatelessWidget {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20)),
                       child: QrImageView(
-                          data: code,
+                          data: qrValue,
                           version: QrVersions.auto,
                           size: 210,
                           backgroundColor: Colors.white))),

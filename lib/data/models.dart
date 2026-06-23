@@ -75,6 +75,7 @@ class ChatGroup {
     required this.memberCount,
     required this.unreadPublicRequestCount,
     required this.inviteCode,
+    required this.qrPass,
     required this.myRole,
     required this.createdAt,
   });
@@ -87,6 +88,7 @@ class ChatGroup {
   final int memberCount;
   final int unreadPublicRequestCount;
   final String? inviteCode;
+  final String? qrPass;
   final String? myRole;
   final DateTime? createdAt;
 
@@ -103,6 +105,7 @@ class ChatGroup {
       memberCount: json['member_count'] as int? ?? 0,
       unreadPublicRequestCount: json['unread_public_request_count'] as int? ?? 0,
       inviteCode: json['invite_code'] as String?,
+      qrPass: json['qr_pass'] as String?,
       myRole: json['my_role'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
     );
@@ -117,6 +120,7 @@ class ChatGroup {
     int? memberCount,
     int? unreadPublicRequestCount,
     String? inviteCode,
+    String? qrPass,
     String? myRole,
     DateTime? createdAt,
   }) {
@@ -129,6 +133,7 @@ class ChatGroup {
       memberCount: memberCount ?? this.memberCount,
       unreadPublicRequestCount: unreadPublicRequestCount ?? this.unreadPublicRequestCount,
       inviteCode: inviteCode ?? this.inviteCode,
+      qrPass: qrPass ?? this.qrPass,
       myRole: myRole ?? this.myRole,
       createdAt: createdAt ?? this.createdAt,
     );

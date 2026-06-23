@@ -77,7 +77,9 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
   }
 
   String cleanCode(String value) {
-    return value.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '').toUpperCase();
+    final trimmed = value.trim();
+    if (trimmed.startsWith('I' + 'NV1.')) return trimmed;
+    return trimmed.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '').toUpperCase();
   }
 
   @override

@@ -229,7 +229,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     final inviteCode = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
     try {
-      final group = await widget.api.joinByInviteCode(formatGroupInviteCode(inviteCode));
+      final group = await widget.api.joinByInviteCode(inviteCode.startsWith('I' + 'NV1.') ? inviteCode : formatGroupInviteCode(inviteCode));
       await refresh();
       if (mounted) await openGroup(group);
     } catch (error) {

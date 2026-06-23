@@ -41,6 +41,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   Timer? _refreshDebounce;
   String? ensuredInviteCode;
+  String? ensuredQrPass;
 
   bool get canModerate =>
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
@@ -276,13 +277,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   String get groupAccessCode =>
       formatGroupInviteCode(ensuredInviteCode ?? widget.group.inviteCode ?? '');
 
+  String get groupAccessQrValue =>
+      ensuredQrPass ?? widget.group.qrPass ?? groupAccessCode;
+
   Future<void> showGroupAccess() async {
     var code = groupAccessCode;
     if (code.isEmpty) {
       try {
         final group = await requestsApi.ensureGroupInviteCode(widget.group.id);
         if (!mounted) return;
-        setState(() => ensuredInviteCode = group.inviteCode);
+        setState(() {
+          ensuredInviteCode = group.inviteCode;
+          ensuredQrPass = group.qrPass;
+        });
         code = formatGroupInviteCode(group.inviteCode ?? '');
       } catch (error) {
         if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
@@ -304,7 +311,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code),
+      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code, qrValue: groupAccessQrValue),
     );
   }
 
