@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -15,6 +16,8 @@ class RealtimeEvent {
   final ChatMessage? message;
 
   String get requestId => payload['request_id'] as String? ?? '';
+
+  String get id => payload['event_id'] as String? ?? payload['id'] as String? ?? '';
 
   factory RealtimeEvent.fromJson(Map<String, dynamic> json) {
     final rawPayload = json['payload'];
@@ -39,15 +42,33 @@ class RealtimeClient {
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
+  Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
+  String? _groupId;
+  int _reconnectAttempts = 0;
+  bool _closed = true;
   final _controller = StreamController<RealtimeEvent>.broadcast();
 
   Stream<RealtimeEvent> get events => _controller.stream;
 
   Future<void> connectToGroup(String groupId) async {
-    await disconnect();
+    _closed = false;
+    _groupId = groupId;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    await _openConnection(groupId);
+  }
+
+  Future<void> _openConnection(String groupId) async {
+    await _subscription?.cancel();
+    _subscription = null;
+    await _channel?.sink.close(1000, 'client reconnect');
+    _channel = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
 
     final wsToken = await api.issueWebSocketToken();
-    if (wsToken.isEmpty) return;
+    if (wsToken.isEmpty || _closed) return;
 
     final apiUri = Uri.parse(api.baseUrl);
     final scheme = apiUri.scheme == 'https' ? 'wss' : 'ws';
@@ -57,30 +78,77 @@ class RealtimeClient {
       queryParameters: {'token': wsToken},
     );
 
-    _channel = WebSocketChannel.connect(wsUri);
-    _subscription = _channel!.stream.listen(
+    final channel = WebSocketChannel.connect(wsUri);
+    _channel = channel;
+    _reconnectAttempts = 0;
+    _startHeartbeat();
+    _subscription = channel.stream.listen(
       (raw) {
+        if (raw is! String || raw.trim().isEmpty) return;
         try {
-          final decoded = jsonDecode(raw as String) as Map<String, dynamic>;
-          _controller.add(RealtimeEvent.fromJson(decoded));
+          final decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic> && decoded['type'] == 'pong') return;
+          if (decoded is Map<String, dynamic>) {
+            final event = RealtimeEvent.fromJson(decoded);
+            _controller.add(event);
+            _ack(decoded['id'] as String? ?? event.id);
+          }
         } catch (_) {
           // Ignore malformed realtime events.
         }
       },
-      onError: (_) {},
-      onDone: () {},
+      onError: (_) => _scheduleReconnect(),
+      onDone: _scheduleReconnect,
+      cancelOnError: false,
     );
   }
 
   Future<void> disconnect() async {
+    _closed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     await _subscription?.cancel();
     _subscription = null;
-    await _channel?.sink.close();
+    await _channel?.sink.close(1000, 'client closed');
     _channel = null;
   }
 
   Future<void> dispose() async {
     await disconnect();
     await _controller.close();
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (_closed) return;
+      _channel?.sink.add(jsonEncode({'type': 'ping', 'ts': DateTime.now().toUtc().toIso8601String()}));
+    });
+  }
+
+  void _ack(String eventId) {
+    if (eventId.isEmpty) return;
+    _channel?.sink.add(jsonEncode({'type': 'ack', 'event_id': eventId}));
+  }
+
+  void _scheduleReconnect() {
+    if (_closed || _reconnectTimer != null || _groupId == null) return;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    final baseDelaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
+    final jitterMs = Random().nextInt(750);
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(Duration(seconds: baseDelaySeconds, milliseconds: jitterMs), () async {
+      _reconnectTimer = null;
+      final groupId = _groupId;
+      if (_closed || groupId == null) return;
+      try {
+        await _openConnection(groupId);
+      } catch (_) {
+        _scheduleReconnect();
+      }
+    });
   }
 }
