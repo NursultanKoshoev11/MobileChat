@@ -9,6 +9,7 @@ import 'group_statistics.dart';
 import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
+import 'session_refresher.dart';
 import 'network_guard.dart';
 import 'offline_outbox.dart';
 import 'moderation.dart';
@@ -53,6 +54,7 @@ class PublicRequestsApi {
     required String kind,
     required String fileName,
     required Uint8List bytes,
+    bool retrying = false,
   }) async {
     final session = await sessionStore.read();
     if (session == null) {
@@ -66,6 +68,18 @@ class PublicRequestsApi {
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
     final streamed = await request.send().timeout(_timeout);
     final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 401 && !retrying) {
+      final refreshed = await _refreshSession();
+      if (refreshed) {
+        return uploadPublicRequestFile(
+          groupId: groupId,
+          kind: kind,
+          fileName: fileName,
+          bytes: bytes,
+          retrying: true,
+        );
+      }
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException('Upload failed: ${response.statusCode}');
     }
@@ -383,30 +397,12 @@ class PublicRequestsApi {
     }
   }
 
-  Future<bool> _refreshSession() async {
-    final session = await sessionStore.read();
-    if (session == null || session.refreshToken.isEmpty) return false;
-
-    final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
-    final response = await http
-        .post(
-          uri,
-          headers: const {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode({'refresh_token': session.refreshToken}),
-        )
-        .timeout(_timeout);
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      await sessionStore.clear();
-      return false;
-    }
-    final decoded =
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    await sessionStore.save(AppSession.fromJson(decoded));
-    return true;
+  Future<bool> _refreshSession() {
+    return SessionRefresher.refresh(
+      baseUrl: baseUrl,
+      sessionStore: sessionStore,
+      timeout: _timeout,
+    );
   }
 
   dynamic _decode(http.Response response) {
