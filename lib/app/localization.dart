@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'theme.dart';
 
@@ -10,14 +11,28 @@ extension AppLanguageMeta on AppLanguage {
 }
 
 class AppLanguageController extends ChangeNotifier {
+  static const _languagePreferenceKey = 'koom_language';
   AppLanguage _language = AppLanguage.ru;
   AppLanguage get language => _language;
   AppText get text => AppText(_language);
 
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_languagePreferenceKey);
+    if (value == AppLanguage.ky.name) _language = AppLanguage.ky;
+    if (value == AppLanguage.ru.name) _language = AppLanguage.ru;
+  }
+
   void setLanguage(AppLanguage value) {
     if (_language == value) return;
     _language = value;
+    _saveLanguage(value);
     notifyListeners();
+  }
+
+  Future<void> _saveLanguage(AppLanguage value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languagePreferenceKey, value.name);
   }
 }
 

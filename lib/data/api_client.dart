@@ -24,6 +24,7 @@ class ApiClient {
 
   final String baseUrl;
   final SessionStore sessionStore;
+  Future<void> Function()? onSessionExpired;
   static const Duration _timeout = Duration(seconds: 15);
   static const int _maxAttempts = 3;
   final NetworkGuard _networkGuard = NetworkGuard();
@@ -246,9 +247,12 @@ class ApiClient {
         return _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
 
-      if (response.statusCode == 401 && auth && !retrying) {
-        final refreshed = await _refreshSession();
-        if (refreshed) return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+      if (response.statusCode == 401 && auth) {
+        if (!retrying) {
+          final refreshed = await _refreshSession();
+          if (refreshed) return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+        }
+        await _expireSession();
       }
       final decoded = _decode(response);
       _networkGuard.recordSuccess();
@@ -279,6 +283,12 @@ class ApiClient {
       sessionStore: sessionStore,
       timeout: _timeout,
     );
+  }
+
+  Future<void> _expireSession() async {
+    await sessionStore.clear();
+    await onSessionExpired?.call();
+    throw const ApiException('Session expired. Please sign in again.');
   }
 
   dynamic _decode(http.Response response) {

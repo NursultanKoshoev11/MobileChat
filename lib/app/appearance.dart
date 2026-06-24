@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'localization.dart';
 import 'theme.dart';
 
 class AppAppearanceController extends ChangeNotifier {
+  static const _themePreferenceKey = 'koom_theme_mode';
   ThemeMode _themeMode = ThemeMode.light;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
 
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_themePreferenceKey);
+    if (value == 'dark') _themeMode = ThemeMode.dark;
+    if (value == 'light') _themeMode = ThemeMode.light;
+  }
+
   void setThemeMode(ThemeMode value) {
     if (_themeMode == value) return;
     _themeMode = value;
+    _saveThemeMode(value);
     notifyListeners();
   }
 
   void toggleTheme() {
     setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
+  }
+
+  Future<void> _saveThemeMode(ThemeMode value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themePreferenceKey, value == ThemeMode.dark ? 'dark' : 'light');
   }
 }
 

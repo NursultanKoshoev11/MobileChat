@@ -2,7 +2,7 @@ name: mobile_chat
 version: 0.5.0+5
 publish_to: none
 
-description: Koom civic communication app for Android and iOS.
+description: Koom civic communication app for Android. iOS is not production-configured yet.
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   flutter_secure_storage: ^10.3.1
+  shared_preferences: ^2.3.5
   web_socket_channel: ^3.0.1
   firebase_core: ^3.8.0
   firebase_messaging: ^15.1.5

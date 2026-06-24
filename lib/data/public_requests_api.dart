@@ -17,10 +17,11 @@ import 'moderation.dart';
 export 'moderation.dart';
 
 class PublicRequestsApi {
-  PublicRequestsApi({required this.baseUrl, required this.sessionStore});
+  PublicRequestsApi({required this.baseUrl, required this.sessionStore, this.onSessionExpired});
 
   final String baseUrl;
   final SessionStore sessionStore;
+  final Future<void> Function()? onSessionExpired;
   static const Duration _timeout = Duration(seconds: 15);
   static const int _maxAttempts = 3;
   final NetworkGuard _networkGuard = NetworkGuard();
@@ -68,17 +69,20 @@ class PublicRequestsApi {
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
     final streamed = await request.send().timeout(_timeout);
     final response = await http.Response.fromStream(streamed);
-    if (response.statusCode == 401 && !retrying) {
-      final refreshed = await _refreshSession();
-      if (refreshed) {
-        return uploadPublicRequestFile(
-          groupId: groupId,
-          kind: kind,
-          fileName: fileName,
-          bytes: bytes,
-          retrying: true,
-        );
+    if (response.statusCode == 401) {
+      if (!retrying) {
+        final refreshed = await _refreshSession();
+        if (refreshed) {
+          return uploadPublicRequestFile(
+            groupId: groupId,
+            kind: kind,
+            fileName: fileName,
+            bytes: bytes,
+            retrying: true,
+          );
+        }
       }
+      await _expireSession();
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException('Upload failed: ${response.statusCode}');
@@ -368,11 +372,14 @@ class PublicRequestsApi {
         return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }
 
-      if (response.statusCode == 401 && !retrying) {
-        final refreshed = await _refreshSession();
-        if (refreshed) {
-          return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+      if (response.statusCode == 401) {
+        if (!retrying) {
+          final refreshed = await _refreshSession();
+          if (refreshed) {
+            return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+          }
         }
+        await _expireSession();
       }
       final decoded = _decode(response);
       _networkGuard.recordSuccess();
@@ -403,6 +410,12 @@ class PublicRequestsApi {
       sessionStore: sessionStore,
       timeout: _timeout,
     );
+  }
+
+  Future<void> _expireSession() async {
+    await sessionStore.clear();
+    await onSessionExpired?.call();
+    throw const ApiException('Session expired. Please sign in again.');
   }
 
   dynamic _decode(http.Response response) {

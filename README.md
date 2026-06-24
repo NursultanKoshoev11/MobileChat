@@ -1,6 +1,6 @@
 # Koom
 
-Koom is a civic communication app for Android and iOS. It helps people connect with communities, organizations, and public institutions through official groups, public posts, requests, voting, comments, invitations, and QR-based group access.
+Koom is a civic communication app for Android. iOS is not production-configured in this repository yet. It helps people connect with communities, organizations, and public institutions through official groups, public posts, requests, voting, comments, invitations, and QR-based group access.
 
 The current mobile build includes Russian/Kyrgyz language switching, light/dark mode, group invite codes with QR, public request publication tools, voting, comments, status updates, and photo attachments.
 
@@ -31,8 +31,8 @@ Examples:
 # Android emulator
 EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8080
 
-# iOS simulator
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
+# iOS
+The iOS Flutter project is not generated in this repository yet. Do not claim iOS production support until ios/ exists and push credentials are configured.
 
 # Real phone on same Wi-Fi as backend computer
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8080

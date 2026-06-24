@@ -272,7 +272,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
     if (ok != true) return;
     try {
-      await PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore).leaveGroup(group.id);
+      await PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore, onSessionExpired: widget.api.onSessionExpired).leaveGroup(group.id);
       await refresh();
       if (mounted) showAppSnack(context, text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.');
     } catch (error) {

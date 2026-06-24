@@ -55,6 +55,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     requestsApi = PublicRequestsApi(
       baseUrl: widget.api.baseUrl,
       sessionStore: widget.api.sessionStore,
+      onSessionExpired: widget.api.onSessionExpired,
     );
     realtime = GroupRealtimeService(api: widget.api, groupId: widget.group.id);
     requestsFuture = loadRequests();

@@ -26,7 +26,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
   final SessionStore sessionStore = const SessionStore();
   final AppLanguageController languageController = AppLanguageController();
   final AppAppearanceController appearanceController = AppAppearanceController();
-  late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
+  late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore)..onSessionExpired = handleSessionExpired;
   late final PushNotificationService pushNotifications = PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
 
@@ -44,6 +44,7 @@ class _MobileChatAppState extends State<MobileChatApp> {
   }
 
   Future<AppSession?> _boot() async {
+    await Future.wait([languageController.load(), appearanceController.load()]);
     final session = await sessionStore.read();
     if (session != null) {
       await pushNotifications.registerDevice();
@@ -57,6 +58,14 @@ class _MobileChatAppState extends State<MobileChatApp> {
     if (!mounted) return;
     setState(() {
       bootFuture = Future.value(session);
+    });
+  }
+
+  Future<void> handleSessionExpired() async {
+    await sessionStore.clear();
+    if (!mounted) return;
+    setState(() {
+      bootFuture = Future.value(null);
     });
   }
 

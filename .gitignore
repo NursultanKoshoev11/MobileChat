@@ -35,3 +35,6 @@ android/app/google-services.json
 android/keystores/
 *.jks
 *.keystore
+
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
