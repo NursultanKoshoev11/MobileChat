@@ -19,13 +19,16 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient({required this.baseUrl, required this.sessionStore});
+  ApiClient({required this.baseUrl, required this.sessionStore}) {
+    unawaited(_scheduleProactiveRefresh());
+  }
 
   final String baseUrl;
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
   static const int _maxAttempts = 3;
   final NetworkGuard _networkGuard = NetworkGuard();
+  Timer? _proactiveRefreshTimer;
 
   Future<RequestCodeResult> requestPhoneCode(String mobile) async {
     final response = await _post('/api/auth/request-code', {'mobile': mobile}, auth: false);
@@ -44,6 +47,7 @@ class ApiClient {
     }, auth: false);
     final session = AppSession.fromJson(response as Map<String, dynamic>);
     await sessionStore.save(session);
+    unawaited(_scheduleProactiveRefresh());
     return session;
   }
 
@@ -55,6 +59,8 @@ class ApiClient {
       }
     } finally {
       await sessionStore.clear();
+      _proactiveRefreshTimer?.cancel();
+      _proactiveRefreshTimer = null;
     }
   }
 
@@ -226,6 +232,7 @@ class ApiClient {
     final uri = base.replace(path: path, queryParameters: query);
     final headers = {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'};
     if (auth) {
+      await _ensureFreshAccessToken();
       final session = await sessionStore.read();
       if (session == null) throw const ApiException('Session expired. Please sign in again.');
       headers['Authorization'] = 'Bearer ${session.accessToken}';
@@ -277,8 +284,28 @@ class ApiClient {
     return ensureFreshStoredAccessToken(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
   }
 
-  Future<bool> _refreshSession() {
-    return refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
+  Future<bool> _refreshSession() async {
+    final ok = await refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
+    if (ok) unawaited(_scheduleProactiveRefresh());
+    return ok;
+  }
+
+  Future<void> _scheduleProactiveRefresh() async {
+    _proactiveRefreshTimer?.cancel();
+    final session = await sessionStore.read();
+    if (session == null || session.refreshToken.isEmpty) return;
+    final expiresAt = accessTokenExpiry(session.accessToken);
+    if (expiresAt == null) return;
+    final fireAt = expiresAt.subtract(const Duration(minutes: 1));
+    var delay = fireAt.difference(DateTime.now().toUtc());
+    if (delay.isNegative) delay = const Duration(seconds: 1);
+    _proactiveRefreshTimer = Timer(delay, () async {
+      final ok = await _refreshSession();
+      if (!ok) {
+        _proactiveRefreshTimer?.cancel();
+        _proactiveRefreshTimer = null;
+      }
+    });
   }
 
   dynamic _decode(http.Response response) {
@@ -363,11 +390,27 @@ bool soonX(String x, Duration th) {
     final d = jsonDecode(body);
     if (d is! Map<String, dynamic>) return false;
     final e = d['exp'];
-    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse('');
+    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse(e.toString());
     if (sec == null) return false;
     final at = DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true);
     return !at.isAfter(DateTime.now().toUtc().add(th));
   } catch (_) {
     return false;
+  }
+}
+
+DateTime? accessTokenExpiry(String x) {
+  try {
+    final p = x.split('.');
+    if (p.length < 2) return null;
+    final body = utf8.decode(base64Url.decode(base64Url.normalize(p[1])));
+    final d = jsonDecode(body);
+    if (d is! Map<String, dynamic>) return null;
+    final e = d['exp'];
+    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse(e.toString());
+    if (sec == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true);
+  } catch (_) {
+    return null;
   }
 }

@@ -54,6 +54,7 @@ class PublicRequestsApi {
     required String fileName,
     required Uint8List bytes,
   }) async {
+    await _ensureFreshAccessToken();
     final session = await sessionStore.read();
     if (session == null) {
       throw const ApiException('Session expired. Please sign in again.');
@@ -325,6 +326,7 @@ class PublicRequestsApi {
     int attempt = 0,
   }) async {
     _networkGuard.ensureAllowed();
+    await _ensureFreshAccessToken();
     final session = await sessionStore.read();
     if (session == null)
       throw const ApiException('Session expired. Please sign in again.');

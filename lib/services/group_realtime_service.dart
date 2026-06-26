@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../data/api_client.dart';
+import 'realtime_error.dart';
 
 class GroupRealtimeEvent {
   const GroupRealtimeEvent({required this.id, required this.type, required this.groupId, required this.payload});
@@ -85,6 +86,10 @@ class GroupRealtimeService {
       },
       onError: (error) {
         onError?.call(error);
+        if (isPermanentRealtimeConnectionError(error)) {
+          unawaited(close());
+          return;
+        }
         _scheduleReconnect(onEvent: onEvent, onError: onError);
       },
       onDone: () {
@@ -147,6 +152,10 @@ class GroupRealtimeService {
         await connect(onEvent: onEvent, onError: onError);
       } catch (error) {
         onError?.call(error);
+        if (isPermanentRealtimeConnectionError(error)) {
+          unawaited(close());
+          return;
+        }
         _scheduleReconnect(onEvent: onEvent, onError: onError);
       }
     });

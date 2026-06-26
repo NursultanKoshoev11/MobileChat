@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_client.dart';
 import 'models.dart';
+import '../services/realtime_error.dart';
 
 class RealtimeEvent {
   const RealtimeEvent({required this.type, required this.groupId, required this.payload, this.message});
@@ -97,7 +98,13 @@ class RealtimeClient {
           // Ignore malformed realtime events.
         }
       },
-      onError: (_) => _scheduleReconnect(),
+      onError: (error) {
+        if (isPermanentRealtimeConnectionError(error)) {
+          unawaited(disconnect());
+          return;
+        }
+        _scheduleReconnect();
+      },
       onDone: _scheduleReconnect,
       cancelOnError: false,
     );
@@ -146,7 +153,11 @@ class RealtimeClient {
       if (_closed || groupId == null) return;
       try {
         await _openConnection(groupId);
-      } catch (_) {
+      } catch (error) {
+        if (isPermanentRealtimeConnectionError(error)) {
+          unawaited(disconnect());
+          return;
+        }
         _scheduleReconnect();
       }
     });
