@@ -40,6 +40,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   Timer? _refreshDebounce;
+  Timer? _markReadDebounce;
   String? ensuredInviteCode;
   String? ensuredQrPass;
 
@@ -65,6 +66,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   @override
   void dispose() {
     _refreshDebounce?.cancel();
+    _markReadDebounce?.cancel();
     realtime.close();
     super.dispose();
   }
@@ -77,6 +79,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         break;
       case 'public_request.created':
         upsertRequestFromPayload(event.payload);
+        _scheduleMarkRequestsRead();
         break;
       case 'public_request.comment_created':
         updateRequestCommentCount(event.requestId, 1);
@@ -139,10 +142,24 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     });
   }
 
+  void _scheduleMarkRequestsRead() {
+    _markReadDebounce?.cancel();
+    _markReadDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) unawaited(_markRequestsRead());
+    });
+  }
+
+  Future<void> _markRequestsRead() async {
+    try {
+      await widget.api.markPublicRequestsRead(widget.group.id);
+    } catch (_) {}
+  }
+
   Future<List<PublicRequest>> loadRequests() async {
     final requests = List<PublicRequest>.from(await requestsApi.listRequests(widget.group.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
+    unawaited(_markRequestsRead());
     return requests;
   }
 
