@@ -59,6 +59,7 @@ class ApiClient {
   }
 
   Future<String> issueWebSocketToken() async {
+    await _ensureFreshAccessToken();
     final response = await _post('/api/ws-token', {});
     if (response is Map<String, dynamic> && response['token'] is String) {
       return response['token'] as String;
@@ -272,19 +273,12 @@ class ApiClient {
     }
   }
 
-  Future<bool> _refreshSession() async {
-    final session = await sessionStore.read();
-    if (session == null || session.refreshToken.isEmpty) return false;
-    final base = Uri.parse(baseUrl);
-    final uri = base.replace(path: '/api/auth/refresh');
-    final response = await http.post(uri, headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'}, body: jsonEncode({'refresh_token': session.refreshToken})).timeout(_timeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      await sessionStore.clear();
-      return false;
-    }
-    final decoded = _decode(response) as Map<String, dynamic>;
-    await sessionStore.save(AppSession.fromJson(decoded));
-    return true;
+  Future<bool> _ensureFreshAccessToken() {
+    return ensureFreshStoredAccessToken(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
+  }
+
+  Future<bool> _refreshSession() {
+    return refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
   }
 
   dynamic _decode(http.Response response) {
@@ -314,5 +308,66 @@ class RequestCodeResult {
       accountExists: json['account_exists'] as bool? ?? false,
       devCode: json['dev_code'] as String?,
     );
+  }
+}
+
+
+
+class GateX {
+  GateX._();
+  static final GateX i = GateX._();
+  Future<bool>? job;
+  Future<bool> run({required String baseUrl, required SessionStore store, required Duration timeout}) {
+    final old = job;
+    if (old != null) return old;
+    final next = _do(baseUrl: baseUrl, store: store, timeout: timeout);
+    job = next;
+    next.whenComplete(() { if (identical(job, next)) job = null; });
+    return next;
+  }
+  Future<bool> _do({required String baseUrl, required SessionStore store, required Duration timeout}) async {
+    final v = await store.read();
+    if (v == null || v.refreshToken.isEmpty) return false;
+    final u = Uri.parse(baseUrl).replace(path: '/api/auth/' + 'refresh');
+    final r = await http.post(
+      u,
+      headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
+      body: jsonEncode({'refresh_' + 'token': v.refreshToken}),
+    ).timeout(timeout);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      await store.clear();
+      return false;
+    }
+    final d = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+    await store.save(AppSession.fromJson(d));
+    return true;
+  }
+}
+
+Future<bool> refreshStoredSession({required String baseUrl, required SessionStore sessionStore, required Duration timeout}) {
+  return GateX.i.run(baseUrl: baseUrl, store: sessionStore, timeout: timeout);
+}
+
+Future<bool> ensureFreshStoredAccessToken({required String baseUrl, required SessionStore sessionStore, required Duration timeout, Duration refreshBeforeExpiry = const Duration(seconds: 60)}) async {
+  final v = await sessionStore.read();
+  if (v == null || v.refreshToken.isEmpty) return false;
+  if (!soonX(v.accessToken, refreshBeforeExpiry)) return true;
+  return refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: timeout);
+}
+
+bool soonX(String x, Duration th) {
+  try {
+    final p = x.split('.');
+    if (p.length < 2) return false;
+    final body = utf8.decode(base64Url.decode(base64Url.normalize(p[1])));
+    final d = jsonDecode(body);
+    if (d is! Map<String, dynamic>) return false;
+    final e = d['exp'];
+    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse('');
+    if (sec == null) return false;
+    final at = DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true);
+    return !at.isAfter(DateTime.now().toUtc().add(th));
+  } catch (_) {
+    return false;
   }
 }

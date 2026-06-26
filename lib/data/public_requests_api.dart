@@ -383,30 +383,12 @@ class PublicRequestsApi {
     }
   }
 
-  Future<bool> _refreshSession() async {
-    final session = await sessionStore.read();
-    if (session == null || session.refreshToken.isEmpty) return false;
+  Future<bool> _ensureFreshAccessToken() {
+    return ensureFreshStoredAccessToken(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
+  }
 
-    final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
-    final response = await http
-        .post(
-          uri,
-          headers: const {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode({'refresh_token': session.refreshToken}),
-        )
-        .timeout(_timeout);
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      await sessionStore.clear();
-      return false;
-    }
-    final decoded =
-        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    await sessionStore.save(AppSession.fromJson(decoded));
-    return true;
+  Future<bool> _refreshSession() {
+    return refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
   }
 
   dynamic _decode(http.Response response) {
