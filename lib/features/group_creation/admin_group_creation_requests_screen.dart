@@ -115,6 +115,7 @@ class _AdminGroupCreationRequestsScreenState extends State<AdminGroupCreationReq
                     return GroupCreationRequestCard(
                       request: request,
                       number: index + 1,
+                      onTap: () => showGroupCreationRequestDetails(context, request, number: index + 1),
                       actions: canReview
                           ? Wrap(spacing: 8, runSpacing: 8, children: [
                               FilledButton.icon(onPressed: () => review(request, 'approve'), icon: const Icon(Icons.check_rounded), label: Text(text.isKy ? 'Бекитүү' : 'Одобрить')),

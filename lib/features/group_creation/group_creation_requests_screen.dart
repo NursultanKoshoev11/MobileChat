@@ -104,6 +104,85 @@ class _GroupCreationRequestsScreenState extends State<GroupCreationRequestsScree
   }
 }
 
+
+Future<void> showGroupCreationRequestDetails(BuildContext context, GroupCreationRequest request, {int? number}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: Theme.of(context).cardColor,
+    builder: (_) => _GroupRequestDetailSheet(request: request, number: number),
+  );
+}
+
+class _GroupRequestDetailSheet extends StatelessWidget {
+  const _GroupRequestDetailSheet({required this.request, this.number});
+
+  final GroupCreationRequest request;
+  final int? number;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    final documents = GroupRequestDocuments.tryParse(request.documents);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
+        child: SingleChildScrollView(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [
+              if (number != null) ...[
+                CircleAvatar(backgroundColor: MobileChatTheme.primary, child: Text('$number', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
+                const SizedBox(width: 10),
+              ],
+              Expanded(child: Text(text.isKy ? 'Өтүнүчтүн толук маалыматы' : 'Полные данные заявки', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))),
+            ]),
+            const SizedBox(height: 14),
+            _detailRow(context, text.isKy ? 'Статус' : 'Статус', request.status),
+            _detailRow(context, text.isKy ? 'Дата' : 'Дата', request.createdAt?.toLocal().toString().split('.').first ?? ''),
+            _detailRow(context, text.isKy ? 'Аты-жөнү' : 'ФИО', request.applicantName),
+            _detailRow(context, text.isKy ? 'Кызматы' : 'Должность', request.position),
+            _detailRow(context, text.isKy ? 'Уюм' : 'Организация', request.organizationName),
+            _detailRow(context, text.isKy ? 'Уюмдун түрү' : 'Тип организации', request.organizationType),
+            _detailRow(context, text.isKy ? 'Аймак' : 'Регион', request.region),
+            _detailRow(context, text.isKy ? 'Расмий телефон' : 'Официальный телефон', request.officialPhone),
+            _detailRow(context, text.isKy ? 'Расмий email' : 'Официальный email', request.officialEmail),
+            if (request.website.isNotEmpty) _detailRow(context, text.isKy ? 'Сайт' : 'Сайт', request.website),
+            _detailRow(context, text.isKy ? 'Топтун аталышы' : 'Название группы', request.groupTitle),
+            if (request.groupDescription.isNotEmpty) _detailRow(context, text.description, request.groupDescription),
+            _detailRow(context, text.isKy ? 'Себеби' : 'Причина', request.reason),
+            if (request.adminComment.isNotEmpty) _detailRow(context, text.isKy ? 'Админ комментарийи' : 'Комментарий администратора', request.adminComment),
+            const SizedBox(height: 12),
+            if (documents.note.isNotEmpty || documents.files.isNotEmpty || (documents == GroupRequestDocuments.empty && request.documents.isNotEmpty))
+              _DocumentsPreview(documents: documents, rawDocuments: request.documents, expanded: true)
+            else
+              Text(text.isKy ? 'Документтер жок.' : 'Документы не приложены.', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(BuildContext context, String label, String value) {
+    final colors = context.appColors;
+    final clean = value.trim();
+    if (clean.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: colors.surfaceSoft, borderRadius: BorderRadius.circular(14), border: Border.all(color: colors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(color: colors.textMuted, fontSize: 12, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        SelectableText(clean, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+}
+
 class GroupCreationRequestCard extends StatelessWidget {
   const GroupCreationRequestCard({super.key, required this.request, this.actions, this.number, this.onTap});
 
@@ -214,10 +293,11 @@ class GroupCreationRequestCard extends StatelessWidget {
 }
 
 class _DocumentsPreview extends StatelessWidget {
-  const _DocumentsPreview({required this.documents, required this.rawDocuments});
+  const _DocumentsPreview({required this.documents, required this.rawDocuments, this.expanded = false});
 
   final GroupRequestDocuments documents;
   final String rawDocuments;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -245,15 +325,74 @@ class _DocumentsPreview extends StatelessWidget {
           const SizedBox(height: 8),
           ...documents.files.map((file) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  Icon(file.isImage ? Icons.image_outlined : Icons.attach_file_rounded, size: 18, color: MobileChatTheme.primaryDark),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700))),
-                ]),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _openGroupRequestAttachment(context, file),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Row(children: [
+                      Icon(file.isImage ? Icons.image_outlined : Icons.attach_file_rounded, size: 18, color: MobileChatTheme.primaryDark),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text('${file.name} · ${formatBytes(file.sizeBytes)}', maxLines: expanded ? 2 : 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w700))),
+                      const SizedBox(width: 6),
+                      Icon(Icons.open_in_full_rounded, size: 16, color: colors.textMuted),
+                    ]),
+                  ),
+                ),
               )),
         ],
       ]),
     );
+  }
+}
+
+
+void _openGroupRequestAttachment(BuildContext context, GroupRequestAttachment file) {
+  final text = AppLanguageScope.textOf(context);
+  try {
+    final bytes = base64Decode(file.base64Data);
+    if (file.isImage) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          insetPadding: const EdgeInsets.all(12),
+          child: SafeArea(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(children: [
+                  Expanded(child: Text(file.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900))),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                ]),
+              ),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.72),
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 5,
+                  child: Image.memory(bytes, fit: BoxFit.contain),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(formatBytes(file.sizeBytes), style: TextStyle(color: context.appColors.textMuted, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ),
+        ),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(file.name),
+        content: Text(text.isKy ? 'Бул файл алдын ала көрүү үчүн сүрөт эмес. Өлчөмү: ${formatBytes(file.sizeBytes)}.' : 'Этот файл не является изображением для предпросмотра. Размер: ${formatBytes(file.sizeBytes)}.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(text.isKy ? 'Жабуу' : 'Закрыть'))],
+      ),
+    );
+  } catch (error) {
+    showAppSnack(context, text.isKy ? 'Файлды ачуу мүмкүн болгон жок.' : 'Не удалось открыть файл.');
   }
 }
 
