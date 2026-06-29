@@ -107,11 +107,23 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> connectRealtime() async {
     realtimeSubscription = realtime.events.listen((event) {
       final message = event.message;
-      if (event.groupId == widget.group.id && message != null) {
-        final exists = messages.any((item) => item.id == message.id);
-        if (!exists && mounted) {
-          setState(() => messages.add(message));
-        }
+      if (event.groupId != widget.group.id || message == null || !mounted) return;
+      switch (event.type) {
+        case 'message.created':
+          final exists = messages.any((item) => item.id == message.id);
+          if (!exists) setState(() => messages.add(message));
+          break;
+        case 'message.updated':
+          final index = messages.indexWhere((item) => item.id == message.id);
+          if (index >= 0) {
+            setState(() => messages[index] = message);
+          } else {
+            setState(() => messages.add(message));
+          }
+          break;
+        case 'message.deleted':
+          setState(() => messages.removeWhere((item) => item.id == message.id));
+          break;
       }
     });
     await realtime.connectToGroup(widget.group.id);

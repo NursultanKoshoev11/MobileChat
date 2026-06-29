@@ -24,7 +24,10 @@ class RealtimeEvent {
     final rawPayload = json['payload'];
     final payload = rawPayload is Map<String, dynamic> ? rawPayload : <String, dynamic>{};
     ChatMessage? message;
-    if (json['type'] == 'message.created' && rawPayload is Map<String, dynamic>) {
+    if ((json['type'] == 'message.created' ||
+            json['type'] == 'message.updated' ||
+            json['type'] == 'message.deleted') &&
+        rawPayload is Map<String, dynamic>) {
       message = ChatMessage.fromJson(rawPayload);
     }
     return RealtimeEvent(
