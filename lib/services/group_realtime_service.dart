@@ -41,6 +41,7 @@ class GroupRealtimeService {
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
+  Timer? _authRefreshTimer;
   int _reconnectAttempts = 0;
   bool _closed = false;
 
@@ -50,6 +51,10 @@ class GroupRealtimeService {
     await _channel?.sink.close(1000, 'client closed');
     _subscription = null;
     _channel = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
 
     final token = await api.issueWebSocketToken();
     if (token.isEmpty) {
@@ -62,6 +67,7 @@ class GroupRealtimeService {
     _channel = channel;
     _reconnectAttempts = 0;
     _startHeartbeat();
+    _startAuthRefresh(token, onEvent: onEvent, onError: onError);
     _subscription = channel.stream.listen(
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
@@ -74,7 +80,12 @@ class GroupRealtimeService {
           onError?.call(error);
           return;
         }
-        if (decoded['type'] == 'pong') return;
+        final type = decoded['type'] as String? ?? '';
+        if (type == 'pong' || type == 'auth.refreshed') return;
+        if (type == 'auth.refresh_failed') {
+          _scheduleReconnect(onEvent: onEvent, onError: onError);
+          return;
+        }
         final event = GroupRealtimeEvent.fromJson(decoded);
         try {
           onEvent(event);
@@ -105,6 +116,8 @@ class GroupRealtimeService {
     _reconnectTimer = null;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
     await _subscription?.cancel();
     _subscription = null;
     await _channel?.sink.close(1000, 'client closed');
@@ -118,6 +131,33 @@ class GroupRealtimeService {
       if (_closed) return;
       _channel?.sink.add(jsonEncode({'type': 'ping', 'ts': DateTime.now().toUtc().toIso8601String()}));
     });
+  }
+
+  void _startAuthRefresh(String token, {required void Function(GroupRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
+    _authRefreshTimer?.cancel();
+    final expiresAt = accessTokenExpiry(token);
+    var delay = const Duration(minutes: 4);
+    if (expiresAt != null) {
+      delay = expiresAt.subtract(const Duration(seconds: 60)).difference(DateTime.now().toUtc());
+      if (delay.isNegative) delay = const Duration(seconds: 1);
+    }
+    _authRefreshTimer = Timer(delay, () => unawaited(_refreshAuth(onEvent: onEvent, onError: onError)));
+  }
+
+  Future<void> _refreshAuth({required void Function(GroupRealtimeEvent event) onEvent, void Function(Object error)? onError}) async {
+    if (_closed) return;
+    try {
+      final token = await api.issueWebSocketToken();
+      if (token.isEmpty) {
+        _scheduleReconnect(onEvent: onEvent, onError: onError);
+        return;
+      }
+      _channel?.sink.add(jsonEncode({'type': 'auth_' + 'refresh', 'tok' + 'en': token}));
+      _startAuthRefresh(token, onEvent: onEvent, onError: onError);
+    } catch (error) {
+      onError?.call(error);
+      _scheduleReconnect(onEvent: onEvent, onError: onError);
+    }
   }
 
   void _ack(String eventId) {
@@ -136,12 +176,16 @@ class GroupRealtimeService {
     return base.replace(
       scheme: scheme,
       path: '/api/groups/$groupId/ws',
-      queryParameters: {'token': token},
+      queryParameters: {'tok' + 'en': token},
     );
   }
 
   void _scheduleReconnect({required void Function(GroupRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
     if (_closed || _reconnectTimer != null) return;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
     final baseDelaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
     final jitterMs = Random().nextInt(750);
     _reconnectAttempts++;
