@@ -52,7 +52,7 @@ type ChatMessage = {
   created_at: string;
 };
 
-const DEFAULT_API_BASE_URL = 'http://16.171.199.28:8080';
+const DEFAULT_API_BASE_URL = 'https://koom.servemp3.com';
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 
 function toErrorMessage(error: unknown): string {

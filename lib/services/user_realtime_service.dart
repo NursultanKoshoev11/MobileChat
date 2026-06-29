@@ -56,8 +56,8 @@ class UserRealtimeService {
       return;
     }
 
-    final uri = _webSocketUri(token);
-    final channel = WebSocketChannel.connect(uri);
+    final uri = _webSocketUri();
+    final channel = WebSocketChannel.connect(uri, protocols: ['koom-ws', token]);
     _channel = channel;
     _reconnectAttempts = 0;
     _startHeartbeat();
@@ -164,10 +164,10 @@ class UserRealtimeService {
     _channel?.sink.add(jsonEncode({'type': 'nack', 'event_id': eventId, 'reason': reason}));
   }
 
-  Uri _webSocketUri(String token) {
+  Uri _webSocketUri() {
     final base = Uri.parse(api.baseUrl);
     final scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    return base.replace(scheme: scheme, path: '/api/ws', queryParameters: {'tok' + 'en': token});
+    return base.replace(scheme: scheme, path: '/api/ws');
   }
 
   void _scheduleReconnect({required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) {

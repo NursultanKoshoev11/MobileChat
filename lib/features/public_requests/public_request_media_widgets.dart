@@ -10,8 +10,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../app/localization.dart';
+import '../../data/api_client.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
+import '../../data/session_store.dart';
 import '../../shared/ui_helpers.dart';
 
 Color _surface(BuildContext context) => Theme.of(context).cardColor;
@@ -36,6 +38,17 @@ String _sizeLabel(int bytes) {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
   return '${(bytes / 1024).round()} KB';
+}
+
+Future<Map<String, String>?> _imageAuthHeaders(String url) async {
+  final sessionStore = const SessionStore();
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+  final baseUrl = uri.replace(path: '', query: '', fragment: '').toString().replaceFirst(RegExp(r'/$'), '');
+  await ensureFreshStoredAccessToken(baseUrl: baseUrl, sessionStore: sessionStore, timeout: const Duration(seconds: 15));
+  final session = await sessionStore.read();
+  if (session == null || session.accessToken.isEmpty) return null;
+  return {'Authorization': 'Bearer ${session.accessToken}'};
 }
 
 class PublicRequestMediaView extends StatelessWidget {
@@ -80,7 +93,7 @@ class PublicRequestMediaView extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: remoteUrl.isNotEmpty
-                        ? Image.network(remoteUrl, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink())
+                        ? _AuthenticatedNetworkImage(url: remoteUrl, width: size, height: size)
                         : Image.memory(bytes!, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                   ),
                 ),
@@ -112,6 +125,35 @@ class PublicRequestMediaView extends StatelessWidget {
             )),
       ],
     ]);
+  }
+}
+
+class _AuthenticatedNetworkImage extends StatelessWidget {
+  const _AuthenticatedNetworkImage({required this.url, required this.width, required this.height});
+
+  final String url;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, String>?>(
+      future: _imageAuthHeaders(url),
+      builder: (context, snapshot) {
+        final headers = snapshot.data;
+        if (snapshot.connectionState == ConnectionState.waiting && headers == null) {
+          return SizedBox(width: width, height: height);
+        }
+        return Image.network(
+          url,
+          headers: headers,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        );
+      },
+    );
   }
 }
 

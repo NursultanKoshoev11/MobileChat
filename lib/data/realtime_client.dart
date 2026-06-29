@@ -79,10 +79,9 @@ class RealtimeClient {
     final wsUri = apiUri.replace(
       scheme: scheme,
       path: '/api/groups/$groupId/ws',
-      queryParameters: {'tok' + 'en': wsToken},
     );
 
-    final channel = WebSocketChannel.connect(wsUri);
+    final channel = WebSocketChannel.connect(wsUri, protocols: ['koom-ws', wsToken]);
     _channel = channel;
     _reconnectAttempts = 0;
     _startHeartbeat();

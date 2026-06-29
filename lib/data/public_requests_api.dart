@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'api_client.dart';
 import 'group_statistics.dart';
@@ -64,7 +65,7 @@ class PublicRequestsApi {
       ..headers['Accept'] = 'application/json'
       ..headers['Authorization'] = 'Bearer ${session.accessToken}'
       ..fields['kind'] = kind
-      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+      ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName, contentType: _mediaTypeForUpload(kind, fileName)));
     final streamed = await request.send().timeout(_timeout);
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -76,6 +77,18 @@ class PublicRequestsApi {
       decoded['url'] = Uri.parse(baseUrl).replace(path: url).toString();
     }
     return decoded;
+  }
+
+  MediaType _mediaTypeForUpload(String kind, String fileName) {
+    final lower = fileName.toLowerCase();
+    if (kind == 'photo') {
+      if (lower.endsWith('.png')) return MediaType('image', 'png');
+      if (lower.endsWith('.webp')) return MediaType('image', 'webp');
+      return MediaType('image', 'jpeg');
+    }
+    if (lower.endsWith('.mov')) return MediaType('video', 'quicktime');
+    if (lower.endsWith('.webm')) return MediaType('video', 'webm');
+    return MediaType('video', 'mp4');
   }
 
   Future<List<PublicRequest>> listRequests(
