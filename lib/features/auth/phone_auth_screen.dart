@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -64,8 +65,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   Future<void> verifyCode() async {
     final text = AppLanguageScope.textOf(context);
-    if (codeController.text.trim().isEmpty) {
+    final code = codeController.text.trim();
+    if (code.isEmpty) {
       setState(() => error = text.codeRequired);
+      return;
+    }
+    if (code.length != 6) {
+      setState(() => error = text.isKy ? 'Код 6 цифрадан турушу керек' : 'Введите 6 цифр кода');
       return;
     }
     if (!accountExists && displayNameController.text.trim().length < 2) {
@@ -79,7 +85,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     try {
       final session = await widget.api.verifyPhoneCode(
         mobile: mobileController.text.trim(),
-        code: codeController.text.trim(),
+        code: code,
         displayName: accountExists ? '' : displayNameController.text.trim(),
       );
       await widget.onAuthenticated(session);
@@ -152,7 +158,14 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       TextField(
                         controller: codeController,
                         enabled: !loading,
-                        keyboardType: TextInputType.text,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: const [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        onChanged: (_) {
+                          if (mounted) setState(() => error = null);
+                        },
                         decoration: InputDecoration(
                           labelText: text.code,
                           hintText: text.localTestCode,
@@ -181,7 +194,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ],
                     const SizedBox(height: 18),
                     FilledButton.icon(
-                      onPressed: loading ? null : (codeWasSent ? verifyCode : requestCode),
+                      onPressed: loading || (codeWasSent && codeController.text.trim().length != 6)
+                          ? null
+                          : (codeWasSent ? verifyCode : requestCode),
                       icon: loading
                           ? const SizedBox(
                               width: 18,
