@@ -159,7 +159,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         controller: codeController,
                         enabled: !loading,
                         keyboardType: TextInputType.number,
-                        inputFormatters: const [
+                        inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(6),
                         ],
