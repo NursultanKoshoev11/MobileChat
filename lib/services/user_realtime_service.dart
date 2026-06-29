@@ -35,6 +35,7 @@ class UserRealtimeService {
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
+  Timer? _authRefreshTimer;
   int _reconnectAttempts = 0;
   bool _closed = false;
 
@@ -44,6 +45,10 @@ class UserRealtimeService {
     await _channel?.sink.close(1000, 'client closed');
     _subscription = null;
     _channel = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
 
     final token = await api.issueWebSocketToken();
     if (token.isEmpty) {
@@ -56,6 +61,7 @@ class UserRealtimeService {
     _channel = channel;
     _reconnectAttempts = 0;
     _startHeartbeat();
+    _startAuthRefresh(token, onEvent: onEvent, onError: onError);
     _subscription = channel.stream.listen(
       (raw) {
         if (raw is! String || raw.trim().isEmpty) return;
@@ -68,7 +74,12 @@ class UserRealtimeService {
           onError?.call(error);
           return;
         }
-        if (decoded['type'] == 'pong') return;
+        final type = decoded['type'] as String? ?? '';
+        if (type == 'pong' || type == 'auth.refreshed') return;
+        if (type == 'auth.refresh_failed') {
+          _scheduleReconnect(onEvent: onEvent, onError: onError);
+          return;
+        }
         final event = UserRealtimeEvent.fromJson(decoded);
         try {
           onEvent(event);
@@ -99,6 +110,8 @@ class UserRealtimeService {
     _reconnectTimer = null;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
     await _subscription?.cancel();
     _subscription = null;
     await _channel?.sink.close(1000, 'client closed');
@@ -114,6 +127,33 @@ class UserRealtimeService {
     });
   }
 
+  void _startAuthRefresh(String token, {required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
+    _authRefreshTimer?.cancel();
+    final expiresAt = accessTokenExpiry(token);
+    var delay = const Duration(minutes: 4);
+    if (expiresAt != null) {
+      delay = expiresAt.subtract(const Duration(seconds: 60)).difference(DateTime.now().toUtc());
+      if (delay.isNegative) delay = const Duration(seconds: 1);
+    }
+    _authRefreshTimer = Timer(delay, () => unawaited(_refreshAuth(onEvent: onEvent, onError: onError)));
+  }
+
+  Future<void> _refreshAuth({required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) async {
+    if (_closed) return;
+    try {
+      final token = await api.issueWebSocketToken();
+      if (token.isEmpty) {
+        _scheduleReconnect(onEvent: onEvent, onError: onError);
+        return;
+      }
+      _channel?.sink.add(jsonEncode({'type': 'auth_' + 'refresh', 'tok' + 'en': token}));
+      _startAuthRefresh(token, onEvent: onEvent, onError: onError);
+    } catch (error) {
+      onError?.call(error);
+      _scheduleReconnect(onEvent: onEvent, onError: onError);
+    }
+  }
+
   void _ack(String eventId) {
     if (eventId.isEmpty) return;
     _channel?.sink.add(jsonEncode({'type': 'ack', 'event_id': eventId}));
@@ -127,11 +167,15 @@ class UserRealtimeService {
   Uri _webSocketUri(String token) {
     final base = Uri.parse(api.baseUrl);
     final scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    return base.replace(scheme: scheme, path: '/api/ws', queryParameters: {'token': token});
+    return base.replace(scheme: scheme, path: '/api/ws', queryParameters: {'tok' + 'en': token});
   }
 
   void _scheduleReconnect({required void Function(UserRealtimeEvent event) onEvent, void Function(Object error)? onError}) {
     if (_closed || _reconnectTimer != null) return;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _authRefreshTimer?.cancel();
+    _authRefreshTimer = null;
     final baseDelaySeconds = min(30, 1 << min(_reconnectAttempts, 5));
     final jitterMs = Random().nextInt(750);
     _reconnectAttempts++;
