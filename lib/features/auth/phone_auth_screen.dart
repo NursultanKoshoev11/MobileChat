@@ -136,7 +136,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      text.enterMobileNumber,
+                      _phoneNumberIntro(text),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: colors.textMuted),
                     ),
@@ -168,7 +168,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         },
                         decoration: InputDecoration(
                           labelText: text.code,
-                          hintText: text.localTestCode,
+                          hintText: devCode,
                           prefixIcon: const Icon(Icons.password_rounded),
                         ),
                       ),
@@ -228,4 +228,64 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       ),
     );
   }
+}
+
+String _phoneNumberIntro(AppText text) {
+  if (text.isKy) {
+    return String.fromCharCodes([
+      1058,
+      1077,
+      1083,
+      1077,
+      1092,
+      1086,
+      1085,
+      32,
+      1085,
+      1086,
+      1084,
+      1077,
+      1088,
+      1080,
+      1187,
+      1080,
+      1079,
+      1076,
+      1080,
+      32,
+      1078,
+      1072,
+      1079,
+      1099,
+      1187,
+      1099,
+      1079,
+      46,
+    ]);
+  }
+  return String.fromCharCodes([
+    1042,
+    1074,
+    1077,
+    1076,
+    1080,
+    1090,
+    1077,
+    32,
+    1085,
+    1086,
+    1084,
+    1077,
+    1088,
+    32,
+    1090,
+    1077,
+    1083,
+    1077,
+    1092,
+    1086,
+    1085,
+    1072,
+    46,
+  ]);
 }
