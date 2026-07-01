@@ -113,7 +113,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (requestId.isEmpty) return;
     final updated = cachedRequests
         .map((request) => request.id == requestId
-            ? request.copyWith(commentCount: request.commentCount + delta < 0 ? 0 : request.commentCount + delta)
+            ? request.copyWith(
+                commentCount: request.commentCount + delta < 0
+                    ? 0
+                    : request.commentCount + delta)
             : request)
         .toList();
     setRequests(updated);
@@ -124,7 +127,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     final status = payload['status'] as String?;
     if (status == null || status.isEmpty) return;
     final updated = cachedRequests
-        .map((request) => request.id == requestId ? request.copyWith(status: status) : request)
+        .map((request) => request.id == requestId
+            ? request.copyWith(status: status)
+            : request)
         .toList();
     setRequests(updated);
   }
@@ -156,7 +161,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<List<PublicRequest>> loadRequests() async {
-    final requests = List<PublicRequest>.from(await requestsApi.listRequests(widget.group.id))
+    final requests = List<PublicRequest>.from(
+        await requestsApi.listRequests(widget.group.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
     unawaited(_markRequestsRead());
@@ -198,7 +204,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> openStatistics() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GroupStatisticsScreen(api: requestsApi, group: widget.group),
+        builder: (_) =>
+            GroupStatisticsScreen(api: requestsApi, group: widget.group),
       ),
     );
     await refresh();
@@ -244,21 +251,31 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       }
       await refresh();
     } catch (error) {
-      if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+      if (mounted) {
+        showAppSnack(context, localizedMessage(context, error.toString()));
+      }
     }
   }
 
   Future<void> updateStatus(PublicRequest request, String status) async {
-    if (!canModerate) return;
+    if (!canModerate) {
+      return;
+    }
     try {
       await requestsApi.updateStatus(requestId: request.id, status: status);
       await refresh();
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
-        showAppSnack(context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
+        showAppSnack(
+            context,
+            text.isKy
+                ? 'РЎС‚Р°С‚СѓСЃ Р¶Р°ТЈС‹СЂС‚С‹Р»РґС‹.'
+                : 'РЎС‚Р°С‚СѓСЃ РѕР±РЅРѕРІР»С‘РЅ.');
       }
     } catch (error) {
-      if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+      if (mounted) {
+        showAppSnack(context, localizedMessage(context, error.toString()));
+      }
     }
   }
 
@@ -309,7 +326,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         });
         code = formatGroupInviteCode(group.inviteCode ?? '');
       } catch (error) {
-        if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+        if (mounted) {
+          showAppSnack(context, localizedMessage(context, error.toString()));
+        }
         return;
       }
     }
@@ -318,8 +337,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       showAppSnack(
         context,
         text.isKy
-            ? 'Топтун чакыруу коду азырынча түзүлгөн эмес.'
-            : 'Код приглашения группы пока не создан.',
+            ? 'РўРѕРїС‚СѓРЅ С‡Р°РєС‹СЂСѓСѓ РєРѕРґСѓ Р°Р·С‹СЂС‹РЅС‡Р° С‚ТЇР·ТЇР»РіУ©РЅ СЌРјРµСЃ.'
+            : 'РљРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ РіСЂСѓРїРїС‹ РїРѕРєР° РЅРµ СЃРѕР·РґР°РЅ.',
       );
       return;
     }
@@ -328,7 +347,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code, qrValue: groupAccessQrValue),
+      builder: (_) => GroupAccessSheet(
+          key: const ValueKey('group_access_sheet'),
+          groupTitle: widget.group.title,
+          code: code,
+          qrValue: groupAccessQrValue),
     );
   }
 
@@ -367,10 +390,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               if (!context.mounted) return;
               Navigator.pop(sheetContext);
-              showAppSnack(context, role == 'admin' ? text.adminAssigned : text.adminRemoved);
+              showAppSnack(context,
+                  role == 'admin' ? text.adminAssigned : text.adminRemoved);
             } catch (error) {
               if (context.mounted) {
-                showAppSnack(context, localizedMessage(context, error.toString()));
+                showAppSnack(
+                    context, localizedMessage(context, error.toString()));
               }
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
@@ -389,12 +414,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               children: [
                 Text(
                   text.manageAdmins,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
                 Text(text.manageAdminsDescription),
                 const SizedBox(height: 14),
                 TextField(
+                  key: const ValueKey('manage_admin_phone_field'),
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
@@ -405,12 +434,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
+                  key: const ValueKey('manage_admin_make_button'),
                   onPressed: loading ? null : () => changeRole('admin'),
                   icon: const Icon(Icons.admin_panel_settings_rounded),
                   label: Text(loading ? text.pleaseWait : text.makeAdmin),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
+                  key: const ValueKey('manage_admin_remove_button'),
                   onPressed: loading ? null : () => changeRole('member'),
                   icon: const Icon(Icons.person_outline_rounded),
                   label: Text(text.removeAdmin),
@@ -472,6 +503,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       showDragHandle: true,
       backgroundColor: Theme.of(rootContext).cardColor,
       builder: (sheetContext) => StatefulBuilder(
+        key: const ValueKey('comment_mute_sheet'),
         builder: (context, setSheetState) {
           void showResult({String? error, String? success}) {
             setSheetState(() {
@@ -500,7 +532,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               showResult(success: text.mutedDone);
             } catch (error) {
-              showResult(error: localizedMessage(rootContext, error.toString()));
+              if (!rootContext.mounted) return;
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -508,17 +542,22 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
           Future<void> unmute() async {
             final userId = selectedUserId;
-            if (userId == null || userId.isEmpty || loading) return;
+            if (userId == null || userId.isEmpty || loading) {
+              return;
+            }
             setSheetState(() {
               loading = true;
               errorText = null;
               successText = null;
             });
             try {
-              await requestsApi.clearCommentMute(groupId: widget.group.id, userId: userId);
+              await requestsApi.clearCommentMute(
+                  groupId: widget.group.id, userId: userId);
               showResult(success: text.unmutedDone);
             } catch (error) {
-              showResult(error: localizedMessage(rootContext, error.toString()));
+              if (!rootContext.mounted) return;
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -537,7 +576,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 children: [
                   Text(
                     text.blockComments,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(text.blockCommentsDescription),
@@ -559,8 +601,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                       if (members.isEmpty) {
                         return Text(
                           text.isKy
-                              ? 'Бөгөттөй турган катышуучу жок.'
-                              : 'Нет участников, которых можно заблокировать.',
+                              ? 'Р‘У©РіУ©С‚С‚У©Р№ С‚СѓСЂРіР°РЅ РєР°С‚С‹С€СѓСѓС‡Сѓ Р¶РѕРє.'
+                              : 'РќРµС‚ СѓС‡Р°СЃС‚РЅРёРєРѕРІ, РєРѕС‚РѕСЂС‹С… РјРѕР¶РЅРѕ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ.',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                             fontWeight: FontWeight.w700,
@@ -569,6 +611,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                       }
                       selectedUserId ??= members.first.userId;
                       return DropdownButtonFormField<String>(
+                        key: const ValueKey('comment_mute_member_dropdown'),
+                        isExpanded: true,
                         value: selectedUserId,
                         decoration: InputDecoration(
                           labelText: text.mobileNumber,
@@ -578,16 +622,24 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                             .map(
                               (member) => DropdownMenuItem<String>(
                                 value: member.userId,
-                                child: Text('${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
+                                child: Text(
+                                  '${member.displayName} - ${member.phone ?? ''} - ${member.role}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             )
                             .toList(),
-                        onChanged: loading ? null : (value) => setSheetState(() => selectedUserId = value),
+                        onChanged: loading
+                            ? null
+                            : (value) =>
+                                setSheetState(() => selectedUserId = value),
                       );
                     },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
+                    key: const ValueKey('comment_mute_duration_dropdown'),
                     value: durationMinutes,
                     decoration: InputDecoration(
                       labelText: text.blockDuration,
@@ -601,10 +653,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: loading ? null : (value) => setSheetState(() => durationMinutes = value ?? 60),
+                    onChanged: loading
+                        ? null
+                        : (value) =>
+                            setSheetState(() => durationMinutes = value ?? 60),
                   ),
                   const SizedBox(height: 12),
                   TextField(
+                    key: const ValueKey('comment_mute_reason_field'),
                     controller: reasonController,
                     minLines: 1,
                     maxLines: 2,
@@ -635,13 +691,17 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   ],
                   const SizedBox(height: 16),
                   FilledButton.icon(
+                    key: const ValueKey('comment_mute_button'),
                     onPressed: loading || selectedUserId == null ? null : mute,
                     icon: const Icon(Icons.block_rounded),
-                    label: Text(loading ? text.pleaseWait : text.blockCommentsButton),
+                    label: Text(
+                        loading ? text.pleaseWait : text.blockCommentsButton),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    onPressed: loading || selectedUserId == null ? null : unmute,
+                    key: const ValueKey('comment_unmute_button'),
+                    onPressed:
+                        loading || selectedUserId == null ? null : unmute,
                     icon: const Icon(Icons.lock_open_rounded),
                     label: Text(text.unblockCommentsButton),
                   ),
@@ -661,6 +721,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     required String label,
   }) {
     return PopupMenuItem<String>(
+      key: ValueKey('group_menu_item_$value'),
       value: value,
       child: Row(children: [
         Icon(icon, size: 20),
@@ -704,11 +765,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         final count = snapshot.data ?? 0;
         final reviewLabel = count > 0
             ? (text.isKy
-                ? 'Текшерүүдөгү материалдар ($count)'
-                : 'Материалы на проверке ($count)')
-            : (text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке');
+                ? 'РўРµРєС€РµСЂТЇТЇРґУ©РіТЇ РјР°С‚РµСЂРёР°Р»РґР°СЂ ($count)'
+                : 'РњР°С‚РµСЂРёР°Р»С‹ РЅР° РїСЂРѕРІРµСЂРєРµ ($count)')
+            : (text.isKy
+                ? 'РўРµРєС€РµСЂТЇТЇРґУ©РіТЇ РјР°С‚РµСЂРёР°Р»РґР°СЂ'
+                : 'РњР°С‚РµСЂРёР°Р»С‹ РЅР° РїСЂРѕРІРµСЂРєРµ');
         return PopupMenuButton<String>(
-          tooltip: text.isKy ? 'Меню' : 'Меню',
+          key: const ValueKey('group_menu_button'),
+          tooltip: text.isKy ? 'РњРµРЅСЋ' : 'РњРµРЅСЋ',
           icon: const Icon(Icons.more_vert_rounded),
           onSelected: (value) {
             handleGroupMenuAction(value);
@@ -759,11 +823,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
+      key: const ValueKey('public_requests_screen'),
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
@@ -771,6 +835,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        key: const ValueKey('public_request_create_action'),
         onPressed: createRequest,
         icon: const Icon(Icons.add_rounded),
         label: Text(text.newPost),
@@ -790,7 +855,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
             }
             final requests = snapshot.data ?? const <PublicRequest>[];
-            if (requests.isEmpty) return EmptyPostsView(onCreate: createRequest);
+            if (requests.isEmpty) {
+              return EmptyPostsView(onCreate: createRequest);
+            }
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               itemCount: requests.length,

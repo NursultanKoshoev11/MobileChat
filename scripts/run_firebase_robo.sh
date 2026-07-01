@@ -3,7 +3,7 @@ set -euo pipefail
 
 APK_PATH="${1:-build/app/outputs/flutter-apk/app-debug.apk}"
 GCP_PROJECT="${GCP_PROJECT:-koom-9f163}"
-DEVICE="${FIREBASE_TEST_DEVICE:-model=Pixel2,version=30,locale=ru,orientation=portrait}"
+DEVICE="${FIREBASE_TEST_DEVICE:-model=Pixel2.arm,version=30,locale=ru,orientation=portrait}"
 TIMEOUT="${FIREBASE_ROBO_TIMEOUT:-10m}"
 RESULTS_DIR="${FIREBASE_RESULTS_DIR:-mobilechat-robo-$(date +%Y%m%d-%H%M%S)}"
 

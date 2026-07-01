@@ -8,7 +8,8 @@ import 'public_request_media_widgets.dart';
 
 Color _surface(BuildContext context) => Theme.of(context).cardColor;
 Color _border(BuildContext context) => Theme.of(context).dividerColor;
-Color _muted(BuildContext context) => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62);
+Color _muted(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62);
 Color _strong(BuildContext context) => Theme.of(context).colorScheme.onSurface;
 
 String _requestTypeLabel(AppText text, String value) {
@@ -94,11 +95,16 @@ class MediaPublicRequestCard extends StatelessWidget {
           onTap: request.interactionMode == 'discussion' ? onTap : null,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
                   child: Text(
-                    [_requestTypeLabel(text, request.requestType), _interactionModeLabel(text, request.interactionMode), _statusLabel(text, request.status)].join(' · '),
+                    [
+                      _requestTypeLabel(text, request.requestType),
+                      _interactionModeLabel(text, request.interactionMode),
+                      _statusLabel(text, request.status)
+                    ].join(' · '),
                     style: TextStyle(
                       color: _muted(context),
                       fontWeight: FontWeight.w800,
@@ -108,44 +114,78 @@ class MediaPublicRequestCard extends StatelessWidget {
                 ),
                 if (canModerate && onStatus != null)
                   PopupMenuButton<String>(
+                    key: ValueKey('public_request_status_${request.id}'),
                     onSelected: onStatus,
                     itemBuilder: (_) => [
-                      PopupMenuItem(value: 'under_review', child: Text(text.statusUnderReview)),
-                      PopupMenuItem(value: 'resolved', child: Text(text.statusResolved)),
-                      PopupMenuItem(value: 'new', child: Text(text.statusNew)),
-                      PopupMenuItem(value: 'rejected', child: Text(text.statusRejected)),
+                      PopupMenuItem(
+                          key: const ValueKey(
+                              'public_request_status_under_review'),
+                          value: 'under_review',
+                          child: Text(text.statusUnderReview)),
+                      PopupMenuItem(
+                          key: const ValueKey('public_request_status_resolved'),
+                          value: 'resolved',
+                          child: Text(text.statusResolved)),
+                      PopupMenuItem(
+                          key: const ValueKey('public_request_status_new'),
+                          value: 'new',
+                          child: Text(text.statusNew)),
+                      PopupMenuItem(
+                          key: const ValueKey('public_request_status_rejected'),
+                          value: 'rejected',
+                          child: Text(text.statusRejected)),
                     ],
-                    child: Icon(Icons.sync_alt_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
+                    child: Icon(Icons.sync_alt_rounded,
+                        size: 18, color: Theme.of(context).colorScheme.primary),
                   ),
               ]),
               const SizedBox(height: 6),
-              Text(request.title, style: TextStyle(color: _strong(context), fontSize: 17, fontWeight: FontWeight.w800)),
+              Text(request.title,
+                  style: TextStyle(
+                      color: _strong(context),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800)),
               if (request.displayBody.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(request.displayBody, maxLines: 3, overflow: TextOverflow.ellipsis),
+                Text(request.displayBody,
+                    maxLines: 3, overflow: TextOverflow.ellipsis),
               ],
               if (content.hasMedia) ...[
                 const SizedBox(height: 10),
                 PublicRequestMediaView(content: content),
               ],
               const SizedBox(height: 10),
-              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}', style: TextStyle(color: _muted(context), fontSize: 12)),
+              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
+                  style: TextStyle(color: _muted(context), fontSize: 12)),
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                if (request.interactionMode == 'discussion') FilledButton.tonal(onPressed: onTap, child: Text(text.read)),
+                if (request.interactionMode == 'discussion')
+                  FilledButton.tonal(
+                    key: ValueKey('public_request_read_${request.id}'),
+                    onPressed: onTap,
+                    child: Text(text.read),
+                  ),
                 if (request.interactionMode != 'read_only')
                   OutlinedButton.icon(
+                    key: ValueKey('public_request_support_${request.id}'),
                     onPressed: () => onVote('support'),
-                    icon: Icon(request.supportedByMe ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined),
+                    icon: Icon(request.supportedByMe
+                        ? Icons.thumb_up_alt_rounded
+                        : Icons.thumb_up_alt_outlined),
                     label: Text('${request.supportCount}'),
                   ),
                 if (request.interactionMode != 'read_only')
                   OutlinedButton.icon(
+                    key: ValueKey('public_request_oppose_${request.id}'),
                     onPressed: () => onVote('oppose'),
-                    icon: Icon(request.opposedByMe ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined),
+                    icon: Icon(request.opposedByMe
+                        ? Icons.thumb_down_alt_rounded
+                        : Icons.thumb_down_alt_outlined),
                     label: Text('${request.opposeCount}'),
                   ),
-                if (request.interactionMode == 'discussion') Text('${request.commentCount} ${text.comments}', style: TextStyle(color: _muted(context))),
+                if (request.interactionMode == 'discussion')
+                  Text('${request.commentCount} ${text.comments}',
+                      style: TextStyle(color: _muted(context))),
               ]),
             ]),
           ),
@@ -176,7 +216,8 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final content = request.content;
     return Scaffold(
-      appBar: AppBar(title: Text(text.readPost), actions: const [AppSettingsButton()]),
+      appBar: AppBar(
+          title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -196,7 +237,8 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: _border(context)),
               ),
-              child: Text(request.displayBody, style: TextStyle(color: _strong(context), height: 1.35)),
+              child: Text(request.displayBody,
+                  style: TextStyle(color: _strong(context), height: 1.35)),
             ),
           ],
           if (content.hasMedia) ...[

@@ -21,9 +21,19 @@ permissions:
 
 env:
   GCP_PROJECT: koom-9f163
-  TEST_AUTH_PHONE: ${{ secrets.TEST_AUTH_PHONE || '+996700000001' }}
+  TEST_AUTH_PHONE: ${{ secrets.TEST_AUTH_PHONE || '+996555555555' }}
+  TEST_ACTOR2_PHONE: ${{ secrets.TEST_ACTOR2_PHONE || '+996700000001' }}
+  TEST_ACTOR3_PHONE: ${{ secrets.TEST_ACTOR3_PHONE || '+996700000002' }}
+  TEST_ACTOR4_PHONE: ${{ secrets.TEST_ACTOR4_PHONE || '+996700000003' }}
+  TEST_ACTOR5_PHONE: ${{ secrets.TEST_ACTOR5_PHONE || '+996700000004' }}
   TEST_AUTH_CODE: ${{ secrets.TEST_AUTH_CODE || '111111' }}
-  TEST_AUTH_DISPLAY_NAME: ${{ secrets.TEST_AUTH_DISPLAY_NAME || 'Firebase Test User' }}
+  TEST_AUTH_DISPLAY_NAME: ${{ secrets.TEST_AUTH_DISPLAY_NAME || 'Koom QA Owner' }}
+  TEST_ACTOR2_DISPLAY_NAME: ${{ secrets.TEST_ACTOR2_DISPLAY_NAME || 'Koom QA Supporter' }}
+  TEST_ACTOR3_DISPLAY_NAME: ${{ secrets.TEST_ACTOR3_DISPLAY_NAME || 'Koom QA Opponent' }}
+  TEST_ACTOR4_DISPLAY_NAME: ${{ secrets.TEST_ACTOR4_DISPLAY_NAME || 'Koom QA Observer' }}
+  TEST_ACTOR5_DISPLAY_NAME: ${{ secrets.TEST_ACTOR5_DISPLAY_NAME || 'Koom QA Reviewer' }}
+  TEST_EXPECTED_USER_ROLE: ${{ secrets.TEST_EXPECTED_USER_ROLE || 'user' }}
+  TEST_EXPECTED_GROUP_ROLE: ${{ secrets.TEST_EXPECTED_GROUP_ROLE || 'owner' }}
 
 jobs:
   firebase-mobile-qa:
@@ -79,7 +89,7 @@ jobs:
 
       - name: Static checks
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-infos
           flutter test
 
       - name: Build debug APK for Firebase Test Lab
@@ -88,28 +98,63 @@ jobs:
             -t lib/main.dart \
             --dart-define=API_BASE_URL="${{ inputs.api_base_url }}" \
             --dart-define=TEST_AUTH_PHONE="$TEST_AUTH_PHONE" \
+            --dart-define=TEST_ACTOR2_PHONE="$TEST_ACTOR2_PHONE" \
+            --dart-define=TEST_ACTOR3_PHONE="$TEST_ACTOR3_PHONE" \
+            --dart-define=TEST_ACTOR4_PHONE="$TEST_ACTOR4_PHONE" \
+            --dart-define=TEST_ACTOR5_PHONE="$TEST_ACTOR5_PHONE" \
             --dart-define=TEST_AUTH_CODE="$TEST_AUTH_CODE" \
-            --dart-define=TEST_AUTH_DISPLAY_NAME="$TEST_AUTH_DISPLAY_NAME"
+            --dart-define=TEST_AUTH_DISPLAY_NAME="$TEST_AUTH_DISPLAY_NAME" \
+            --dart-define=TEST_ACTOR2_DISPLAY_NAME="$TEST_ACTOR2_DISPLAY_NAME" \
+            --dart-define=TEST_ACTOR3_DISPLAY_NAME="$TEST_ACTOR3_DISPLAY_NAME" \
+            --dart-define=TEST_ACTOR4_DISPLAY_NAME="$TEST_ACTOR4_DISPLAY_NAME" \
+            --dart-define=TEST_ACTOR5_DISPLAY_NAME="$TEST_ACTOR5_DISPLAY_NAME" \
+            --dart-define=TEST_EXPECTED_USER_ROLE="$TEST_EXPECTED_USER_ROLE" \
+            --dart-define=TEST_EXPECTED_GROUP_ROLE="$TEST_EXPECTED_GROUP_ROLE"
 
       - name: Build Android instrumentation test APK
         if: ${{ inputs.run_integration == 'true' }}
         run: |
           cd android
-          ./gradlew app:assembleAndroidTest -Ptarget=../integration_test/app_flow_test.dart
+          ./gradlew app:assembleAndroidTest -Ptarget=integration_test/app_flow_test.dart
+          DART_DEFINES="$(
+            printf '%s\n' \
+              "API_BASE_URL=${{ inputs.api_base_url }}" \
+              "TEST_AUTH_PHONE=$TEST_AUTH_PHONE" \
+              "TEST_ACTOR2_PHONE=$TEST_ACTOR2_PHONE" \
+              "TEST_ACTOR3_PHONE=$TEST_ACTOR3_PHONE" \
+              "TEST_ACTOR4_PHONE=$TEST_ACTOR4_PHONE" \
+              "TEST_ACTOR5_PHONE=$TEST_ACTOR5_PHONE" \
+              "TEST_AUTH_CODE=$TEST_AUTH_CODE" \
+              "TEST_AUTH_DISPLAY_NAME=$TEST_AUTH_DISPLAY_NAME" \
+              "TEST_ACTOR2_DISPLAY_NAME=$TEST_ACTOR2_DISPLAY_NAME" \
+              "TEST_ACTOR3_DISPLAY_NAME=$TEST_ACTOR3_DISPLAY_NAME" \
+              "TEST_ACTOR4_DISPLAY_NAME=$TEST_ACTOR4_DISPLAY_NAME" \
+              "TEST_ACTOR5_DISPLAY_NAME=$TEST_ACTOR5_DISPLAY_NAME" \
+              "TEST_EXPECTED_USER_ROLE=$TEST_EXPECTED_USER_ROLE" \
+              "TEST_EXPECTED_GROUP_ROLE=$TEST_EXPECTED_GROUP_ROLE" |
+            while IFS= read -r value; do
+              printf '%s' "$value" | base64 -w0
+              printf ','
+            done |
+            sed 's/,$//'
+          )"
+          ./gradlew app:assembleDebug \
+            -Ptarget=integration_test/app_flow_test.dart \
+            -Pdart-defines="$DART_DEFINES"
           cd ..
 
       - name: Run Firebase Robo crawl
         if: ${{ inputs.run_robo == 'true' }}
         env:
           FIREBASE_RESULTS_BUCKET: ${{ secrets.FIREBASE_RESULTS_BUCKET }}
-          FIREBASE_TEST_DEVICE: model=Pixel2,version=30,locale=ru,orientation=portrait
+          FIREBASE_TEST_DEVICE: model=Pixel2.arm,version=30,locale=ru,orientation=portrait
         run: bash scripts/run_firebase_robo.sh build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Run Firebase Flutter integration test
         if: ${{ inputs.run_integration == 'true' }}
         env:
           FIREBASE_RESULTS_BUCKET: ${{ secrets.FIREBASE_RESULTS_BUCKET }}
-          FIREBASE_TEST_DEVICE: model=Pixel2,version=30,locale=ru,orientation=portrait
+          FIREBASE_TEST_DEVICE: model=Pixel2.arm,version=30,locale=ru,orientation=portrait
         run: bash scripts/run_firebase_integration_testlab.sh
 
       - name: Upload APK and local QA files

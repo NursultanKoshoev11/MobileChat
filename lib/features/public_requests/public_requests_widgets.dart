@@ -15,6 +15,7 @@ import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/ui_helpers.dart';
+import 'public_request_media_widgets.dart';
 
 class EmptyPostsView extends StatelessWidget {
   const EmptyPostsView({super.key, required this.onCreate});
@@ -46,7 +47,11 @@ class EmptyPostsView extends StatelessWidget {
 
 class GroupAccessSheet extends StatelessWidget {
   const GroupAccessSheet(
-      {super.key, required this.groupTitle, required this.code, String? qrValue}) : qrValue = qrValue ?? code;
+      {super.key,
+      required this.groupTitle,
+      required this.code,
+      String? qrValue})
+      : qrValue = qrValue ?? code;
   final String groupTitle;
   final String code;
   final String qrValue;
@@ -174,6 +179,7 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
                     ?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             TextField(
+                key: const ValueKey('invite_phone_field'),
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
@@ -186,6 +192,7 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
             ],
             const SizedBox(height: 16),
             FilledButton(
+                key: const ValueKey('invite_phone_submit_button'),
                 onPressed: loading ? null : submit,
                 child: Text(loading
                     ? text.pleaseWait
@@ -196,7 +203,6 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     );
   }
 }
-
 
 Uint8List? _decodePostPhoto(String value) {
   final raw = value.trim();
@@ -364,6 +370,7 @@ class PublicRequestCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
+        key: ValueKey('public_request_card_${request.id}'),
         elevation: 2,
         shadowColor: colors.shadow,
         color: colors.surface,
@@ -388,7 +395,10 @@ class PublicRequestCard extends StatelessWidget {
                   ),
                 ),
                 if (canModerate && onStatus != null)
-                  _StatusButton(onChanged: onStatus!),
+                  _StatusButton(
+                    requestId: request.id,
+                    onChanged: onStatus!,
+                  ),
               ]),
               const SizedBox(height: 6),
               Text(request.title,
@@ -416,9 +426,12 @@ class PublicRequestCard extends StatelessWidget {
                   children: [
                     if (request.interactionMode == 'discussion')
                       FilledButton.tonal(
-                          onPressed: onTap, child: Text(text.read)),
+                          key: ValueKey('public_request_read_${request.id}'),
+                          onPressed: onTap,
+                          child: Text(text.read)),
                     if (request.interactionMode != 'read_only')
                       OutlinedButton.icon(
+                          key: ValueKey('public_request_support_${request.id}'),
                           onPressed: () => onVote('support'),
                           icon: Icon(request.supportedByMe
                               ? Icons.thumb_up_alt_rounded
@@ -426,6 +439,7 @@ class PublicRequestCard extends StatelessWidget {
                           label: Text('${request.supportCount}')),
                     if (request.interactionMode != 'read_only')
                       OutlinedButton.icon(
+                          key: ValueKey('public_request_oppose_${request.id}'),
                           onPressed: () => onVote('oppose'),
                           icon: Icon(request.opposedByMe
                               ? Icons.thumb_down_alt_rounded
@@ -444,20 +458,33 @@ class PublicRequestCard extends StatelessWidget {
 }
 
 class _StatusButton extends StatelessWidget {
-  const _StatusButton({required this.onChanged});
+  const _StatusButton({required this.requestId, required this.onChanged});
+  final String requestId;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return PopupMenuButton<String>(
+      key: ValueKey('public_request_status_$requestId'),
       onSelected: onChanged,
       itemBuilder: (_) => [
         PopupMenuItem(
-            value: 'under_review', child: Text(text.statusUnderReview)),
-        PopupMenuItem(value: 'resolved', child: Text(text.statusResolved)),
-        PopupMenuItem(value: 'new', child: Text(text.statusNew)),
-        PopupMenuItem(value: 'rejected', child: Text(text.statusRejected)),
+            key: const ValueKey('public_request_status_under_review'),
+            value: 'under_review',
+            child: Text(text.statusUnderReview)),
+        PopupMenuItem(
+            key: const ValueKey('public_request_status_resolved'),
+            value: 'resolved',
+            child: Text(text.statusResolved)),
+        PopupMenuItem(
+            key: const ValueKey('public_request_status_new'),
+            value: 'new',
+            child: Text(text.statusNew)),
+        PopupMenuItem(
+            key: const ValueKey('public_request_status_rejected'),
+            value: 'rejected',
+            child: Text(text.statusRejected)),
       ],
       tooltip: text.adminStatus,
       child: Padding(
@@ -561,7 +588,8 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
           groupId: widget.group.id,
           type: type,
           interactionMode: interactionMode,
-          title: titleController.text.trim(), body: payload);
+          title: titleController.text.trim(),
+          body: payload);
       if (mounted) Navigator.of(context).pop(true);
     } on ModerationPendingException catch (e) {
       titleController.clear();
@@ -718,6 +746,7 @@ class _PublicRequestDetailsScreenState
   late final GroupRealtimeService realtime;
   List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
   Timer? realtimeRefreshDebounce;
+  Timer? commentRefreshPoll;
   bool sending = false;
   String? error;
 
@@ -726,15 +755,21 @@ class _PublicRequestDetailsScreenState
     super.initState();
     commentsFuture = loadComments();
     realtime = GroupRealtimeService(
-      api: ApiClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
+      api: ApiClient(
+          baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
       groupId: widget.request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
+    commentRefreshPoll = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      unawaited(refreshComments(silent: true).catchError((_) {}));
+    });
   }
 
   @override
   void dispose() {
     realtimeRefreshDebounce?.cancel();
+    commentRefreshPoll?.cancel();
     realtime.close();
     commentController.dispose();
     super.dispose();
@@ -750,10 +785,16 @@ class _PublicRequestDetailsScreenState
     final next = loadComments();
     if (silent) {
       final comments = await next;
-      if (mounted) setState(() => commentsFuture = Future.value(comments));
+      if (mounted) {
+        setState(() {
+          commentsFuture = Future.value(comments);
+        });
+      }
       return;
     }
-    setState(() => commentsFuture = next);
+    setState(() {
+      commentsFuture = next;
+    });
     await next;
   }
 
@@ -762,7 +803,9 @@ class _PublicRequestDetailsScreenState
     if (event.type == 'connection.ready') {
       realtimeRefreshDebounce?.cancel();
       realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
-        if (mounted) unawaited(refreshComments(silent: true).catchError((_) {}));
+        if (mounted) {
+          unawaited(refreshComments(silent: true).catchError((_) {}));
+        }
       });
       return;
     }
@@ -772,39 +815,49 @@ class _PublicRequestDetailsScreenState
         final payload = event.payload;
         if (payload is Map<String, dynamic>) {
           final commentPayload = payload['comment'];
-          if (commentPayload is Map<String, dynamic>) addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+          if (commentPayload is Map<String, dynamic>) {
+            addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+          }
         }
         break;
       case 'public_request.comment_deleted':
         final payload = event.payload;
-        if (payload is Map<String, dynamic>) removeRealtimeComment(payload['comment_id'] as String? ?? '');
+        if (payload is Map<String, dynamic>) {
+          removeRealtimeComment(payload['comment_id'] as String? ?? '');
+        }
         break;
     }
   }
 
   void addRealtimeComment(PublicRequestComment comment) {
     if (cachedComments.any((item) => item.id == comment.id)) return;
-    final updated = [...cachedComments, comment]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final updated = [...cachedComments, comment]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     setComments(updated);
   }
 
   void removeRealtimeComment(String commentId) {
     if (commentId.isEmpty) return;
-    final updated = cachedComments.where((comment) => comment.id != commentId).toList();
+    final updated =
+        cachedComments.where((comment) => comment.id != commentId).toList();
     setComments(updated);
   }
 
   void setComments(List<PublicRequestComment> comments) {
     if (!mounted) return;
     cachedComments = comments;
-    setState(() => commentsFuture = Future.value(comments));
+    setState(() {
+      commentsFuture = Future.value(comments);
+    });
   }
 
   Future<void> submitComment() async {
     final body = commentController.text.trim();
     if (body.isEmpty ||
         sending ||
-        widget.request.interactionMode != 'discussion') return;
+        widget.request.interactionMode != 'discussion') {
+      return;
+    }
     setState(() {
       sending = true;
       error = null;
@@ -851,6 +904,7 @@ class _PublicRequestDetailsScreenState
           builder: (context, snapshot) {
             final comments = snapshot.data ?? const <PublicRequestComment>[];
             return ListView(
+              key: const ValueKey('request_details_comments_list'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
@@ -874,12 +928,10 @@ class _PublicRequestDetailsScreenState
                         style:
                             TextStyle(color: colors.textStrong, height: 1.35)),
                   ),
-                if (widget.request.content.photos.isNotEmpty) ...[
+                if (widget.request.content.hasMedia) ...[
                   const SizedBox(height: 12),
-                  _PostPhotoPreview(
-                    photos: widget.request.content.photos,
-                    compact: false,
-                  ),
+                  PublicRequestMediaView(
+                      content: widget.request.content, compact: false),
                 ],
                 const SizedBox(height: 18),
                 Text(text.comments,
@@ -941,6 +993,7 @@ class _PublicRequestDetailsScreenState
                 child: Row(children: [
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('comment_field'),
                       controller: commentController,
                       minLines: 1,
                       maxLines: 4,
@@ -954,6 +1007,7 @@ class _PublicRequestDetailsScreenState
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
+                    key: const ValueKey('comment_submit_button'),
                     onPressed: sending ? null : submitComment,
                     icon: sending
                         ? const SizedBox(

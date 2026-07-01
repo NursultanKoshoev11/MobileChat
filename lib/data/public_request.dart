@@ -38,7 +38,8 @@ class PublicRequest {
   bool get supportedByMe => myVote == 'support';
   bool get opposedByMe => myVote == 'oppose';
   PublicRequestContent get content => PublicRequestContent.tryParse(body);
-  String get displayBody => content.hasMedia || content.text.isNotEmpty ? content.text : body;
+  String get displayBody =>
+      content.hasMedia || content.text.isNotEmpty ? content.text : body;
 
   factory PublicRequest.fromJson(Map<String, dynamic> json) {
     return PublicRequest(
@@ -95,7 +96,6 @@ class PublicRequest {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
 }
 
 class PublicRequestContent {
@@ -131,13 +131,11 @@ class PublicRequestContent {
   static PublicRequestContent tryParse(String value) {
     final raw = value.trim();
     if (raw.isEmpty || !raw.startsWith('{')) {
-      return PublicRequestContent(text: value, photos: const [], videos: const []);
+      return PublicRequestContent(
+          text: value, photos: const [], videos: const []);
     }
     try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        return PublicRequestContent(text: value, photos: const [], videos: const []);
-      }
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
       final photosRaw = decoded['photos'];
       final videosRaw = decoded['videos'];
       return PublicRequestContent(
@@ -156,7 +154,8 @@ class PublicRequestContent {
             : const [],
       );
     } catch (_) {
-      return PublicRequestContent(text: value, photos: const [], videos: const []);
+      return PublicRequestContent(
+          text: value, photos: const [], videos: const []);
     }
   }
 }

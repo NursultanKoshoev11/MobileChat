@@ -49,6 +49,7 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
+      key: const ValueKey('group_statistics_screen'),
       appBar: AppBar(
         title: Text(text.isKy ? 'Статистика' : 'Статистика'),
         actions: const [AppSettingsButton()],

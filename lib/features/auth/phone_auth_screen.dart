@@ -9,7 +9,8 @@ import '../../data/models.dart';
 import '../../shared/ui_helpers.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
-  const PhoneAuthScreen({super.key, required this.api, required this.onAuthenticated});
+  const PhoneAuthScreen(
+      {super.key, required this.api, required this.onAuthenticated});
 
   final ApiClient api;
   final Future<void> Function(AppSession session) onAuthenticated;
@@ -45,7 +46,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       accountExists = false;
     });
     try {
-      final result = await widget.api.requestPhoneCode(mobileController.text.trim());
+      final result =
+          await widget.api.requestPhoneCode(mobileController.text.trim());
       if (!mounted) return;
       setState(() {
         codeWasSent = true;
@@ -71,7 +73,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       return;
     }
     if (code.length != 6) {
-      setState(() => error = text.isKy ? 'Код 6 цифрадан турушу керек' : 'Введите 6 цифр кода');
+      setState(() => error =
+          text.isKy ? 'Код 6 цифрадан турушу керек' : 'Введите 6 цифр кода');
       return;
     }
     if (!accountExists && displayNameController.text.trim().length < 2) {
@@ -113,26 +116,37 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: BorderRadius.circular(32),
-                  boxShadow: [BoxShadow(color: colors.shadow, blurRadius: 28, offset: const Offset(0, 16))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: colors.shadow,
+                        blurRadius: 28,
+                        offset: const Offset(0, 16))
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Align(
                       alignment: Alignment.centerRight,
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [ThemeModeButton(), LanguageMenuButton()]),
+                      child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [ThemeModeButton(), LanguageMenuButton()]),
                     ),
                     const SizedBox(height: 10),
                     const CircleAvatar(
                       radius: 42,
                       backgroundColor: MobileChatTheme.primary,
-                      child: Icon(Icons.sms_rounded, color: Colors.white, size: 40),
+                      child: Icon(Icons.sms_rounded,
+                          color: Colors.white, size: 40),
                     ),
                     const SizedBox(height: 22),
                     Text(
                       text.appTitle,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -142,6 +156,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     const SizedBox(height: 24),
                     TextField(
+                      key: const ValueKey('auth_mobile_field'),
                       controller: mobileController,
                       enabled: !loading && !codeWasSent,
                       keyboardType: TextInputType.phone,
@@ -153,9 +168,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     if (codeWasSent) ...[
                       const SizedBox(height: 12),
-                      InfoBanner(message: accountExists ? text.existingAccountHint : text.newAccountHint),
+                      InfoBanner(
+                          message: accountExists
+                              ? text.existingAccountHint
+                              : text.newAccountHint),
                       const SizedBox(height: 12),
                       TextField(
+                        key: const ValueKey('auth_code_field'),
                         controller: codeController,
                         enabled: !loading,
                         keyboardType: TextInputType.number,
@@ -175,18 +194,23 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       if (!accountExists) ...[
                         const SizedBox(height: 12),
                         TextField(
+                          key: const ValueKey('auth_display_name_field'),
                           controller: displayNameController,
                           enabled: !loading,
                           decoration: InputDecoration(
                             labelText: text.displayNameNewOnly,
-                            prefixIcon: const Icon(Icons.person_outline_rounded),
+                            prefixIcon:
+                                const Icon(Icons.person_outline_rounded),
                           ),
                         ),
                       ],
                     ],
                     if (devCode != null) ...[
                       const SizedBox(height: 12),
-                      InfoBanner(message: devCode == 'any_non_empty_code' ? text.devSmsAnyCode : text.devSmsCode(devCode!)),
+                      InfoBanner(
+                          message: devCode == 'any_non_empty_code'
+                              ? text.devSmsAnyCode
+                              : text.devSmsCode(devCode!)),
                     ],
                     if (error != null) ...[
                       const SizedBox(height: 12),
@@ -194,17 +218,27 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ],
                     const SizedBox(height: 18),
                     FilledButton.icon(
-                      onPressed: loading || (codeWasSent && codeController.text.trim().length != 6)
+                      key: const ValueKey('auth_submit_button'),
+                      onPressed: loading ||
+                              (codeWasSent &&
+                                  codeController.text.trim().length != 6)
                           ? null
                           : (codeWasSent ? verifyCode : requestCode),
                       icon: loading
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
-                          : Icon(codeWasSent ? Icons.verified_rounded : Icons.sms_rounded),
-                      label: Text(loading ? text.pleaseWait : (codeWasSent ? text.verifyAndContinue : text.continueText)),
+                          : Icon(codeWasSent
+                              ? Icons.verified_rounded
+                              : Icons.sms_rounded),
+                      label: Text(loading
+                          ? text.pleaseWait
+                          : (codeWasSent
+                              ? text.verifyAndContinue
+                              : text.continueText)),
                     ),
                     if (codeWasSent)
                       TextButton(
