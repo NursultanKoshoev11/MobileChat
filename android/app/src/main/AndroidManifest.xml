@@ -6,8 +6,9 @@
 
     <application
         android:name="${applicationName}"
-        android:icon="@drawable/ic_launcher_foreground"
+        android:icon="@mipmap/ic_launcher"
         android:label="Коом"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"

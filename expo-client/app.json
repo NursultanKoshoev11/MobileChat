@@ -4,6 +4,7 @@
     "slug": "koom-expo-client",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -11,7 +12,11 @@
       "bundleIdentifier": "kg.koom.mobile"
     },
     "android": {
-      "package": "kg.koom.mobile"
+      "package": "kg.koom.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#079BFF"
+      }
     },
     "web": {
       "bundler": "metro"
