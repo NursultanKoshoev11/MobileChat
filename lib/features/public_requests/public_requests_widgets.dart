@@ -569,20 +569,22 @@ class _PublicRequestDetailsScreenState extends State<PublicRequestDetailsScreen>
     super.dispose();
   }
 
-  Future<List<PublicRequestComment>> loadComments() async {
+  Future<List<PublicRequestComment>> fetchSortedComments() async {
     final comments = await widget.api.listComments(widget.request.id);
-    final sorted = [...comments]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    cachedComments = sorted;
-    return sorted;
+    return [...comments]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  Future<List<PublicRequestComment>> loadComments() async {
+    final comments = await fetchSortedComments();
+    cachedComments = comments;
+    return comments;
   }
 
   Future<void> refreshComments({bool silent = false}) async {
-    final next = loadComments();
+    final next = fetchSortedComments();
     if (silent) {
       final comments = await next;
-      if (mounted && !_sameComments(cachedComments, comments)) {
-        setComments(comments);
-      }
+      if (mounted) setComments(comments);
       return;
     }
     setState(() => commentsFuture = next);
