@@ -29,24 +29,48 @@ String _formatMuteUntil(String value) {
   }
 }
 
+String _normalizeMojibakeMessage(String message) {
+  const replacements = <String, String>{
+    'РЎС‚Р°С‚СѓСЃ Р¶Р°ТЈС‹СЂС‚С‹Р»РґС‹.': 'Статус жаңыртылды.',
+    'РЎС‚Р°С‚СѓСЃ РѕР±РЅРѕРІР»С‘РЅ.': 'Статус обновлён.',
+    'РўРѕРїС‚СѓРЅ С‡Р°РєС‹СЂСѓСѓ РєРѕРґСѓ Р°Р·С‹СЂС‹РЅС‡Р° С‚ТЇР·ТЇР»РіУ©РЅ СЌРјРµСЃ.':
+        'Топтун чакыруу коду азырынча түзүлгөн эмес.',
+    'РљРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ РіСЂСѓРїРїС‹ РїРѕРєР° РЅРµ СЃРѕР·РґР°РЅ.':
+        'Код приглашения группы пока не создан.',
+    'Р‘У©РіУ©С‚С‚У©Р№ С‚СѓСЂРіР°РЅ РєР°С‚С‹С€СѓСѓС‡Сѓ Р¶РѕРє.':
+        'Бөгөттөй турган катышуучу жок.',
+    'РќРµС‚ СѓС‡Р°СЃС‚РЅРёРєРѕРІ, РєРѕС‚РѕСЂС‹С… РјРѕР¶РЅРѕ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ.':
+        'Нет участников, которых можно заблокировать.',
+    'РўРµРєС€РµСЂТЇТЇРґУ©РіТЇ РјР°С‚РµСЂРёР°Р»РґР°СЂ': 'Текшерүүдөгү материалдар',
+    'РњР°С‚РµСЂРёР°Р»С‹ РЅР° РїСЂРѕРІРµСЂРєРµ': 'Материалы на проверке',
+    'РњРµРЅСЋ': 'Меню',
+  };
+  var normalized = message;
+  replacements.forEach((bad, good) {
+    normalized = normalized.replaceAll(bad, good);
+  });
+  return normalized;
+}
+
 String localizedMessage(BuildContext context, String message) {
+  final normalizedMessage = _normalizeMojibakeMessage(message);
   final text = AppLanguageScope.textOf(context);
-  final lower = message.toLowerCase();
+  final lower = normalizedMessage.toLowerCase();
 
   if (lower.contains('comments are blocked until')) {
-    final raw = message
+    final raw = normalizedMessage
         .replaceFirst(
             RegExp(r'comments are blocked until\s*', caseSensitive: false), '')
         .trim();
     final value = _formatMuteUntil(raw);
     return text.isKy
-        ? '\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439 \u0436\u0430\u0437\u0443\u0443 $value \u0447\u0435\u0439\u0438\u043d \u0431\u04e9\u0433\u04e9\u0442\u0442\u04e9\u043b\u0433\u04e9\u043d.'
-        : '\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0438 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u044b \u0434\u043e $value.';
+        ? 'Комментарий жазуу $value чейин бөгөттөлгөн.'
+        : 'Комментарии заблокированы до $value.';
   }
   if (lower.contains('comments are blocked')) {
     return text.isKy
-        ? '\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439 \u0436\u0430\u0437\u0443\u0443 \u0431\u04e9\u0433\u04e9\u0442\u0442\u04e9\u043b\u0433\u04e9\u043d.'
-        : '\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0438 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u044b.';
+        ? 'Комментарий жазуу бөгөттөлгөн.'
+        : 'Комментарии заблокированы.';
   }
 
   if (lower.contains(String.fromCharCodes([99,111,110,116,101,110,116,32,105,115,32,116,101,109,112,111,114,97,114,105,108,121,32,108,105,109,105,116,101,100]))) {
@@ -60,75 +84,99 @@ String localizedMessage(BuildContext context, String message) {
         : 'Материал не прошёл модерацию. Измените текст и отправьте заново.';
   }
 
-  if (lower.contains('status updated'))
+  if (lower.contains('status updated')) {
     return text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.';
-  if (lower.contains('comment deleted'))
+  }
+  if (lower.contains('comment deleted')) {
     return text.isKy ? 'Комментарий өчүрүлдү.' : 'Комментарий удалён.';
-  if (lower.contains('comment added'))
+  }
+  if (lower.contains('comment added')) {
     return text.isKy ? 'Комментарий кошулду.' : 'Комментарий добавлен.';
-  if (lower.contains('request updated'))
+  }
+  if (lower.contains('request updated')) {
     return text.isKy ? 'Өтүнүч жаңыртылды.' : 'Заявка обновлена.';
-  if (lower.contains('request sent'))
+  }
+  if (lower.contains('request sent')) {
     return text.isKy ? 'Өтүнүч жөнөтүлдү.' : 'Заявка отправлена.';
+  }
   if (lower.contains('post published')) return text.postPublished;
-  if (lower.contains('invitation sent'))
+  if (lower.contains('invitation sent')) {
     return text.isKy ? 'Чакыруу жөнөтүлдү.' : 'Приглашение отправлено.';
-  if (lower.contains('invitation accepted'))
+  }
+  if (lower.contains('invitation accepted')) {
     return text.isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.';
-  if (lower.contains('invitation declined'))
+  }
+  if (lower.contains('invitation declined')) {
     return text.isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.';
-  if (lower.contains('session expired'))
+  }
+  if (lower.contains('session expired')) {
     return text.isKy
         ? 'Сессия бүттү. Кайра кириңиз.'
         : 'Сессия истекла. Войдите снова.';
-  if (lower.contains('connection timed out'))
+  }
+  if (lower.contains('connection timed out')) {
     return text.isKy
         ? 'Сервер жооп берген жок. Кайра аракет кылыңыз.'
         : 'Сервер не ответил вовремя. Попробуйте ещё раз.';
-  if (lower.contains('network error'))
+  }
+  if (lower.contains('network error')) {
     return text.isKy
         ? 'Тармак катасы. Интернетти же серверди текшериңиз.'
         : 'Ошибка сети. Проверьте интернет или сервер.';
-  if (lower.contains('server error'))
+  }
+  if (lower.contains('server error')) {
     return text.isKy ? 'Сервер катасы.' : 'Ошибка сервера.';
-  if (lower.contains('mobile must be in international format'))
+  }
+  if (lower.contains('mobile must be in international format')) {
     return text.isKy
         ? 'Номерди эл аралык форматта жазыңыз: +996700123456'
         : 'Введите номер в международном формате: +996700123456';
+  }
   if (lower.contains('code is required')) return text.codeRequired;
-  if (lower.contains('display_name is required'))
+  if (lower.contains('display_name is required')) {
     return text.displayNameRequiredForNewAccount;
-  if (lower.contains('display_name must be between'))
+  }
+  if (lower.contains('display_name must be between')) {
     return text.isKy
         ? 'Аты-жөнү 2ден 40 белгиге чейин болушу керек.'
         : 'Имя должно быть от 2 до 40 символов.';
+  }
   if (lower.contains('invalid email or password') ||
-      lower.contains('invalid credentials'))
+      lower.contains('invalid credentials')) {
     return text.isKy ? 'Маалымат туура эмес.' : 'Неверные данные.';
-  if (lower.contains('unauthorized'))
+  }
+  if (lower.contains('unauthorized')) {
     return text.isKy
         ? 'Кирүү укугу жок. Кайра кириңиз.'
         : 'Нет доступа. Войдите снова.';
-  if (lower.contains('forbidden'))
+  }
+  if (lower.contains('forbidden')) {
     return text.isKy
         ? 'Бул аракетке уруксат жок.'
         : 'Нет разрешения на это действие.';
-  if (lower.contains('title must be between'))
+  }
+  if (lower.contains('title must be between')) {
     return text.isKy
         ? 'Аталыш 3төн 80 белгиге чейин болушу керек.'
         : 'Название должно быть от 3 до 80 символов.';
-  if (lower.contains('description must be at most'))
+  }
+  if (lower.contains('description must be at most')) {
     return text.isKy ? 'Сүрөттөмө өтө узун.' : 'Описание слишком длинное.';
-  if (lower.contains('text is required'))
+  }
+  if (lower.contains('text is required')) {
     return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
-  if (lower.contains('body is required'))
+  }
+  if (lower.contains('body is required')) {
     return text.isKy ? 'Текст жазыңыз.' : 'Введите текст.';
-  if (lower.contains('not found'))
+  }
+  if (lower.contains('not found')) {
     return text.isKy ? 'Табылган жок.' : 'Не найдено.';
-  if (lower.contains('already'))
+  }
+  if (lower.contains('already')) {
     return text.isKy ? 'Бул аракет мурун эле жасалган.' : 'Это уже выполнено.';
+  }
 
-  return message;
+  return normalizedMessage;
 }
 
 void showAppSnack(BuildContext context, String message) {
@@ -169,8 +217,11 @@ class ErrorBanner extends StatelessWidget {
               color: Colors.redAccent, size: 20),
           const SizedBox(width: 8),
           Expanded(
-              child: Text(localizedMessage(context, message),
-                  style: TextStyle(color: colors.textStrong))),
+            child: Text(
+              localizedMessage(context, message),
+              style: TextStyle(color: colors.textStrong),
+            ),
+          ),
         ],
       ),
     );
@@ -201,7 +252,11 @@ class InfoBanner extends StatelessWidget {
               color: MobileChatTheme.primary, size: 20),
           const SizedBox(width: 8),
           Expanded(
-              child: Text(message, style: TextStyle(color: colors.textStrong))),
+            child: Text(
+              localizedMessage(context, message),
+              style: TextStyle(color: colors.textStrong),
+            ),
+          ),
         ],
       ),
     );
