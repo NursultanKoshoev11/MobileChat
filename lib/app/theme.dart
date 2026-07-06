@@ -72,6 +72,7 @@ class MobileChatTheme {
   }) {
     final iconButtonBackground = scheme.brightness == Brightness.dark ? darkSurfaceSoft : const Color(0xFFE0F2FE);
     final iconButtonForeground = scheme.brightness == Brightness.dark ? darkTextStrong : primaryDark;
+    final popupShadow = scheme.brightness == Brightness.dark ? Colors.black.withOpacity(0.35) : Colors.black.withOpacity(0.10);
     return ThemeData(
       useMaterial3: true,
       brightness: scheme.brightness,
@@ -93,6 +94,20 @@ class MobileChatTheme {
           backgroundColor: iconButtonBackground,
           disabledForegroundColor: textMutedColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surfaceColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 10,
+        shadowColor: popupShadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: borderColor),
+        ),
+        textStyle: TextStyle(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -217,4 +232,3 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
 extension MobileChatThemeContext on BuildContext {
   MobileChatColors get appColors => Theme.of(this).extension<MobileChatColors>()!;
 }
-
