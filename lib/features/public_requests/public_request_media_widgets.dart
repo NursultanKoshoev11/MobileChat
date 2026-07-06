@@ -50,9 +50,10 @@ Future<Map<String, String>?> _imageAuthHeaders(String url) async {
       .toString()
       .replaceFirst(RegExp(r'/$'), '');
   await ensureFreshStoredAccessToken(
-      baseUrl: baseUrl,
-      sessionStore: sessionStore,
-      timeout: const Duration(seconds: 15));
+    baseUrl: baseUrl,
+    sessionStore: sessionStore,
+    timeout: const Duration(seconds: 15),
+  );
   final session = await sessionStore.read();
   if (session == null || session.accessToken.isEmpty) return null;
   return {'Authorization': 'Bearer ${session.accessToken}'};
@@ -82,50 +83,56 @@ class PublicRequestMediaView extends StatelessWidget {
     final videos = content.videos
         .where((v) => v.base64Data.trim().isNotEmpty)
         .toList(growable: false);
+
     if (photos.isEmpty && videos.isEmpty) return const SizedBox.shrink();
+
     return Column(
-        key: const ValueKey('public_request_media_view'),
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (photos.isNotEmpty) ...[
-            Text('${text.isKy ? 'Сүрөттөр' : 'Фото'} (${photos.length}/3)',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800, color: _muted(context))),
-            const SizedBox(height: 8),
-            SizedBox(
-              key: const ValueKey('public_request_media_photos'),
-              height: compact ? 92 : 116,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: photos.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final photo = photos[index];
-                  final remoteUrl = photo.url.trim();
-                  final bytes = remoteUrl.isEmpty
-                      ? _decodeBase64(photo.base64Data)
-                      : null;
-                  if (remoteUrl.isEmpty && bytes == null) {
-                    return const SizedBox.shrink();
-                  }
-                  final size = compact ? 92.0 : 116.0;
-                  return Stack(children: [
+      key: const ValueKey('public_request_media_view'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (photos.isNotEmpty) ...[
+          Text(
+            '${text.isKy ? 'Сүрөттөр' : 'Фото'} (${photos.length}/3)',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: _muted(context),
+                ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            key: const ValueKey('public_request_media_photos'),
+            height: compact ? 92 : 116,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: photos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final photo = photos[index];
+                final remoteUrl = photo.url.trim();
+                final bytes = remoteUrl.isEmpty ? _decodeBase64(photo.base64Data) : null;
+                if (remoteUrl.isEmpty && bytes == null) return const SizedBox.shrink();
+                final size = compact ? 92.0 : 116.0;
+
+                return Stack(
+                  children: [
                     GestureDetector(
                       key: ValueKey('public_request_media_photo_$index'),
-                      onTap: bytes == null
-                          ? null
-                          : () => openPublicRequestPhoto(context, bytes),
+                      onTap: remoteUrl.isNotEmpty
+                          ? () => openPublicRequestNetworkPhoto(context, remoteUrl)
+                          : bytes == null
+                              ? null
+                              : () => openPublicRequestPhoto(context, bytes),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
                         child: remoteUrl.isNotEmpty
-                            ? _AuthenticatedNetworkImage(
-                                url: remoteUrl, width: size, height: size)
-                            : Image.memory(bytes!,
+                            ? _AuthenticatedNetworkImage(url: remoteUrl, width: size, height: size)
+                            : Image.memory(
+                                bytes!,
                                 width: size,
                                 height: size,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    const SizedBox.shrink()),
+                                errorBuilder: (_, __, ___) => _PhotoErrorBox(width: size, height: size),
+                              ),
                       ),
                     ),
                     if (onRemovePhoto != null)
@@ -137,39 +144,46 @@ class PublicRequestMediaView extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
-                                color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.close_rounded,
-                                color: Colors.white, size: 16),
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
                           ),
                         ),
                       ),
-                  ]);
-                },
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+        if (videos.isNotEmpty) ...[
+          if (photos.isNotEmpty) const SizedBox(height: 12),
+          Text(
+            text.isKy ? 'Видео' : 'Видео',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: _muted(context),
+                ),
+          ),
+          const SizedBox(height: 8),
+          ...videos.map(
+            (video) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: PublicRequestVideoTile(
+                video: video,
+                onRemove: onRemoveVideo == null ? null : () => onRemoveVideo!(video),
               ),
             ),
-          ],
-          if (videos.isNotEmpty) ...[
-            if (photos.isNotEmpty) const SizedBox(height: 12),
-            Text(text.isKy ? 'Видео' : 'Видео',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800, color: _muted(context))),
-            const SizedBox(height: 8),
-            ...videos.map((video) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: PublicRequestVideoTile(
-                      video: video,
-                      onRemove: onRemoveVideo == null
-                          ? null
-                          : () => onRemoveVideo!(video)),
-                )),
-          ],
-        ]);
+          ),
+        ],
+      ],
+    );
   }
 }
 
 class _AuthenticatedNetworkImage extends StatelessWidget {
-  const _AuthenticatedNetworkImage(
-      {required this.url, required this.width, required this.height});
+  const _AuthenticatedNetworkImage({required this.url, required this.width, required this.height});
 
   final String url;
   final double width;
@@ -181,9 +195,8 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
       future: _imageAuthHeaders(url),
       builder: (context, snapshot) {
         final headers = snapshot.data;
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            headers == null) {
-          return SizedBox(width: width, height: height);
+        if (snapshot.connectionState == ConnectionState.waiting && headers == null) {
+          return _PhotoLoadingBox(width: width, height: height);
         }
         return Image.network(
           url,
@@ -191,9 +204,43 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          errorBuilder: (_, __, ___) => _PhotoErrorBox(width: width, height: height),
         );
       },
+    );
+  }
+}
+
+class _PhotoLoadingBox extends StatelessWidget {
+  const _PhotoLoadingBox({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      child: const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+    );
+  }
+}
+
+class _PhotoErrorBox extends StatelessWidget {
+  const _PhotoErrorBox({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      child: Icon(Icons.broken_image_outlined, color: _muted(context)),
     );
   }
 }
@@ -203,22 +250,77 @@ void openPublicRequestPhoto(BuildContext context, Uint8List bytes) {
     context: context,
     builder: (_) => Dialog.fullscreen(
       backgroundColor: Colors.black,
-      child: Stack(children: [
-        InteractiveViewer(
+      child: Stack(
+        children: [
+          InteractiveViewer(
             minScale: 0.7,
             maxScale: 4,
-            child: Center(child: Image.memory(bytes, fit: BoxFit.contain))),
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topRight,
-            child: IconButton.filledTonal(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded)),
+            child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
           ),
-        ),
-      ]),
+          const _FullscreenCloseButton(),
+        ],
+      ),
     ),
   );
+}
+
+void openPublicRequestNetworkPhoto(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    builder: (_) => Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          FutureBuilder<Map<String, String>?>(
+            future: _imageAuthHeaders(url),
+            builder: (context, snapshot) {
+              final headers = snapshot.data;
+              if (snapshot.connectionState == ConnectionState.waiting && headers == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return InteractiveViewer(
+                minScale: 0.7,
+                maxScale: 4,
+                child: Center(
+                  child: Image.network(
+                    url,
+                    headers: headers,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Фото не открывается',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const _FullscreenCloseButton(),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FullscreenCloseButton extends StatelessWidget {
+  const _FullscreenCloseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: IconButton.filledTonal(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ),
+    );
+  }
 }
 
 class PublicRequestVideoTile extends StatelessWidget {
@@ -235,31 +337,32 @@ class PublicRequestVideoTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: _surface(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border(context))),
-        child: Row(children: [
-          Icon(Icons.play_circle_outline_rounded,
-              color: Theme.of(context).colorScheme.primary, size: 40),
-          const SizedBox(width: 12),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(video.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: _strong(context), fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              Text(_sizeLabel(video.sizeBytes),
-                  style: TextStyle(color: _muted(context), fontSize: 12)),
-            ]),
-          ),
-          if (onRemove != null)
-            IconButton(
-                onPressed: onRemove,
-                icon: const Icon(Icons.delete_outline_rounded)),
-        ]),
+          color: _surface(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border(context)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.play_circle_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _strong(context), fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_sizeLabel(video.sizeBytes), style: TextStyle(color: _muted(context), fontSize: 12)),
+                ],
+              ),
+            ),
+            if (onRemove != null) IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline_rounded)),
+          ],
+        ),
       ),
     );
   }
@@ -267,13 +370,14 @@ class PublicRequestVideoTile extends StatelessWidget {
 
 void openPublicRequestVideo(BuildContext context, PublicRequestVideo video) {
   showDialog<void>(
-      context: context,
-      builder: (_) => Dialog.fullscreen(
-          backgroundColor: Colors.black, child: _VideoViewer(video: video)));
+    context: context,
+    builder: (_) => Dialog.fullscreen(backgroundColor: Colors.black, child: _VideoViewer(video: video)),
+  );
 }
 
 class _VideoViewer extends StatefulWidget {
   const _VideoViewer({required this.video});
+
   final PublicRequestVideo video;
 
   @override
@@ -294,10 +398,8 @@ class _VideoViewerState extends State<_VideoViewer> {
     final bytes = _decodeBase64(widget.video.base64Data);
     if (bytes == null || bytes.isEmpty) throw Exception('Видео пустое');
     final dir = await getTemporaryDirectory();
-    final ext =
-        widget.video.name.toLowerCase().endsWith('.mov') ? '.mov' : '.mp4';
-    final file = File(
-        '${dir.path}/post_video_${DateTime.now().microsecondsSinceEpoch}$ext');
+    final ext = widget.video.name.toLowerCase().endsWith('.mov') ? '.mov' : '.mp4';
+    final file = File('${dir.path}/post_video_${DateTime.now().microsecondsSinceEpoch}$ext');
     await file.writeAsBytes(bytes, flush: true);
     final next = VideoPlayerController.file(file);
     controller = next;
@@ -315,68 +417,61 @@ class _VideoViewerState extends State<_VideoViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      Center(
-        child: FutureBuilder<void>(
-          future: setupFuture,
-          builder: (context, snapshot) {
-            final current = controller;
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const CircularProgressIndicator();
-            }
-            if (snapshot.hasError ||
-                current == null ||
-                !current.value.isInitialized) {
-              return Padding(
+    return Stack(
+      children: [
+        Center(
+          child: FutureBuilder<void>(
+            future: setupFuture,
+            builder: (context, snapshot) {
+              final current = controller;
+              if (snapshot.connectionState != ConnectionState.done) return const CircularProgressIndicator();
+              if (snapshot.hasError || current == null || !current.value.isInitialized) {
+                return Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                      snapshot.error?.toString() ?? 'Видео не открывается',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white)));
-            }
-            return GestureDetector(
-              onTap: () {
-                current.value.isPlaying ? current.pause() : current.play();
-                setState(() {});
-              },
-              child: AspectRatio(
-                  aspectRatio: current.value.aspectRatio,
-                  child: VideoPlayer(current)),
-            );
-          },
+                    snapshot.error?.toString() ?? 'Видео не открывается',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }
+              return GestureDetector(
+                onTap: () {
+                  current.value.isPlaying ? current.pause() : current.play();
+                  setState(() {});
+                },
+                child: AspectRatio(aspectRatio: current.value.aspectRatio, child: VideoPlayer(current)),
+              );
+            },
+          ),
         ),
-      ),
-      SafeArea(
-          child: Align(
-              alignment: Alignment.topRight,
-              child: IconButton.filledTonal(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded)))),
-      if (controller != null && controller!.value.isInitialized)
-        SafeArea(
+        const _FullscreenCloseButton(),
+        if (controller != null && controller!.value.isInitialized)
+          SafeArea(
             child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: VideoProgressIndicator(controller!,
-                        allowScrubbing: true)))),
-    ]);
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: VideoProgressIndicator(controller!, allowScrubbing: true),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
 class CreatePublicRequestMediaSheet extends StatefulWidget {
-  const CreatePublicRequestMediaSheet(
-      {super.key, required this.api, required this.groupId});
+  const CreatePublicRequestMediaSheet({super.key, required this.api, required this.groupId});
+
   final PublicRequestsApi api;
   final String groupId;
 
   @override
-  State<CreatePublicRequestMediaSheet> createState() =>
-      _CreatePublicRequestMediaSheetState();
+  State<CreatePublicRequestMediaSheet> createState() => _CreatePublicRequestMediaSheetState();
 }
 
-class _CreatePublicRequestMediaSheetState
-    extends State<CreatePublicRequestMediaSheet> {
+class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMediaSheet> {
   final titleController = TextEditingController();
   final bodyController = TextEditingController();
   final imagePicker = ImagePicker();
@@ -400,8 +495,7 @@ class _CreatePublicRequestMediaSheetState
 
   Future<Uint8List> _compressedPhotoBytesWithoutExif(XFile image) async {
     final tempDir = await getTemporaryDirectory();
-    final targetPath =
-        '${tempDir.path}/public_request_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final targetPath = '${tempDir.path}/public_request_${DateTime.now().microsecondsSinceEpoch}.jpg';
     final compressed = await FlutterImageCompress.compressAndGetFile(
       image.path,
       targetPath,
@@ -419,22 +513,20 @@ class _CreatePublicRequestMediaSheetState
     final text = AppLanguageScope.textOf(context);
     if (loading || photos.length >= maxPhotos) return;
     try {
-      final image = await imagePicker.pickImage(
-          source: ImageSource.gallery, maxWidth: 1280, imageQuality: 72);
+      final image = await imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 1280, imageQuality: 72);
       if (image == null) return;
       final bytes = await _compressedPhotoBytesWithoutExif(image);
       if (bytes.length > maxPhotoBytes) {
-        setState(() => error = text.isKy
-            ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.'
-            : 'Фото слишком большое. Выберите другое фото.');
+        setState(() => error = text.isKy ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.' : 'Фото слишком большое. Выберите другое фото.');
         return;
       }
       final fileName = image.name.isNotEmpty ? image.name : 'photo.jpg';
       final uploaded = await widget.api.uploadPublicRequestFile(
-          groupId: widget.groupId,
-          kind: 'photo',
-          fileName: fileName,
-          bytes: bytes);
+        groupId: widget.groupId,
+        kind: 'photo',
+        fileName: fileName,
+        bytes: bytes,
+      );
       setState(() {
         photos.add(PublicRequestPhoto(
           name: uploaded['file_name'] as String? ?? fileName,
@@ -445,11 +537,8 @@ class _CreatePublicRequestMediaSheetState
         error = null;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => error = text.isKy
-            ? 'Сүрөт тандалган жок: $e'
-            : 'Не удалось выбрать фото: $e');
-      }
+      if (!mounted) return;
+      setState(() => error = text.isKy ? 'Сүрөт тандалган жок: $e' : 'Не удалось выбрать фото: $e');
     }
   }
 
@@ -457,34 +546,28 @@ class _CreatePublicRequestMediaSheetState
     final text = AppLanguageScope.textOf(context);
     if (loading || videos.isNotEmpty) return;
     try {
-      final result = await FilePicker.platform.pickFiles(
-          type: FileType.video, allowMultiple: false, withData: true);
+      final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: false, withData: true);
       if (result == null || result.files.isEmpty) return;
       final file = result.files.single;
-      final bytes = file.bytes ??
-          (file.path == null ? null : await File(file.path!).readAsBytes());
+      final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
       if (bytes == null || bytes.isEmpty) return;
       if (bytes.length > maxVideoBytes) {
-        setState(() => error = text.isKy
-            ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.'
-            : 'Видео слишком большое. Выберите видео до 12 MB.');
+        setState(() => error = text.isKy ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.' : 'Видео слишком большое. Выберите видео до 12 MB.');
         return;
       }
       setState(() {
         videos
           ..clear()
           ..add(PublicRequestVideo(
-              name: file.name.isNotEmpty ? file.name : 'video.mp4',
-              sizeBytes: bytes.length,
-              base64Data: base64Encode(bytes)));
+            name: file.name.isNotEmpty ? file.name : 'video.mp4',
+            sizeBytes: bytes.length,
+            base64Data: base64Encode(bytes),
+          ));
         error = null;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => error = text.isKy
-            ? 'Видео тандалган жок: $e'
-            : 'Не удалось выбрать видео: $e');
-      }
+      if (!mounted) return;
+      setState(() => error = text.isKy ? 'Видео тандалган жок: $e' : 'Не удалось выбрать видео: $e');
     }
   }
 
@@ -492,25 +575,22 @@ class _CreatePublicRequestMediaSheetState
     final text = AppLanguageScope.textOf(context);
     final bodyText = bodyController.text.trim();
     if (bodyText.isEmpty && photos.isEmpty && videos.isEmpty) {
-      setState(() => error = text.isKy
-          ? 'Текст, сүрөт же видео кошуңуз.'
-          : 'Добавьте текст, фото или видео.');
+      setState(() => error = text.isKy ? 'Текст, сүрөт же видео кошуңуз.' : 'Добавьте текст, фото или видео.');
       return;
     }
-    final payload = PublicRequestContent(
-            text: bodyText, photos: List.of(photos), videos: List.of(videos))
-        .toPayload();
+    final payload = PublicRequestContent(text: bodyText, photos: List.of(photos), videos: List.of(videos)).toPayload();
     setState(() {
       loading = true;
       error = null;
     });
     try {
       final request = await widget.api.createRequest(
-          groupId: widget.groupId,
-          type: type,
-          interactionMode: interactionMode,
-          title: titleController.text.trim(),
-          body: payload);
+        groupId: widget.groupId,
+        type: type,
+        interactionMode: interactionMode,
+        title: titleController.text.trim(),
+        body: payload,
+      );
       if (mounted) Navigator.of(context).pop(request);
     } on ModerationPendingException catch (e) {
       if (mounted) {
@@ -527,122 +607,108 @@ class _CreatePublicRequestMediaSheetState
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final content = PublicRequestContent(
-        text: bodyController.text, photos: photos, videos: videos);
+    final content = PublicRequestContent(text: bodyController.text, photos: photos, videos: videos);
     return Padding(
       padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+      ),
       child: SingleChildScrollView(
         child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(text.newPost,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 16),
-              TextField(
-                  key: const ValueKey('post_title_field'),
-                  controller: titleController,
-                  decoration: InputDecoration(labelText: text.title)),
-              const SizedBox(height: 12),
-              TextField(
-                  key: const ValueKey('post_body_field'),
-                  controller: bodyController,
-                  minLines: 4,
-                  maxLines: 8,
-                  decoration: InputDecoration(labelText: text.description)),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('post_type_dropdown'),
-                value: type,
-                decoration: InputDecoration(labelText: text.postType),
-                items: [
-                  DropdownMenuItem(
-                      value: 'announcement', child: Text(text.announcement)),
-                  DropdownMenuItem(
-                      value: 'suggestion', child: Text(text.suggestion)),
-                  DropdownMenuItem(
-                      value: 'complaint', child: Text(text.complaint)),
-                  DropdownMenuItem(
-                      value: 'requirement', child: Text(text.requirement)),
-                  DropdownMenuItem(value: 'problem', child: Text(text.problem)),
-                  DropdownMenuItem(value: 'idea', child: Text(text.idea)),
-                ],
-                onChanged: loading
-                    ? null
-                    : (value) => setState(() => type = value ?? 'announcement'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                key: const ValueKey('post_mode_dropdown'),
-                value: interactionMode,
-                decoration: InputDecoration(labelText: text.interactionMode),
-                items: [
-                  DropdownMenuItem(
-                      key: const ValueKey('post_mode_read_only'),
-                      value: 'read_only',
-                      child: Text(text.textOnly)),
-                  DropdownMenuItem(
-                      key: const ValueKey('post_mode_vote_only'),
-                      value: 'vote_only',
-                      child: Text(text.votingOnly)),
-                  DropdownMenuItem(
-                      key: const ValueKey('post_mode_discussion'),
-                      value: 'discussion',
-                      child: Text(text.discussionWithComments)),
-                ],
-                onChanged: loading
-                    ? null
-                    : (value) =>
-                        setState(() => interactionMode = value ?? 'read_only'),
-              ),
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                OutlinedButton.icon(
-                    onPressed: loading || photos.length >= maxPhotos
-                        ? null
-                        : pickPhoto,
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text(
-                        '${text.isKy ? 'Сүрөт' : 'Фото'} ${photos.length}/$maxPhotos')),
-                OutlinedButton.icon(
-                    onPressed: loading || videos.isNotEmpty ? null : pickVideo,
-                    icon: const Icon(Icons.video_library_outlined),
-                    label: Text(videos.isEmpty
-                        ? (text.isKy ? 'Видео кошуу' : 'Добавить видео')
-                        : (text.isKy ? 'Видео кошулду' : 'Видео добавлено'))),
-              ]),
-              if (content.hasMedia) ...[
-                const SizedBox(height: 12),
-                PublicRequestMediaView(
-                    content: content,
-                    compact: false,
-                    onRemovePhoto: (photo) =>
-                        setState(() => photos.remove(photo)),
-                    onRemoveVideo: (video) =>
-                        setState(() => videos.remove(video))),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text.newPost,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const ValueKey('post_title_field'),
+              controller: titleController,
+              decoration: InputDecoration(labelText: text.title),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('post_body_field'),
+              controller: bodyController,
+              minLines: 4,
+              maxLines: 8,
+              decoration: InputDecoration(labelText: text.description),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const ValueKey('post_type_dropdown'),
+              value: type,
+              decoration: InputDecoration(labelText: text.postType),
+              items: [
+                DropdownMenuItem(value: 'announcement', child: Text(text.announcement)),
+                DropdownMenuItem(value: 'suggestion', child: Text(text.suggestion)),
+                DropdownMenuItem(value: 'complaint', child: Text(text.complaint)),
+                DropdownMenuItem(value: 'requirement', child: Text(text.requirement)),
+                DropdownMenuItem(value: 'problem', child: Text(text.problem)),
+                DropdownMenuItem(value: 'idea', child: Text(text.idea)),
               ],
-              const SizedBox(height: 8),
-              Text(
-                  text.isKy
-                      ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.'
-                      : 'Максимум 3 фото. Видео до 12 MB.',
-                  style: TextStyle(color: _muted(context), fontSize: 12)),
-              if (error != null) ...[
-                const SizedBox(height: 12),
-                ErrorBanner(message: error!)
+              onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const ValueKey('post_mode_dropdown'),
+              value: interactionMode,
+              decoration: InputDecoration(labelText: text.interactionMode),
+              items: [
+                DropdownMenuItem(key: const ValueKey('post_mode_read_only'), value: 'read_only', child: Text(text.textOnly)),
+                DropdownMenuItem(key: const ValueKey('post_mode_vote_only'), value: 'vote_only', child: Text(text.votingOnly)),
+                DropdownMenuItem(key: const ValueKey('post_mode_discussion'), value: 'discussion', child: Text(text.discussionWithComments)),
               ],
-              const SizedBox(height: 16),
-              FilledButton(
-                  key: const ValueKey('post_submit_button'),
-                  onPressed: loading ? null : submit,
-                  child: Text(loading ? text.publishing : text.publish)),
-            ]),
+              onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only'),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: loading || photos.length >= maxPhotos ? null : pickPhoto,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text('${text.isKy ? 'Сүрөт' : 'Фото'} ${photos.length}/$maxPhotos'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: loading || videos.isNotEmpty ? null : pickVideo,
+                  icon: const Icon(Icons.video_library_outlined),
+                  label: Text(videos.isEmpty
+                      ? (text.isKy ? 'Видео кошуу' : 'Добавить видео')
+                      : (text.isKy ? 'Видео кошулду' : 'Видео добавлено')),
+                ),
+              ],
+            ),
+            if (content.hasMedia) ...[
+              const SizedBox(height: 12),
+              PublicRequestMediaView(
+                content: content,
+                compact: false,
+                onRemovePhoto: (photo) => setState(() => photos.remove(photo)),
+                onRemoveVideo: (video) => setState(() => videos.remove(video)),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              text.isKy ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.' : 'Максимум 3 фото. Видео до 12 MB.',
+              style: TextStyle(color: _muted(context), fontSize: 12),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 12),
+              ErrorBanner(message: error!),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const ValueKey('post_submit_button'),
+              onPressed: loading ? null : submit,
+              child: Text(loading ? text.publishing : text.publish),
+            ),
+          ],
+        ),
       ),
     );
   }
