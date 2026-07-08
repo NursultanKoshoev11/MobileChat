@@ -135,6 +135,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     setState(() => requestsFuture = Future.value(requests));
   }
 
+  PublicRequest currentRequest(PublicRequest fallback) {
+    for (final request in cachedRequests) {
+      if (request.id == fallback.id) return request;
+    }
+    return fallback;
+  }
+
+  void replaceRequest(PublicRequest next) {
+    setRequests(cachedRequests
+        .map((request) => request.id == next.id ? next : request)
+        .toList());
+  }
+
   void _scheduleRealtimeRefresh() {
     _refreshDebounce?.cancel();
     _refreshDebounce = Timer(const Duration(milliseconds: 250), () {
@@ -233,31 +246,42 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> vote(PublicRequest request, String voteType) async {
-    if (request.interactionMode == 'read_only') return;
+    final current = currentRequest(request);
+    if (current.interactionMode == 'read_only') return;
+    final previous = cachedRequests;
+    final next = optimisticPublicRequestVote(current, voteType);
+    replaceRequest(next);
     try {
-      if (request.myVote == voteType) {
-        await requestsApi.clearVote(request.id);
+      if (current.myVote == voteType) {
+        await requestsApi.clearVote(current.id);
       } else if (voteType == 'support') {
-        await requestsApi.support(request.id);
+        await requestsApi.support(current.id);
       } else {
-        await requestsApi.oppose(request.id);
+        await requestsApi.oppose(current.id);
       }
-      await refresh();
+      unawaited(refresh(silent: true).catchError((_) {}));
     } catch (error) {
+      setRequests(previous);
       if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
 
   Future<void> updateStatus(PublicRequest request, String status) async {
     if (!canModerate) return;
+    final current = currentRequest(request);
+    if (current.status == status) return;
+    final previous = cachedRequests;
+    final next = current.copyWith(status: status, updatedAt: DateTime.now());
+    replaceRequest(next);
     try {
-      await requestsApi.updateStatus(requestId: request.id, status: status);
-      await refresh();
+      await requestsApi.updateStatus(requestId: current.id, status: status);
+      unawaited(refresh(silent: true).catchError((_) {}));
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
         showAppSnack(context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
       }
     } catch (error) {
+      setRequests(previous);
       if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
@@ -273,10 +297,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           currentUserId: widget.user.id,
           onStatusChanged:
               canModerate ? (status) => updateStatus(request, status) : null,
+          onRequestChanged: replaceRequest,
         ),
       ),
     );
-    await refresh();
+    unawaited(refresh(silent: true).catchError((_) {}));
   }
 
   Future<void> openModerationQueue() async {

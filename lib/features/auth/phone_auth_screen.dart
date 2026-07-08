@@ -19,7 +19,9 @@ class PhoneAuthScreen extends StatefulWidget {
 }
 
 class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  final mobileController = TextEditingController(text: '+996');
+  static const _kgPhonePrefix = '+996';
+
+  final mobileController = TextEditingController();
   final codeController = TextEditingController();
   final displayNameController = TextEditingController();
 
@@ -37,7 +39,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
+  String get _mobileDigits => mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
+  String get _fullMobileNumber => '$_kgPhonePrefix$_mobileDigits';
+
   Future<void> requestCode() async {
+    final text = AppLanguageScope.textOf(context);
+    if (_mobileDigits.length != 9) {
+      setState(() => error = text.isKy ? '996 кодунан кийин 9 цифра жазыңыз' : 'Введите 9 цифр после 996');
+      return;
+    }
     setState(() {
       loading = true;
       error = null;
@@ -45,7 +55,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       accountExists = false;
     });
     try {
-      final result = await widget.api.requestPhoneCode(mobileController.text.trim());
+      final result = await widget.api.requestPhoneCode(_fullMobileNumber);
       if (!mounted) return;
       setState(() {
         codeWasSent = true;
@@ -84,7 +94,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     });
     try {
       final session = await widget.api.verifyPhoneCode(
-        mobile: mobileController.text.trim(),
+        mobile: _fullMobileNumber,
         code: code,
         displayName: accountExists ? '' : displayNameController.text.trim(),
       );
@@ -145,10 +155,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       controller: mobileController,
                       enabled: !loading && !codeWasSent,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(9),
+                      ],
+                      onChanged: (_) {
+                        if (mounted && error != null) setState(() => error = null);
+                      },
                       decoration: InputDecoration(
                         labelText: text.mobileNumber,
-                        hintText: '+996700123456',
+                        hintText: '700123456',
                         prefixIcon: const Icon(Icons.phone_iphone_rounded),
+                        prefixText: '$_kgPhonePrefix ',
                       ),
                     ),
                     if (codeWasSent) ...[

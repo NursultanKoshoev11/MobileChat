@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../app/localization.dart';
@@ -15,6 +17,185 @@ String compactTime(DateTime time) {
   return '$hour:$minute';
 }
 
+int? _cp1251ByteForRune(int codePoint) {
+  if (codePoint <= 0xff) return codePoint;
+  if (codePoint >= 0x0410 && codePoint <= 0x044f) {
+    return 0xc0 + (codePoint - 0x0410);
+  }
+
+  switch (codePoint) {
+    case 0x0402:
+      return 0x80;
+    case 0x0403:
+      return 0x81;
+    case 0x201a:
+      return 0x82;
+    case 0x0453:
+      return 0x83;
+    case 0x201e:
+      return 0x84;
+    case 0x2026:
+      return 0x85;
+    case 0x2020:
+      return 0x86;
+    case 0x2021:
+      return 0x87;
+    case 0x20ac:
+      return 0x88;
+    case 0x2030:
+      return 0x89;
+    case 0x0409:
+      return 0x8a;
+    case 0x2039:
+      return 0x8b;
+    case 0x040a:
+      return 0x8c;
+    case 0x040c:
+      return 0x8d;
+    case 0x040b:
+      return 0x8e;
+    case 0x040f:
+      return 0x8f;
+    case 0x0452:
+      return 0x90;
+    case 0x2018:
+      return 0x91;
+    case 0x2019:
+      return 0x92;
+    case 0x201c:
+      return 0x93;
+    case 0x201d:
+      return 0x94;
+    case 0x2022:
+      return 0x95;
+    case 0x2013:
+      return 0x96;
+    case 0x2014:
+      return 0x97;
+    case 0x2122:
+      return 0x99;
+    case 0x0459:
+      return 0x9a;
+    case 0x203a:
+      return 0x9b;
+    case 0x045a:
+      return 0x9c;
+    case 0x045c:
+      return 0x9d;
+    case 0x045b:
+      return 0x9e;
+    case 0x045f:
+      return 0x9f;
+    case 0x00a0:
+      return 0xa0;
+    case 0x040e:
+      return 0xa1;
+    case 0x045e:
+      return 0xa2;
+    case 0x0408:
+      return 0xa3;
+    case 0x00a4:
+      return 0xa4;
+    case 0x0490:
+      return 0xa5;
+    case 0x00a6:
+      return 0xa6;
+    case 0x00a7:
+      return 0xa7;
+    case 0x0401:
+      return 0xa8;
+    case 0x00a9:
+      return 0xa9;
+    case 0x0404:
+      return 0xaa;
+    case 0x00ab:
+      return 0xab;
+    case 0x00ac:
+      return 0xac;
+    case 0x00ad:
+      return 0xad;
+    case 0x00ae:
+      return 0xae;
+    case 0x0407:
+      return 0xaf;
+    case 0x00b0:
+      return 0xb0;
+    case 0x00b1:
+      return 0xb1;
+    case 0x0406:
+      return 0xb2;
+    case 0x0456:
+      return 0xb3;
+    case 0x0491:
+      return 0xb4;
+    case 0x00b5:
+      return 0xb5;
+    case 0x00b6:
+      return 0xb6;
+    case 0x00b7:
+      return 0xb7;
+    case 0x0451:
+      return 0xb8;
+    case 0x2116:
+      return 0xb9;
+    case 0x0454:
+      return 0xba;
+    case 0x00bb:
+      return 0xbb;
+    case 0x0458:
+      return 0xbc;
+    case 0x0405:
+      return 0xbd;
+    case 0x0455:
+      return 0xbe;
+    case 0x0457:
+      return 0xbf;
+  }
+  return null;
+}
+
+int _mojibakeScore(String value) {
+  final brokenPairs = RegExp(r'[РСТУ][\u0400-\u04ff\u00a0-\u00bf]');
+  return brokenPairs.allMatches(value).length +
+      'Ð'.allMatches(value).length +
+      'Ñ'.allMatches(value).length +
+      '�'.allMatches(value).length;
+}
+
+int _cyrillicScore(String value) =>
+    RegExp(r'[\u0400-\u04ff]').allMatches(value).length;
+
+String _repairMojibake(String value) {
+  if (value.isEmpty ||
+      !(value.contains('Р') ||
+          value.contains('С') ||
+          value.contains('Т') ||
+          value.contains('У') ||
+          value.contains('Ð') ||
+          value.contains('Ñ'))) {
+    return value;
+  }
+
+  final bytes = <int>[];
+  for (final rune in value.runes) {
+    final b = _cp1251ByteForRune(rune);
+    if (b == null) return value;
+    bytes.add(b);
+  }
+
+  try {
+    final decoded = utf8.decode(bytes, allowMalformed: false);
+    if (_mojibakeScore(decoded) < _mojibakeScore(value) &&
+        _cyrillicScore(decoded) >= _cyrillicScore(value) ~/ 2) {
+      return decoded;
+    }
+  } on FormatException {
+    return value;
+  }
+
+  return value;
+}
+
 String _formatMuteUntil(String value) {
   try {
     final dt = DateTime.parse(value.trim()).toLocal();
@@ -30,11 +211,12 @@ String _formatMuteUntil(String value) {
 }
 
 String localizedMessage(BuildContext context, String message) {
+  final repairedMessage = _repairMojibake(message);
   final text = AppLanguageScope.textOf(context);
-  final lower = message.toLowerCase();
+  final lower = repairedMessage.toLowerCase();
 
   if (lower.contains('comments are blocked until')) {
-    final raw = message
+    final raw = repairedMessage
         .replaceFirst(
             RegExp(r'comments are blocked until\s*', caseSensitive: false), '')
         .trim();
@@ -128,7 +310,7 @@ String localizedMessage(BuildContext context, String message) {
   if (lower.contains('already'))
     return text.isKy ? 'Бул аракет мурун эле жасалган.' : 'Это уже выполнено.';
 
-  return message;
+  return repairedMessage;
 }
 
 void showAppSnack(BuildContext context, String message) {

@@ -699,12 +699,14 @@ class PublicRequestDetailsScreen extends StatefulWidget {
       required this.request,
       required this.canModerate,
       required this.currentUserId,
-      this.onStatusChanged});
+      this.onStatusChanged,
+      this.onRequestChanged});
   final PublicRequestsApi api;
   final PublicRequest request;
   final bool canModerate;
   final String currentUserId;
   final ValueChanged<String>? onStatusChanged;
+  final ValueChanged<PublicRequest>? onRequestChanged;
 
   @override
   State<PublicRequestDetailsScreen> createState() =>
@@ -714,6 +716,7 @@ class PublicRequestDetailsScreen extends StatefulWidget {
 class _PublicRequestDetailsScreenState
     extends State<PublicRequestDetailsScreen> {
   final commentController = TextEditingController();
+  late PublicRequest request;
   late Future<List<PublicRequestComment>> commentsFuture;
   late final GroupRealtimeService realtime;
   List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
@@ -724,10 +727,11 @@ class _PublicRequestDetailsScreenState
   @override
   void initState() {
     super.initState();
+    request = widget.request;
     commentsFuture = loadComments();
     realtime = GroupRealtimeService(
       api: ApiClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
-      groupId: widget.request.groupId,
+      groupId: request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
   }
@@ -741,7 +745,7 @@ class _PublicRequestDetailsScreenState
   }
 
   Future<List<PublicRequestComment>> loadComments() async {
-    final comments = await widget.api.listComments(widget.request.id);
+    final comments = await widget.api.listComments(request.id);
     cachedComments = comments;
     return comments;
   }
@@ -758,7 +762,7 @@ class _PublicRequestDetailsScreenState
   }
 
   void handleRealtimeEvent(GroupRealtimeEvent event) {
-    if (!mounted || event.groupId != widget.request.groupId) return;
+    if (!mounted || event.groupId != request.groupId) return;
     if (event.type == 'connection.ready') {
       realtimeRefreshDebounce?.cancel();
       realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
@@ -766,7 +770,7 @@ class _PublicRequestDetailsScreenState
       });
       return;
     }
-    if (event.requestId != widget.request.id) return;
+    if (event.requestId != request.id) return;
     switch (event.type) {
       case 'public_request.comment_created':
         final payload = event.payload;
@@ -800,26 +804,52 @@ class _PublicRequestDetailsScreenState
     setState(() => commentsFuture = Future.value(comments));
   }
 
+  void setRequest(PublicRequest next) {
+    if (!mounted) return;
+    setState(() => request = next);
+    widget.onRequestChanged?.call(next);
+  }
+
+  Future<void> vote(String voteType) async {
+    if (request.interactionMode == 'read_only') return;
+    final previous = request;
+    final next = optimisticPublicRequestVote(request, voteType);
+    setRequest(next);
+    try {
+      if (previous.myVote == voteType) {
+        await widget.api.clearVote(previous.id);
+      } else if (voteType == 'support') {
+        await widget.api.support(previous.id);
+      } else {
+        await widget.api.oppose(previous.id);
+      }
+    } catch (e) {
+      setRequest(previous);
+      if (mounted) showAppSnack(context, localizedMessage(context, e.toString()));
+    }
+  }
+
   Future<void> submitComment() async {
     final body = commentController.text.trim();
     if (body.isEmpty ||
         sending ||
-        widget.request.interactionMode != 'discussion') return;
+        request.interactionMode != 'discussion') return;
     setState(() {
       sending = true;
       error = null;
     });
     try {
-      await widget.api.addComment(requestId: widget.request.id, body: body);
+      final comment = await widget.api.addComment(requestId: request.id, body: body);
       commentController.clear();
-      await refreshComments();
+      addRealtimeComment(comment);
+      setRequest(request.copyWith(commentCount: request.commentCount + 1, updatedAt: DateTime.now()));
     } on ModerationPendingException catch (e) {
       commentController.clear();
       if (mounted) {
         setState(() => error = null);
         showAppSnack(context, e.message);
       }
-      await refreshComments();
+      unawaited(refreshComments(silent: true).catchError((_) {}));
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -829,11 +859,19 @@ class _PublicRequestDetailsScreenState
 
   Future<void> deleteComment(PublicRequestComment comment) async {
     if (!widget.canModerate && comment.authorId != widget.currentUserId) return;
+    final previousComments = cachedComments;
+    final previousRequest = request;
+    removeRealtimeComment(comment.id);
+    setRequest(request.copyWith(
+      commentCount: request.commentCount - 1 < 0 ? 0 : request.commentCount - 1,
+      updatedAt: DateTime.now(),
+    ));
     try {
       await widget.api.deleteComment(comment.id);
-      await refreshComments();
     } catch (e) {
-      if (mounted) showAppSnack(context, e.toString());
+      setComments(previousComments);
+      setRequest(previousRequest);
+      if (mounted) showAppSnack(context, localizedMessage(context, e.toString()));
     }
   }
 
@@ -849,20 +887,27 @@ class _PublicRequestDetailsScreenState
         child: FutureBuilder<List<PublicRequestComment>>(
           future: commentsFuture,
           builder: (context, snapshot) {
-            final comments = snapshot.data ?? const <PublicRequestComment>[];
+            final comments = cachedComments.isNotEmpty
+                ? cachedComments
+                : snapshot.data ?? const <PublicRequestComment>[];
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 PublicRequestCard(
-                  request: widget.request,
+                  request: request,
                   onTap: () {},
-                  onVote: (_) {},
+                  onVote: vote,
                   canModerate: widget.canModerate,
-                  onStatus: widget.onStatusChanged,
+                  onStatus: widget.onStatusChanged == null
+                      ? null
+                      : (status) {
+                          setRequest(request.copyWith(status: status, updatedAt: DateTime.now()));
+                          widget.onStatusChanged!(status);
+                        },
                 ),
                 const SizedBox(height: 12),
-                if (widget.request.displayBody.isNotEmpty)
+                if (request.displayBody.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -870,14 +915,14 @@ class _PublicRequestDetailsScreenState
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: colors.border),
                     ),
-                    child: Text(widget.request.displayBody,
+                    child: Text(request.displayBody,
                         style:
                             TextStyle(color: colors.textStrong, height: 1.35)),
                   ),
-                if (widget.request.content.photos.isNotEmpty) ...[
+                if (request.content.photos.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _PostPhotoPreview(
-                    photos: widget.request.content.photos,
+                    photos: request.content.photos,
                     compact: false,
                   ),
                 ],
@@ -892,7 +937,7 @@ class _PublicRequestDetailsScreenState
                   ErrorBanner(message: error!),
                   const SizedBox(height: 10),
                 ],
-                if (snapshot.connectionState == ConnectionState.waiting)
+                if (snapshot.connectionState == ConnectionState.waiting && cachedComments.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 28),
                     child: Center(child: CircularProgressIndicator()),
@@ -925,7 +970,7 @@ class _PublicRequestDetailsScreenState
           },
         ),
       ),
-      bottomNavigationBar: widget.request.interactionMode == 'discussion'
+      bottomNavigationBar: request.interactionMode == 'discussion'
           ? SafeArea(
               top: false,
               child: Container(

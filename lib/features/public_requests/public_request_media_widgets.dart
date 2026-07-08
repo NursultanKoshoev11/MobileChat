@@ -390,7 +390,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     });
     try {
       final request = await widget.api.createRequest(groupId: widget.groupId, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: payload);
-      if (mounted) Navigator.of(context).pop(request);
+      if (mounted) Navigator.of(context).pop(request.copyWith(body: payload));
     } on ModerationPendingException catch (e) {
       if (mounted) {
         showAppSnack(context, e.message);
