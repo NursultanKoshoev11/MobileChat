@@ -6,7 +6,7 @@ on:
       api_base_url:
         description: "Backend API base URL used by the APK"
         required: true
-        default: "https://koom.servemp3.com"
+        default: "https://koommy.duckdns.org"
       run_robo:
         description: "Run Firebase Robo crawl"
         required: false

@@ -20,7 +20,7 @@ class MobileChatApp extends StatefulWidget {
 class _MobileChatAppState extends State<MobileChatApp> {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://koom.servemp3.com',
+    defaultValue: 'https://koommy.duckdns.org',
   );
 
   final SessionStore sessionStore = const SessionStore();
