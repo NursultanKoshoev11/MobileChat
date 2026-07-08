@@ -75,6 +75,69 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-unsigned-ipa:
+    name: Build unsigned iPhone IPA
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Show Flutter doctor
+        run: flutter doctor -v
+
+      - name: Ensure iOS platform files exist
+        run: flutter create --platforms=ios --project-name mobile_chat .
+
+      - name: Configure iOS bundle identifier
+        run: |
+          BUNDLE_ID="${{ github.event.inputs.ios_bundle_id || 'com.nursultankoshoev.mobilechat' }}"
+          echo "Using iOS bundle id: $BUNDLE_ID"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" ios/Runner/Info.plist || true
+          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build unsigned iPhone app
+        run: |
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.servemp3.com' }}"
+          echo "Building unsigned iPhone app with API_BASE_URL=$API_BASE_URL"
+          flutter build ios --release --no-codesign -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Package unsigned IPA artifact
+        run: |
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "No iPhone app bundle found at $APP_PATH"
+            exit 1
+          fi
+          rm -rf build-artifacts
+          mkdir -p build-artifacts/Payload
+          cp -R "$APP_PATH" build-artifacts/Payload/Runner.app
+          (cd build-artifacts && zip -qry MobileChat-unsigned.ipa Payload)
+          shasum -a 256 build-artifacts/MobileChat-unsigned.ipa > build-artifacts/MobileChat-unsigned.sha256.txt
+          ls -lah build-artifacts
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MobileChat-unsigned-ipa
+          path: |
+            build-artifacts/MobileChat-unsigned.ipa
+            build-artifacts/MobileChat-unsigned.sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
   build-signed-ipa:
     name: Build signed iPhone IPA
     runs-on: macos-15
