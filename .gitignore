@@ -4,7 +4,6 @@
 .dart_tool/
 .packages
 build/
-coverage/
 # If you're building an application, you may want to check-in your pubspec.lock
 pubspec.lock
 
@@ -33,8 +32,6 @@ doc/api/
 android/local.properties
 android/key.properties
 android/app/google-services.json
-android/.gradle/
-android/.kotlin/
 android/keystores/
 *.jks
 *.keystore

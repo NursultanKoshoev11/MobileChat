@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+const Object _publicRequestUnset = Object();
+
 class PublicRequest {
   const PublicRequest({
     required this.id,
@@ -38,8 +40,7 @@ class PublicRequest {
   bool get supportedByMe => myVote == 'support';
   bool get opposedByMe => myVote == 'oppose';
   PublicRequestContent get content => PublicRequestContent.tryParse(body);
-  String get displayBody =>
-      content.hasMedia || content.text.isNotEmpty ? content.text : body;
+  String get displayBody => content.hasMedia || content.text.isNotEmpty ? content.text : body;
 
   factory PublicRequest.fromJson(Map<String, dynamic> json) {
     return PublicRequest(
@@ -74,7 +75,7 @@ class PublicRequest {
     int? supportCount,
     int? opposeCount,
     int? commentCount,
-    String? myVote,
+    Object? myVote = _publicRequestUnset,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -91,11 +92,42 @@ class PublicRequest {
       supportCount: supportCount ?? this.supportCount,
       opposeCount: opposeCount ?? this.opposeCount,
       commentCount: commentCount ?? this.commentCount,
-      myVote: myVote ?? this.myVote,
+      myVote: identical(myVote, _publicRequestUnset) ? this.myVote : myVote as String?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+}
+
+PublicRequest optimisticPublicRequestVote(PublicRequest request, String voteType) {
+  final current = request.myVote;
+  var support = request.supportCount;
+  var oppose = request.opposeCount;
+  String? nextVote;
+
+  if (current == voteType) {
+    if (voteType == 'support') support -= 1;
+    if (voteType == 'oppose') oppose -= 1;
+    nextVote = null;
+  } else if (voteType == 'support') {
+    support += 1;
+    if (current == 'oppose') oppose -= 1;
+    nextVote = 'support';
+  } else {
+    oppose += 1;
+    if (current == 'support') support -= 1;
+    nextVote = 'oppose';
+  }
+
+  if (support < 0) support = 0;
+  if (oppose < 0) oppose = 0;
+  return request.copyWith(
+    supportCount: support,
+    opposeCount: oppose,
+    myVote: nextVote,
+    updatedAt: DateTime.now(),
+  );
 }
 
 class PublicRequestContent {
@@ -131,11 +163,13 @@ class PublicRequestContent {
   static PublicRequestContent tryParse(String value) {
     final raw = value.trim();
     if (raw.isEmpty || !raw.startsWith('{')) {
-      return PublicRequestContent(
-          text: value, photos: const [], videos: const []);
+      return PublicRequestContent(text: value, photos: const [], videos: const []);
     }
     try {
-      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return PublicRequestContent(text: value, photos: const [], videos: const []);
+      }
       final photosRaw = decoded['photos'];
       final videosRaw = decoded['videos'];
       return PublicRequestContent(
@@ -154,8 +188,7 @@ class PublicRequestContent {
             : const [],
       );
     } catch (_) {
-      return PublicRequestContent(
-          text: value, photos: const [], videos: const []);
+      return PublicRequestContent(text: value, photos: const [], videos: const []);
     }
   }
 }

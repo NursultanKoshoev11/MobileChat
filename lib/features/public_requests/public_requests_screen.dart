@@ -17,9 +17,6 @@ import 'public_request_media_screens.dart';
 import 'public_request_media_widgets.dart';
 import 'public_requests_widgets.dart';
 
-String _ru(String value) => value;
-String _kg(String value) => value;
-
 class PublicRequestsScreen extends StatefulWidget {
   const PublicRequestsScreen({
     super.key,
@@ -47,7 +44,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   String? ensuredInviteCode;
   String? ensuredQrPass;
 
-  bool get canModerate => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
+  bool get canModerate =>
+      widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
   bool get canInvite => widget.group.canInvite;
   bool get canChangeRoles => widget.group.ownerId == widget.user.id;
   bool get canMuteComments => canModerate;
@@ -55,7 +53,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   @override
   void initState() {
     super.initState();
-    requestsApi = PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore);
+    requestsApi = PublicRequestsApi(
+      baseUrl: widget.api.baseUrl,
+      sessionStore: widget.api.sessionStore,
+    );
     realtime = GroupRealtimeService(api: widget.api, groupId: widget.group.id);
     requestsFuture = loadRequests();
     moderationCountFuture = loadModerationCount();
@@ -101,8 +102,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void upsertRequestFromPayload(dynamic payload) {
     if (payload is! Map<String, dynamic>) return;
     final request = PublicRequest.fromJson(payload);
-    final updated = [request, ...cachedRequests.where((item) => item.id != request.id)]
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final updated = [
+      request,
+      ...cachedRequests.where((item) => item.id != request.id),
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     setRequests(updated);
   }
 
@@ -120,7 +123,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (requestId.isEmpty || payload is! Map<String, dynamic>) return;
     final status = payload['status'] as String?;
     if (status == null || status.isEmpty) return;
-    final updated = cachedRequests.map((request) => request.id == requestId ? request.copyWith(status: status) : request).toList();
+    final updated = cachedRequests
+        .map((request) => request.id == requestId ? request.copyWith(status: status) : request)
+        .toList();
     setRequests(updated);
   }
 
@@ -128,6 +133,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (!mounted) return;
     cachedRequests = requests;
     setState(() => requestsFuture = Future.value(requests));
+  }
+
+  PublicRequest currentRequest(PublicRequest fallback) {
+    for (final request in cachedRequests) {
+      if (request.id == fallback.id) return request;
+    }
+    return fallback;
+  }
+
+  void replaceRequest(PublicRequest next) {
+    setRequests(cachedRequests
+        .map((request) => request.id == next.id ? next : request)
+        .toList());
   }
 
   void _scheduleRealtimeRefresh() {
@@ -191,7 +209,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> openStatistics() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GroupStatisticsScreen(api: requestsApi, group: widget.group)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupStatisticsScreen(api: requestsApi, group: widget.group),
+      ),
+    );
     await refresh();
   }
 
@@ -201,10 +223,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).cardColor,
-      builder: (_) => CreatePublicRequestMediaSheet(api: requestsApi, groupId: widget.group.id),
+      builder: (_) => CreatePublicRequestMediaSheet(
+        api: requestsApi,
+        groupId: widget.group.id,
+      ),
     );
     if (created != null) {
-      final updated = [created, ...cachedRequests.where((request) => request.id != created.id)];
+      final updated = [
+        created,
+        ...cachedRequests.where((request) => request.id != created.id),
+      ];
       cachedRequests = updated;
       if (mounted) {
         setState(() {
@@ -218,31 +246,42 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> vote(PublicRequest request, String voteType) async {
-    if (request.interactionMode == 'read_only') return;
+    final current = currentRequest(request);
+    if (current.interactionMode == 'read_only') return;
+    final previous = cachedRequests;
+    final next = optimisticPublicRequestVote(current, voteType);
+    replaceRequest(next);
     try {
-      if (request.myVote == voteType) {
-        await requestsApi.clearVote(request.id);
+      if (current.myVote == voteType) {
+        await requestsApi.clearVote(current.id);
       } else if (voteType == 'support') {
-        await requestsApi.support(request.id);
+        await requestsApi.support(current.id);
       } else {
-        await requestsApi.oppose(request.id);
+        await requestsApi.oppose(current.id);
       }
-      await refresh();
+      unawaited(refresh(silent: true).catchError((_) {}));
     } catch (error) {
+      setRequests(previous);
       if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
 
   Future<void> updateStatus(PublicRequest request, String status) async {
     if (!canModerate) return;
+    final current = currentRequest(request);
+    if (current.status == status) return;
+    final previous = cachedRequests;
+    final next = current.copyWith(status: status, updatedAt: DateTime.now());
+    replaceRequest(next);
     try {
-      await requestsApi.updateStatus(requestId: request.id, status: status);
-      await refresh();
+      await requestsApi.updateStatus(requestId: current.id, status: status);
+      unawaited(refresh(silent: true).catchError((_) {}));
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
-        showAppSnack(context, text.isKy ? _kg('Статус жаңыртылды.') : _ru('Статус обновлён.'));
+        showAppSnack(context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
       }
     } catch (error) {
+      setRequests(previous);
       if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
@@ -256,20 +295,32 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           request: request,
           canModerate: canModerate,
           currentUserId: widget.user.id,
-          onStatusChanged: canModerate ? (status) => updateStatus(request, status) : null,
+          onStatusChanged:
+              canModerate ? (status) => updateStatus(request, status) : null,
+          onRequestChanged: replaceRequest,
+        ),
+      ),
+    );
+    unawaited(refresh(silent: true).catchError((_) {}));
+  }
+
+  Future<void> openModerationQueue() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupModerationScreen(
+          api: requestsApi,
+          group: widget.group,
         ),
       ),
     );
     await refresh();
   }
 
-  Future<void> openModerationQueue() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GroupModerationScreen(api: requestsApi, group: widget.group)));
-    await refresh();
-  }
+  String get groupAccessCode =>
+      formatGroupInviteCode(ensuredInviteCode ?? widget.group.inviteCode ?? '');
 
-  String get groupAccessCode => formatGroupInviteCode(ensuredInviteCode ?? widget.group.inviteCode ?? '');
-  String get groupAccessQrValue => ensuredQrPass ?? widget.group.qrPass ?? groupAccessCode;
+  String get groupAccessQrValue =>
+      ensuredQrPass ?? widget.group.qrPass ?? groupAccessCode;
 
   Future<void> showGroupAccess() async {
     var code = groupAccessCode;
@@ -291,7 +342,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       final text = AppLanguageScope.textOf(context);
       showAppSnack(
         context,
-        text.isKy ? _kg('Топтун чакыруу коду азырынча түзүлгөн эмес.') : _ru('Код приглашения группы пока не создан.'),
+        text.isKy
+            ? 'Топтун чакыруу коду азырынча түзүлгөн эмес.'
+            : 'Код приглашения группы пока не создан.',
       );
       return;
     }
@@ -300,12 +353,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => GroupAccessSheet(
-        key: const ValueKey('group_access_sheet'),
-        groupTitle: widget.group.title,
-        code: code,
-        qrValue: groupAccessQrValue,
-      ),
+      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code, qrValue: groupAccessQrValue),
     );
   }
 
@@ -337,43 +385,57 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             if (phone.isEmpty || loading) return;
             setSheetState(() => loading = true);
             try {
-              await requestsApi.updateGroupMemberRoleByPhone(groupId: widget.group.id, phone: phone, role: role);
+              await requestsApi.updateGroupMemberRoleByPhone(
+                groupId: widget.group.id,
+                phone: phone,
+                role: role,
+              );
               if (!context.mounted) return;
               Navigator.pop(sheetContext);
               showAppSnack(context, role == 'admin' ? text.adminAssigned : text.adminRemoved);
             } catch (error) {
-              if (context.mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+              if (context.mounted) {
+                showAppSnack(context, localizedMessage(context, error.toString()));
+              }
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
           }
 
           return Padding(
-            padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(text.manageAdmins, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                Text(
+                  text.manageAdmins,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 8),
                 Text(text.manageAdminsDescription),
                 const SizedBox(height: 14),
                 TextField(
-                  key: const ValueKey('manage_admin_phone_field'),
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(labelText: text.mobileNumber, hintText: '+996700123456', prefixIcon: const Icon(Icons.phone_iphone_rounded)),
+                  decoration: InputDecoration(
+                    labelText: text.mobileNumber,
+                    hintText: '+996700123456',
+                    prefixIcon: const Icon(Icons.phone_iphone_rounded),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  key: const ValueKey('manage_admin_make_button'),
                   onPressed: loading ? null : () => changeRole('admin'),
                   icon: const Icon(Icons.admin_panel_settings_rounded),
                   label: Text(loading ? text.pleaseWait : text.makeAdmin),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  key: const ValueKey('manage_admin_remove_button'),
                   onPressed: loading ? null : () => changeRole('member'),
                   icon: const Icon(Icons.person_outline_rounded),
                   label: Text(text.removeAdmin),
@@ -396,6 +458,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     var durationMinutes = 60;
     var loading = false;
     String? selectedUserId;
+    String? errorText;
+    String? successText;
 
     String durationLabel(int minutes) {
       switch (minutes) {
@@ -433,17 +497,35 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       showDragHandle: true,
       backgroundColor: Theme.of(rootContext).cardColor,
       builder: (sheetContext) => StatefulBuilder(
-        key: const ValueKey('comment_mute_sheet'),
         builder: (context, setSheetState) {
+          void showResult({String? error, String? success}) {
+            setSheetState(() {
+              errorText = error;
+              successText = success;
+            });
+            if (rootContext.mounted) {
+              showAppSnack(rootContext, error ?? success ?? '');
+            }
+          }
+
           Future<void> mute() async {
             final userId = selectedUserId;
             if (userId == null || userId.isEmpty || loading) return;
-            setSheetState(() => loading = true);
+            setSheetState(() {
+              loading = true;
+              errorText = null;
+              successText = null;
+            });
             try {
-              await requestsApi.setCommentMute(groupId: widget.group.id, userId: userId, durationMinutes: durationMinutes, reason: reasonController.text.trim());
-              if (rootContext.mounted) showAppSnack(rootContext, text.mutedDone);
+              await requestsApi.setCommentMute(
+                groupId: widget.group.id,
+                userId: userId,
+                durationMinutes: durationMinutes,
+                reason: reasonController.text.trim(),
+              );
+              showResult(success: text.mutedDone);
             } catch (error) {
-              if (rootContext.mounted) showAppSnack(rootContext, localizedMessage(rootContext, error.toString()));
+              showResult(error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -452,25 +534,36 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           Future<void> unmute() async {
             final userId = selectedUserId;
             if (userId == null || userId.isEmpty || loading) return;
-            setSheetState(() => loading = true);
+            setSheetState(() {
+              loading = true;
+              errorText = null;
+              successText = null;
+            });
             try {
               await requestsApi.clearCommentMute(groupId: widget.group.id, userId: userId);
-              if (rootContext.mounted) showAppSnack(rootContext, text.unmutedDone);
+              showResult(success: text.unmutedDone);
             } catch (error) {
-              if (rootContext.mounted) showAppSnack(rootContext, localizedMessage(rootContext, error.toString()));
+              showResult(error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
           }
 
           return Padding(
-            padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(text.blockComments, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(
+                    text.blockComments,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 8),
                   Text(text.blockCommentsDescription),
                   const SizedBox(height: 14),
@@ -478,26 +571,41 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     future: membersFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
                       }
-                      final members = (snapshot.data ?? const <GroupMember>[]).where(canSelectMember).toList();
+                      final members = (snapshot.data ?? const <GroupMember>[])
+                          .where(canSelectMember)
+                          .toList();
                       if (members.isEmpty) {
                         return Text(
-                          text.isKy ? _kg('Бөгөттөй турган катышуучу жок.') : _ru('Нет участников, которых можно заблокировать.'),
-                          style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w700),
+                          text.isKy
+                              ? 'Бөгөттөй турган катышуучу жок.'
+                              : 'Нет участников, которых можно заблокировать.',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                          ),
                         );
                       }
                       selectedUserId ??= members.first.userId;
                       return DropdownButtonFormField<String>(
-                        key: const ValueKey('comment_mute_member_dropdown'),
-                        isExpanded: true,
                         value: selectedUserId,
-                        decoration: InputDecoration(labelText: text.mobileNumber, prefixIcon: const Icon(Icons.people_outline_rounded)),
+                        decoration: InputDecoration(
+                          labelText: text.mobileNumber,
+                          prefixIcon: const Icon(Icons.people_outline_rounded),
+                        ),
                         items: members
-                            .map((member) => DropdownMenuItem<String>(
-                                  value: member.userId,
-                                  child: Text('${member.displayName} - ${member.phone ?? ''} - ${member.role}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                                ))
+                            .map(
+                              (member) => DropdownMenuItem<String>(
+                                value: member.userId,
+                                child: Text('${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
+                              ),
+                            )
                             .toList(),
                         onChanged: loading ? null : (value) => setSheetState(() => selectedUserId = value),
                       );
@@ -505,32 +613,59 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    key: const ValueKey('comment_mute_duration_dropdown'),
                     value: durationMinutes,
-                    decoration: InputDecoration(labelText: text.blockDuration, prefixIcon: const Icon(Icons.timer_outlined)),
+                    decoration: InputDecoration(
+                      labelText: text.blockDuration,
+                      prefixIcon: const Icon(Icons.timer_outlined),
+                    ),
                     items: const [60, 180, 360, 720, 1440, 10080, 43200, 0]
-                        .map((minutes) => DropdownMenuItem<int>(value: minutes, child: Text(durationLabel(minutes))))
+                        .map(
+                          (minutes) => DropdownMenuItem<int>(
+                            value: minutes,
+                            child: Text(durationLabel(minutes)),
+                          ),
+                        )
                         .toList(),
                     onChanged: loading ? null : (value) => setSheetState(() => durationMinutes = value ?? 60),
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    key: const ValueKey('comment_mute_reason_field'),
                     controller: reasonController,
                     minLines: 1,
                     maxLines: 2,
-                    decoration: InputDecoration(labelText: text.blockReason, prefixIcon: const Icon(Icons.note_alt_outlined)),
+                    decoration: InputDecoration(
+                      labelText: text.blockReason,
+                      prefixIcon: const Icon(Icons.note_alt_outlined),
+                    ),
                   ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorText!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (successText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      successText!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    key: const ValueKey('comment_mute_button'),
                     onPressed: loading || selectedUserId == null ? null : mute,
                     icon: const Icon(Icons.block_rounded),
                     label: Text(loading ? text.pleaseWait : text.blockCommentsButton),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    key: const ValueKey('comment_unmute_button'),
                     onPressed: loading || selectedUserId == null ? null : unmute,
                     icon: const Icon(Icons.lock_open_rounded),
                     label: Text(text.unblockCommentsButton),
@@ -545,11 +680,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     reasonController.dispose();
   }
 
-  PopupMenuItem<String> groupMenuItem({required String value, required IconData icon, required String label}) {
+  PopupMenuItem<String> groupMenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+  }) {
     return PopupMenuItem<String>(
-      key: ValueKey('group_menu_item_$value'),
       value: value,
-      child: Row(children: [Icon(icon, size: 20), const SizedBox(width: 12), Expanded(child: Text(label))]),
+      child: Row(children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label)),
+      ]),
     );
   }
 
@@ -585,35 +727,75 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       future: moderationCountFuture,
       builder: (context, snapshot) {
         final count = snapshot.data ?? 0;
-        final baseReviewLabel = text.isKy ? _kg('Текшерүүдөгү материалдар') : _ru('Материалы на проверке');
-        final reviewLabel = count > 0 ? '$baseReviewLabel ($count)' : baseReviewLabel;
+        final reviewLabel = count > 0
+            ? (text.isKy
+                ? 'Текшерүүдөгү материалдар ($count)'
+                : 'Материалы на проверке ($count)')
+            : (text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке');
         return PopupMenuButton<String>(
-          key: const ValueKey('group_menu_button'),
-          tooltip: _ru('Меню'),
+          tooltip: text.isKy ? 'Меню' : 'Меню',
           icon: const Icon(Icons.more_vert_rounded),
-          onSelected: handleGroupMenuAction,
+          onSelected: (value) {
+            handleGroupMenuAction(value);
+          },
           itemBuilder: (_) => [
-            groupMenuItem(value: 'statistics', icon: Icons.analytics_outlined, label: text.statistics),
-            groupMenuItem(value: 'access', icon: Icons.qr_code_rounded, label: text.codeAndQr),
-            if (canChangeRoles) groupMenuItem(value: 'admins', icon: Icons.admin_panel_settings_outlined, label: text.manageAdmins),
-            if (canMuteComments) groupMenuItem(value: 'mute', icon: Icons.block_rounded, label: text.blockComments),
-            if (canInvite) groupMenuItem(value: 'invite', icon: Icons.person_add_alt_1_rounded, label: text.inviteByPhone),
-            if (canModerate) groupMenuItem(value: 'moderation', icon: Icons.fact_check_outlined, label: reviewLabel),
-            groupMenuItem(value: 'settings', icon: Icons.settings_rounded, label: text.settings),
+            groupMenuItem(
+              value: 'statistics',
+              icon: Icons.analytics_outlined,
+              label: text.statistics,
+            ),
+            groupMenuItem(
+              value: 'access',
+              icon: Icons.qr_code_rounded,
+              label: text.codeAndQr,
+            ),
+            if (canChangeRoles)
+              groupMenuItem(
+                value: 'admins',
+                icon: Icons.admin_panel_settings_outlined,
+                label: text.manageAdmins,
+              ),
+            if (canMuteComments)
+              groupMenuItem(
+                value: 'mute',
+                icon: Icons.block_rounded,
+                label: text.blockComments,
+              ),
+            if (canInvite)
+              groupMenuItem(
+                value: 'invite',
+                icon: Icons.person_add_alt_1_rounded,
+                label: text.inviteByPhone,
+              ),
+            if (canModerate)
+              groupMenuItem(
+                value: 'moderation',
+                icon: Icons.fact_check_outlined,
+                label: reviewLabel,
+              ),
+            groupMenuItem(
+              value: 'settings',
+              icon: Icons.settings_rounded,
+              label: text.settings,
+            ),
           ],
         );
       },
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      key: const ValueKey('public_requests_screen'),
-      appBar: AppBar(title: Text(widget.group.title), actions: [groupMenuButton(context)]),
+      appBar: AppBar(
+        title: Text(widget.group.title),
+        actions: [
+          groupMenuButton(context),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        key: const ValueKey('public_request_create_action'),
         onPressed: createRequest,
         icon: const Icon(Icons.add_rounded),
         label: Text(text.newPost),
@@ -623,9 +805,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         child: FutureBuilder<List<PublicRequest>>(
           future: requestsFuture,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
             if (snapshot.hasError) {
-              return ListView(padding: const EdgeInsets.all(24), children: [ErrorBanner(message: snapshot.error.toString())]);
+              return ListView(
+                padding: const EdgeInsets.all(24),
+                children: [ErrorBanner(message: snapshot.error.toString())],
+              );
             }
             final requests = snapshot.data ?? const <PublicRequest>[];
             if (requests.isEmpty) return EmptyPostsView(onCreate: createRequest);

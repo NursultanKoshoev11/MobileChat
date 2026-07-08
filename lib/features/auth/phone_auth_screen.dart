@@ -40,14 +40,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
-  String get _mobileDigits =>
-      mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
+  String get _mobileDigits => mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
   String get _fullMobileNumber => '$_kgPhonePrefix$_mobileDigits';
 
   Future<void> requestCode() async {
     final text = AppLanguageScope.textOf(context);
     if (_mobileDigits.length != 9) {
-      setState(() => error = _phoneLengthError(text));
+      setState(() => error = text.isKy ? '996 кодунан кийин 9 цифра жазыңыз' : 'Введите 9 цифр после 996');
       return;
     }
     setState(() {

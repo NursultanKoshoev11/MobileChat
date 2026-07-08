@@ -7,34 +7,10 @@
 
     <!-- Adaptive-icon foreground only: transparent background, no inner circle. -->
     <path
-        android:fillColor="#00000000"
+        android:fillColor="@android:color/transparent"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="7.5"
+        android:strokeWidth="10"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M31,27h46c8.3,0 15,6.7 15,15v20c0,8.3 -6.7,15 -15,15H56L38,88l4.5,-11H31c-8.3,0 -15,-6.7 -15,-15V42c0,-8.3 6.7,-15 15,-15z" />
-
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="9.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M41,40v29" />
-
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="9.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M43,56L68,40" />
-
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="9.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M43,56L69,69" />
+        android:pathData="M40,30 L40,78 M43,54 L71,30 M43,54 L73,78" />
 </vector>

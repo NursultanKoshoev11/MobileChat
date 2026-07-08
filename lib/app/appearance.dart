@@ -89,7 +89,6 @@ class AppSettingsSheet extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
     return SafeArea(
-      key: const ValueKey('app_settings_sheet'),
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
