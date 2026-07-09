@@ -99,14 +99,15 @@ jobs:
           if [ -z "$ANDROID_KEY_PASSWORD" ]; then
             ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.p12
           cat > android/key.properties <<EOF
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyPassword=$ANDROID_KEY_PASSWORD
           keyAlias=$ANDROID_KEY_ALIAS
-          storeFile=upload-keystore.jks
+          storeType=pkcs12
+          storeFile=upload-keystore.p12
           EOF
-          test -s android/app/upload-keystore.jks
+          test -s android/app/upload-keystore.p12
           test -s android/key.properties
 
       - name: Create Android local.properties

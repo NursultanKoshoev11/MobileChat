@@ -84,6 +84,9 @@ android {
                 keyPassword keystoreProperties["keyPassword"]
                 storeFile file(keystoreProperties["storeFile"])
                 storePassword keystoreProperties["storePassword"]
+                if (keystoreProperties["storeType"] != null) {
+                    storeType keystoreProperties["storeType"]
+                }
             }
         }
     }
