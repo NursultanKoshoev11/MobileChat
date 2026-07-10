@@ -93,13 +93,21 @@ jobs:
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
             echo "Android release signing secrets are required for Google Play AAB builds."
-            echo "Add these GitHub Secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+            echo "Required GitHub Secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS."
+            echo "ANDROID_KEY_PASSWORD is optional and defaults to ANDROID_KEYSTORE_PASSWORD."
             exit 1
           fi
           if [ -z "$ANDROID_KEY_PASSWORD" ]; then
             ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.p12
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.p12
+          test -s android/app/upload-keystore.p12
+          keytool -list \
+            -keystore android/app/upload-keystore.p12 \
+            -storetype PKCS12 \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
           cat > android/key.properties <<EOF
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyPassword=$ANDROID_KEY_PASSWORD
@@ -107,7 +115,7 @@ jobs:
           storeType=pkcs12
           storeFile=upload-keystore.p12
           EOF
-          test -s android/app/upload-keystore.p12
+          chmod 600 android/app/upload-keystore.p12 android/key.properties
           test -s android/key.properties
 
       - name: Create Android local.properties
