@@ -133,6 +133,14 @@ jobs:
           echo "flutter.versionName=$VERSION_NAME" >> android/local.properties
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
+            echo "versionCode must be a positive integer, got: $VERSION_CODE"
+            exit 1
+          fi
+          if [ "$VERSION_CODE" -gt 2100000000 ]; then
+            echo "versionCode exceeds Android maximum: $VERSION_CODE"
+            exit 1
+          fi
           echo "Using versionCode=$VERSION_CODE versionName=$VERSION_NAME"
 
       - name: Install dependencies
@@ -157,7 +165,12 @@ jobs:
       - name: Build Google Play release AAB
         run: |
           echo "Building release AAB with API_BASE_URL=$API_BASE_URL"
-          flutter build appbundle --release -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build appbundle \
+            --release \
+            -t lib/main.dart \
+            --build-number="$VERSION_CODE" \
+            --build-name="$VERSION_NAME" \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
 
       - name: Verify AAB artifact exists
         run: |
@@ -165,6 +178,31 @@ jobs:
           test -s "$AAB_PATH"
           ls -lah "$AAB_PATH"
           unzip -l "$AAB_PATH" | tee aab-contents.txt >/dev/null
+
+          ACTUAL_VERSION_CODE="$(sed -n 's/^flutter.versionCode=//p' android/local.properties | tail -n 1)"
+          ACTUAL_VERSION_NAME="$(sed -n 's/^flutter.versionName=//p' android/local.properties | tail -n 1)"
+          if [ "$ACTUAL_VERSION_CODE" != "$VERSION_CODE" ]; then
+            echo "Built versionCode mismatch: expected $VERSION_CODE, got $ACTUAL_VERSION_CODE"
+            exit 1
+          fi
+          if [ "$ACTUAL_VERSION_NAME" != "$VERSION_NAME" ]; then
+            echo "Built versionName mismatch: expected $VERSION_NAME, got $ACTUAL_VERSION_NAME"
+            exit 1
+          fi
+
+          MERGED_MANIFEST=""
+          while IFS= read -r manifest; do
+            if grep -q "android:versionCode=\"$VERSION_CODE\"" "$manifest"; then
+              MERGED_MANIFEST="$manifest"
+              break
+            fi
+          done < <(find build/app/intermediates -type f -path '*release*' -name AndroidManifest.xml | sort)
+          if [ -z "$MERGED_MANIFEST" ]; then
+            echo "Could not verify versionCode=$VERSION_CODE in the merged release manifest."
+            find build/app/intermediates -type f -path '*release*' -name AndroidManifest.xml -print || true
+            exit 1
+          fi
+          echo "Verified AAB versionCode=$VERSION_CODE versionName=$VERSION_NAME via $MERGED_MANIFEST"
 
       - name: Prepare Google Play artifact
         run: |
