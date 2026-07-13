@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/api_client.dart';
@@ -17,7 +19,7 @@ class MobileChatApp extends StatefulWidget {
   State<MobileChatApp> createState() => _MobileChatAppState();
 }
 
-class _MobileChatAppState extends State<MobileChatApp> {
+class _MobileChatAppState extends State<MobileChatApp> with WidgetsBindingObserver {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://koommy.duckdns.org',
@@ -33,22 +35,41 @@ class _MobileChatAppState extends State<MobileChatApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     bootFuture = _boot();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     languageController.dispose();
     appearanceController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_restoreAfterResume());
+    }
+  }
+
   Future<AppSession?> _boot() async {
+    await api.handleAppResumed();
     final session = await sessionStore.read();
     if (session != null) {
       await pushNotifications.registerDevice();
     }
     return session;
+  }
+
+  Future<void> _restoreAfterResume() async {
+    await api.handleAppResumed();
+    final session = await sessionStore.read();
+    if (!mounted || session != null) return;
+    setState(() {
+      bootFuture = Future.value(null);
+    });
   }
 
   Future<void> setSession(AppSession session) async {
