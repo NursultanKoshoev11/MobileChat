@@ -329,13 +329,16 @@ class ApiClient {
       case RefreshSessionResult.refreshed:
         _proactiveRefreshRetryAttempt = 0;
         await _scheduleProactiveRefresh();
+        return;
       case RefreshSessionResult.transientFailure:
         _scheduleTransientRefreshRetry();
+        return;
       case RefreshSessionResult.noSession:
       case RefreshSessionResult.invalidSession:
         _proactiveRefreshTimer?.cancel();
         _proactiveRefreshTimer = null;
         _proactiveRefreshRetryAttempt = 0;
+        return;
     }
   }
 
@@ -356,7 +359,7 @@ class ApiClient {
 
   void _scheduleTransientRefreshRetry() {
     _proactiveRefreshTimer?.cancel();
-    final exponent = _proactiveRefreshRetryAttempt.clamp(0, 4);
+    final exponent = _proactiveRefreshRetryAttempt > 4 ? 4 : _proactiveRefreshRetryAttempt;
     final calculatedSeconds = 15 * (1 << exponent);
     final delaySeconds = calculatedSeconds > 300 ? 300 : calculatedSeconds;
     _proactiveRefreshRetryAttempt++;
