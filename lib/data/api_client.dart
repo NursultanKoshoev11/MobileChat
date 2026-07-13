@@ -6,8 +6,8 @@ import 'package:http/http.dart' as http;
 import 'group_invitation.dart';
 import 'models.dart';
 import 'moderation.dart';
-import 'session_store.dart';
 import 'network_guard.dart';
+import 'session_store.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message);
@@ -16,6 +16,13 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+enum RefreshSessionResult {
+  refreshed,
+  noSession,
+  invalidSession,
+  transientFailure,
 }
 
 class ApiClient {
@@ -27,8 +34,10 @@ class ApiClient {
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
   static const int _maxAttempts = 3;
+  static const Duration _resumeRefreshBeforeExpiry = Duration(minutes: 1);
   final NetworkGuard _networkGuard = NetworkGuard();
   Timer? _proactiveRefreshTimer;
+  int _proactiveRefreshRetryAttempt = 0;
 
   Future<RequestCodeResult> requestPhoneCode(String mobile) async {
     final response = await _post('/api/auth/request-code', {'mobile': mobile}, auth: false);
@@ -47,6 +56,7 @@ class ApiClient {
     }, auth: false);
     final session = AppSession.fromJson(response as Map<String, dynamic>);
     await sessionStore.save(session);
+    _proactiveRefreshRetryAttempt = 0;
     unawaited(_scheduleProactiveRefresh());
     return session;
   }
@@ -61,7 +71,28 @@ class ApiClient {
       await sessionStore.clear();
       _proactiveRefreshTimer?.cancel();
       _proactiveRefreshTimer = null;
+      _proactiveRefreshRetryAttempt = 0;
     }
+  }
+
+  Future<void> handleAppResumed() async {
+    _proactiveRefreshTimer?.cancel();
+    _proactiveRefreshTimer = null;
+
+    final session = await sessionStore.read();
+    if (session == null || session.refreshToken.isEmpty) {
+      _proactiveRefreshRetryAttempt = 0;
+      return;
+    }
+
+    if (!soonX(session.accessToken, _resumeRefreshBeforeExpiry)) {
+      _proactiveRefreshRetryAttempt = 0;
+      await _scheduleProactiveRefresh();
+      return;
+    }
+
+    final result = await _refreshSessionResult();
+    await _handleRefreshResult(result);
   }
 
   Future<String> issueWebSocketToken() async {
@@ -89,7 +120,6 @@ class ApiClient {
   Future<void> markPublicRequestsRead(String groupId) async {
     await _post('/api/groups/$groupId/requests/read', {});
   }
-
 
   Future<List<ChatGroup>> searchPublicGroups(String query) async {
     final response = await _get('/api/groups/search', query: {'q': query});
@@ -147,7 +177,7 @@ class ApiClient {
     final response = await _post('/api/groups/$groupId/messages', {'text': text});
     final payload = response as Map<String, dynamic>;
     if (payload['status'] == 'pending_review') {
-      throw ModerationPendingException(String.fromCharCodes([1057,1086,1086,1073,1097,1077,1085,1080,1077,32,1086,1090,1087,1088,1072,1074,1083,1077,1085,1086,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1091,32,1072,1076,1084,1080,1085,1080,1089,1090,1088,1072,1090,1086,1088,1091,46]));
+      throw ModerationPendingException(String.fromCharCodes([1057, 1086, 1086, 1073, 1097, 1077, 1085, 1080, 1077, 32, 1086, 1090, 1087, 1088, 1072, 1074, 1083, 1077, 1085, 1086, 32, 1085, 1072, 32, 1087, 1088, 1086, 1074, 1077, 1088, 1082, 1091, 32, 1072, 1076, 1084, 1080, 1085, 1080, 1089, 1090, 1088, 1072, 1090, 1086, 1088, 1091, 46]));
     }
     return ChatMessage.fromJson(payload);
   }
@@ -285,9 +315,28 @@ class ApiClient {
   }
 
   Future<bool> _refreshSession() async {
-    final ok = await refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
-    if (ok) unawaited(_scheduleProactiveRefresh());
-    return ok;
+    final result = await _refreshSessionResult();
+    await _handleRefreshResult(result);
+    return result == RefreshSessionResult.refreshed;
+  }
+
+  Future<RefreshSessionResult> _refreshSessionResult() {
+    return refreshStoredSessionResult(baseUrl: baseUrl, sessionStore: sessionStore, timeout: _timeout);
+  }
+
+  Future<void> _handleRefreshResult(RefreshSessionResult result) async {
+    switch (result) {
+      case RefreshSessionResult.refreshed:
+        _proactiveRefreshRetryAttempt = 0;
+        await _scheduleProactiveRefresh();
+      case RefreshSessionResult.transientFailure:
+        _scheduleTransientRefreshRetry();
+      case RefreshSessionResult.noSession:
+      case RefreshSessionResult.invalidSession:
+        _proactiveRefreshTimer?.cancel();
+        _proactiveRefreshTimer = null;
+        _proactiveRefreshRetryAttempt = 0;
+    }
   }
 
   Future<void> _scheduleProactiveRefresh() async {
@@ -300,11 +349,20 @@ class ApiClient {
     var delay = fireAt.difference(DateTime.now().toUtc());
     if (delay.isNegative) delay = const Duration(seconds: 1);
     _proactiveRefreshTimer = Timer(delay, () async {
-      final ok = await _refreshSession();
-      if (!ok) {
-        _proactiveRefreshTimer?.cancel();
-        _proactiveRefreshTimer = null;
-      }
+      final result = await _refreshSessionResult();
+      await _handleRefreshResult(result);
+    });
+  }
+
+  void _scheduleTransientRefreshRetry() {
+    _proactiveRefreshTimer?.cancel();
+    final exponent = _proactiveRefreshRetryAttempt.clamp(0, 4);
+    final calculatedSeconds = 15 * (1 << exponent);
+    final delaySeconds = calculatedSeconds > 300 ? 300 : calculatedSeconds;
+    _proactiveRefreshRetryAttempt++;
+    _proactiveRefreshTimer = Timer(Duration(seconds: delaySeconds), () async {
+      final result = await _refreshSessionResult();
+      await _handleRefreshResult(result);
     });
   }
 
@@ -338,78 +396,174 @@ class RequestCodeResult {
   }
 }
 
-
-
 class GateX {
   GateX._();
+
   static final GateX i = GateX._();
-  Future<bool>? job;
-  Future<bool> run({required String baseUrl, required SessionStore store, required Duration timeout}) {
+  final NetworkGuard _refreshGuard = NetworkGuard();
+  Future<RefreshSessionResult>? job;
+
+  Future<RefreshSessionResult> run({
+    required String baseUrl,
+    required SessionStore store,
+    required Duration timeout,
+  }) {
     final old = job;
     if (old != null) return old;
     final next = _do(baseUrl: baseUrl, store: store, timeout: timeout);
     job = next;
-    next.whenComplete(() { if (identical(job, next)) job = null; });
+    next.whenComplete(() {
+      if (identical(job, next)) job = null;
+    });
     return next;
   }
-  Future<bool> _do({required String baseUrl, required SessionStore store, required Duration timeout}) async {
-    final v = await store.read();
-    if (v == null || v.refreshToken.isEmpty) return false;
-    final u = Uri.parse(baseUrl).replace(path: '/api/auth/' + 'refresh');
-    final r = await http.post(
-      u,
-      headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
-      body: jsonEncode({'refresh_' + 'token': v.refreshToken}),
-    ).timeout(timeout);
-    if (r.statusCode < 200 || r.statusCode >= 300) {
-      await store.clear();
-      return false;
+
+  Future<RefreshSessionResult> _do({
+    required String baseUrl,
+    required SessionStore store,
+    required Duration timeout,
+  }) async {
+    final session = await store.read();
+    if (session == null || session.refreshToken.isEmpty) {
+      return RefreshSessionResult.noSession;
     }
-    final d = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
-    await store.save(AppSession.fromJson(d));
-    return true;
+
+    final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
+    for (var attempt = 0; attempt < ApiClient._maxAttempts; attempt++) {
+      try {
+        final response = await http.post(
+          uri,
+          headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
+          body: jsonEncode({'refresh_token': session.refreshToken}),
+        ).timeout(timeout);
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+            if (decoded is! Map<String, dynamic>) {
+              throw const FormatException('invalid refresh response');
+            }
+            await store.save(AppSession.fromJson(decoded));
+            return RefreshSessionResult.refreshed;
+          } catch (_) {
+            if (attempt + 1 < ApiClient._maxAttempts) {
+              await _refreshGuard.waitBeforeRetry(attempt);
+              continue;
+            }
+            return RefreshSessionResult.transientFailure;
+          }
+        }
+
+        if (isConfirmedInvalidRefreshResponse(response)) {
+          await store.clear();
+          return RefreshSessionResult.invalidSession;
+        }
+
+        if (_refreshGuard.isRetryableStatus(response.statusCode) && attempt + 1 < ApiClient._maxAttempts) {
+          await _refreshGuard.waitBeforeRetry(attempt);
+          continue;
+        }
+        return RefreshSessionResult.transientFailure;
+      } on TimeoutException {
+        if (attempt + 1 < ApiClient._maxAttempts) {
+          await _refreshGuard.waitBeforeRetry(attempt);
+          continue;
+        }
+        return RefreshSessionResult.transientFailure;
+      } on http.ClientException {
+        if (attempt + 1 < ApiClient._maxAttempts) {
+          await _refreshGuard.waitBeforeRetry(attempt);
+          continue;
+        }
+        return RefreshSessionResult.transientFailure;
+      } catch (_) {
+        if (attempt + 1 < ApiClient._maxAttempts) {
+          await _refreshGuard.waitBeforeRetry(attempt);
+          continue;
+        }
+        return RefreshSessionResult.transientFailure;
+      }
+    }
+
+    return RefreshSessionResult.transientFailure;
   }
 }
 
-Future<bool> refreshStoredSession({required String baseUrl, required SessionStore sessionStore, required Duration timeout}) {
-  return GateX.i.run(baseUrl: baseUrl, store: sessionStore, timeout: timeout);
-}
-
-Future<bool> ensureFreshStoredAccessToken({required String baseUrl, required SessionStore sessionStore, required Duration timeout, Duration refreshBeforeExpiry = const Duration(seconds: 60)}) async {
-  final v = await sessionStore.read();
-  if (v == null || v.refreshToken.isEmpty) return false;
-  if (!soonX(v.accessToken, refreshBeforeExpiry)) return true;
-  return refreshStoredSession(baseUrl: baseUrl, sessionStore: sessionStore, timeout: timeout);
-}
-
-bool soonX(String x, Duration th) {
+bool isConfirmedInvalidRefreshResponse(http.Response response) {
+  if (response.statusCode != 401) return false;
   try {
-    final p = x.split('.');
-    if (p.length < 2) return false;
-    final body = utf8.decode(base64Url.decode(base64Url.normalize(p[1])));
-    final d = jsonDecode(body);
-    if (d is! Map<String, dynamic>) return false;
-    final e = d['exp'];
-    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse(e.toString());
-    if (sec == null) return false;
-    final at = DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true);
-    return !at.isAfter(DateTime.now().toUtc().add(th));
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map<String, dynamic>) return false;
+    final code = (decoded['code'] as String? ?? '').trim().toLowerCase();
+    final error = (decoded['error'] as String? ?? '').trim().toLowerCase();
+    return code == 'invalid_refresh_token' ||
+        error == 'unauthorized' ||
+        error == 'invalid credentials' ||
+        error == 'invalid refresh' ||
+        error == 'invalid refresh token';
   } catch (_) {
     return false;
   }
 }
 
-DateTime? accessTokenExpiry(String x) {
+Future<RefreshSessionResult> refreshStoredSessionResult({
+  required String baseUrl,
+  required SessionStore sessionStore,
+  required Duration timeout,
+}) {
+  return GateX.i.run(baseUrl: baseUrl, store: sessionStore, timeout: timeout);
+}
+
+Future<bool> refreshStoredSession({
+  required String baseUrl,
+  required SessionStore sessionStore,
+  required Duration timeout,
+}) async {
+  final result = await refreshStoredSessionResult(baseUrl: baseUrl, sessionStore: sessionStore, timeout: timeout);
+  return result == RefreshSessionResult.refreshed;
+}
+
+Future<bool> ensureFreshStoredAccessToken({
+  required String baseUrl,
+  required SessionStore sessionStore,
+  required Duration timeout,
+  Duration refreshBeforeExpiry = const Duration(seconds: 60),
+}) async {
+  final session = await sessionStore.read();
+  if (session == null || session.refreshToken.isEmpty) return false;
+  if (!soonX(session.accessToken, refreshBeforeExpiry)) return true;
+  final result = await refreshStoredSessionResult(baseUrl: baseUrl, sessionStore: sessionStore, timeout: timeout);
+  return result == RefreshSessionResult.refreshed;
+}
+
+bool soonX(String token, Duration threshold) {
   try {
-    final p = x.split('.');
-    if (p.length < 2) return null;
-    final body = utf8.decode(base64Url.decode(base64Url.normalize(p[1])));
-    final d = jsonDecode(body);
-    if (d is! Map<String, dynamic>) return null;
-    final e = d['exp'];
-    final sec = e is int ? e : e is num ? e.toInt() : int.tryParse(e.toString());
-    if (sec == null) return null;
-    return DateTime.fromMillisecondsSinceEpoch(sec * 1000, isUtc: true);
+    final parts = token.split('.');
+    if (parts.length < 2) return false;
+    final body = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return false;
+    final exp = decoded['exp'];
+    final seconds = exp is int ? exp : exp is num ? exp.toInt() : int.tryParse(exp.toString());
+    if (seconds == null) return false;
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    return !expiresAt.isAfter(DateTime.now().toUtc().add(threshold));
+  } catch (_) {
+    return false;
+  }
+}
+
+DateTime? accessTokenExpiry(String token) {
+  try {
+    final parts = token.split('.');
+    if (parts.length < 2) return null;
+    final body = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return null;
+    final exp = decoded['exp'];
+    final seconds = exp is int ? exp : exp is num ? exp.toInt() : int.tryParse(exp.toString());
+    if (seconds == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
   } catch (_) {
     return null;
   }
