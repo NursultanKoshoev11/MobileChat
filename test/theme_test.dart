@@ -61,6 +61,39 @@ void main() {
     expect(light.lerp(null, 0.5), same(light));
   });
 
+  test('selection typography keeps identical metrics', () {
+    final theme = MobileChatTheme.light;
+
+    final chipTheme = theme.chipTheme;
+    expect(chipTheme.labelStyle?.fontWeight,
+        chipTheme.secondaryLabelStyle?.fontWeight);
+    expect(chipTheme.showCheckmark, isFalse);
+
+    final navigationTheme = theme.navigationBarTheme;
+    final selectedNavigationStyle = navigationTheme.labelTextStyle?.resolve(
+      const <WidgetState>{WidgetState.selected},
+    );
+    final unselectedNavigationStyle = navigationTheme.labelTextStyle?.resolve(
+      const <WidgetState>{},
+    );
+    expect(
+      selectedNavigationStyle?.fontWeight,
+      unselectedNavigationStyle?.fontWeight,
+    );
+    expect(
+      selectedNavigationStyle?.fontSize,
+      unselectedNavigationStyle?.fontSize,
+    );
+    expect(
+      navigationTheme.labelBehavior,
+      NavigationDestinationLabelBehavior.alwaysShow,
+    );
+
+    final tabTheme = theme.tabBarTheme;
+    expect(tabTheme.labelStyle?.fontWeight,
+        tabTheme.unselectedLabelStyle?.fontWeight);
+  });
+
   testWidgets('BuildContext extension returns MobileChatColors',
       (tester) async {
     late MobileChatColors colors;

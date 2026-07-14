@@ -281,7 +281,8 @@ class MobileChatTheme {
         labelStyle:
             TextStyle(color: textStrongColor, fontWeight: FontWeight.w800),
         secondaryLabelStyle:
-            TextStyle(color: scheme.primary, fontWeight: FontWeight.w900),
+            TextStyle(color: scheme.primary, fontWeight: FontWeight.w800),
+        showCheckmark: false,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -351,15 +352,14 @@ class MobileChatTheme {
         elevation: 8,
         height: 72,
         indicatorColor: scheme.primary.withValues(alpha: dark ? 0.26 : 0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
           return TextStyle(
             color: states.contains(WidgetState.selected)
                 ? scheme.primary
                 : textMutedColor,
             fontSize: 11,
-            fontWeight: states.contains(WidgetState.selected)
-                ? FontWeight.w900
-                : FontWeight.w700,
+            fontWeight: FontWeight.w800,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
@@ -376,8 +376,8 @@ class MobileChatTheme {
         indicatorColor: scheme.primary,
         labelColor: scheme.primary,
         unselectedLabelColor: textMutedColor,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w900),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: scheme.primary,

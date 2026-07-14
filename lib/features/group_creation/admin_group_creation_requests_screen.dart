@@ -88,6 +88,7 @@ class _AdminGroupCreationRequestsScreenState
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<String>(
+              showSelectedIcon: false,
               segments: [
                 ButtonSegment(
                     value: 'pending',

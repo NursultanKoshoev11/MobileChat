@@ -763,7 +763,7 @@ class _PostsScreenState extends State<PostsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.group.title)),
       body: Column(children: [
-        SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 6), scrollDirection: Axis.horizontal, child: SegmentedButton<String>(segments: const [ButtonSegment(value: 'newest', label: Text('Newest')), ButtonSegment(value: 'popular', label: Text('Popular')), ButtonSegment(value: 'resolved', label: Text('Resolved'))], selected: {filter}, onSelectionChanged: (value) => setState(() => filter = value.first))),
+        SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 6), scrollDirection: Axis.horizontal, child: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'newest', label: Text('Newest')), ButtonSegment(value: 'popular', label: Text('Popular')), ButtonSegment(value: 'resolved', label: Text('Resolved'))], selected: {filter}, onSelectionChanged: (value) => setState(() => filter = value.first))),
         Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), itemCount: posts.length, itemBuilder: (_, index) => FeedPostCard(post: posts[index], group: widget.group))),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: createPost, icon: const Icon(Icons.add_rounded), label: const Text('New post')),

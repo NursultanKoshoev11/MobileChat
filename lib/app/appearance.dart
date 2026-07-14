@@ -210,19 +210,33 @@ class _SettingsOption extends StatelessWidget {
           color: background,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-              color: selected ? MobileChatTheme.primary : colors.border,
-              width: selected ? 1.5 : 1),
+            color: selected ? MobileChatTheme.primary : colors.border,
+            width: 1.5,
+          ),
         ),
         child: Row(children: [
-          Icon(icon, color: iconColor),
+          Icon(icon, color: iconColor, size: 24),
           const SizedBox(width: 8),
           Expanded(
               child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       color: foreground, fontWeight: FontWeight.w800))),
-          if (selected)
-            const Icon(Icons.check_circle_rounded,
-                color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 140),
+              opacity: selected ? 1 : 0,
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
         ]),
       ),
     );

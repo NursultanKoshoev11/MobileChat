@@ -863,7 +863,7 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
       const SizedBox(height: 12),
       TextField(controller: descriptionController, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.notes_rounded))),
       const SizedBox(height: 14),
-      SegmentedButton<String>(segments: const [ButtonSegment(value: 'public', label: Text('Public'), icon: Icon(Icons.public_rounded)), ButtonSegment(value: 'private', label: Text('Invite only'), icon: Icon(Icons.lock_rounded))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
+      SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'public', label: Text('Public'), icon: Icon(Icons.public_rounded)), ButtonSegment(value: 'private', label: Text('Invite only'), icon: Icon(Icons.lock_rounded))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
       if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
       const SizedBox(height: 16),
       FilledButton.icon(onPressed: loading ? null : create, icon: const Icon(Icons.add_rounded), label: Text(loading ? 'Creating...' : 'Create group')),

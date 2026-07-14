@@ -79,6 +79,7 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
           ),
           const SizedBox(height: 12),
           SegmentedButton<String>(
+            showSelectedIcon: false,
             segments: [
               ButtonSegment(
                 value: 'public',
