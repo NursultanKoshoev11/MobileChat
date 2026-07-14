@@ -13,11 +13,7 @@ import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({
-    super.key,
-    required this.api,
-    required this.user,
-  });
+  const ProfileScreen({super.key, required this.api, required this.user});
 
   final ApiClient api;
   final UserProfile user;
@@ -27,7 +23,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const int maxAvatarBytes = 512 * 1024;
+  static const int maxAvatarBytes = 180 * 1024;
 
   final ImagePicker imagePicker = ImagePicker();
   late UserProfile user;
@@ -65,18 +61,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => updatingPhoto = true);
       final original = await picked.readAsBytes();
-      final compressed = await FlutterImageCompress.compressWithList(
-        original,
-        minWidth: 512,
-        minHeight: 512,
-        quality: 72,
-        format: CompressFormat.jpeg,
-      );
+      Uint8List compressed = Uint8List(0);
+      for (final quality in const [72, 60, 48, 36, 28]) {
+        compressed = await FlutterImageCompress.compressWithList(
+          original,
+          minWidth: 384,
+          minHeight: 384,
+          quality: quality,
+          format: CompressFormat.jpeg,
+        );
+        if (compressed.isNotEmpty && compressed.length <= maxAvatarBytes) {
+          break;
+        }
+      }
       if (compressed.isEmpty || compressed.length > maxAvatarBytes) {
         throw ApiException(
           text.isKy
-              ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.'
-              : 'Фото слишком большое. Выберите другое изображение.',
+              ? '????? ??? ???. ????? ????? ????????.'
+              : '???? ??????? ???????. ???????? ?????? ???????????.',
         );
       }
 
@@ -245,10 +247,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.10),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
@@ -314,8 +315,9 @@ class _ProfileInfoRow extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.09),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(

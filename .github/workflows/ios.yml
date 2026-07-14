@@ -52,6 +52,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Build iOS simulator app
         run: |
           API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koommy.duckdns.org' }}"
@@ -107,6 +110,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
 
       - name: Build unsigned iPhone app
         run: |

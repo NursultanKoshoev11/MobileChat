@@ -12,19 +12,12 @@ class KoomPageBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: context.appColors.page,
-      child: child,
-    );
+    return ColoredBox(color: context.appColors.page, child: child);
   }
 }
 
 class KoomLogoMark extends StatelessWidget {
-  const KoomLogoMark({
-    super.key,
-    this.size = 72,
-    this.showShadow = true,
-  });
+  const KoomLogoMark({super.key, this.size = 72, this.showShadow = true});
 
   final double size;
   final bool showShadow;
@@ -35,59 +28,23 @@ class KoomLogoMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: MobileChatTheme.brandGradient,
-        borderRadius: BorderRadius.circular(size * 0.31),
+        borderRadius: BorderRadius.circular(size * 0.28),
         boxShadow: showShadow
             ? [
                 BoxShadow(
-                  color: MobileChatTheme.primary.withValues(alpha: 0.28),
-                  blurRadius: size * 0.32,
-                  offset: Offset(0, size * 0.14),
+                  color: MobileChatTheme.primary.withValues(alpha: 0.24),
+                  blurRadius: size * 0.28,
+                  offset: Offset(0, size * 0.12),
                 ),
               ]
             : const [],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: size * 0.58,
-            height: size * 0.51,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: size * 0.052),
-              borderRadius: BorderRadius.circular(size * 0.17),
-            ),
-          ),
-          Positioned(
-            bottom: size * 0.205,
-            left: size * 0.245,
-            child: Transform.rotate(
-              angle: 0.55,
-              child: Container(
-                width: size * 0.13,
-                height: size * 0.13,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  border: Border(
-                    left: BorderSide(color: Colors.white, width: size * 0.048),
-                    bottom:
-                        BorderSide(color: Colors.white, width: size * 0.048),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Text(
-            'K',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: size * 0.42,
-              height: 1,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -size * 0.035,
-            ),
-          ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        'assets/images/koom_app_icon.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
       ),
     );
   }
@@ -150,7 +107,8 @@ class KoomCard extends StatelessWidget {
       gradient: gradient,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: borderColor ??
+        color:
+            borderColor ??
             (gradient == null
                 ? colors.border
                 : Colors.white.withValues(alpha: 0.16)),
@@ -182,7 +140,6 @@ class KoomCard extends StatelessWidget {
     );
   }
 }
-
 
 class KoomResponsiveActions extends StatelessWidget {
   const KoomResponsiveActions({
@@ -259,8 +216,7 @@ class KoomAdaptiveTileGrid extends StatelessWidget {
         final calculatedColumns =
             ((availableWidth + spacing) / (minItemWidth + spacing)).floor();
         final columns = calculatedColumns.clamp(1, maxColumns).toInt();
-        final itemWidth =
-            (availableWidth - spacing * (columns - 1)) / columns;
+        final itemWidth = (availableWidth - spacing * (columns - 1)) / columns;
 
         return Wrap(
           spacing: spacing,
@@ -291,7 +247,8 @@ class KoomAdaptiveFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < compactBreakpoint ||
+    final compact =
+        MediaQuery.sizeOf(context).width < compactBreakpoint ||
         MediaQuery.textScalerOf(context).scale(14) > 17.5;
 
     if (compact) {
@@ -357,8 +314,11 @@ class KoomIconTile extends StatelessWidget {
                         color: scheme.primary.withValues(alpha: 0.11),
                         borderRadius: BorderRadius.circular(15),
                       ),
-                      child: Icon(icon,
-                          color: scheme.primary, size: compact ? 21 : 24),
+                      child: Icon(
+                        icon,
+                        color: scheme.primary,
+                        size: compact ? 21 : 24,
+                      ),
                     ),
                     if ((badge ?? 0) > 0)
                       Positioned(
@@ -436,26 +396,21 @@ class KoomAvatar extends StatelessWidget {
               ),
             )
           : icon != null
-              ? Icon(icon, color: Colors.white, size: radius)
-              : Text(
-                  avatarText(label),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: radius * 0.82,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+          ? Icon(icon, color: Colors.white, size: radius)
+          : Text(
+              avatarText(label),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: radius * 0.82,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
     );
   }
 }
 
 class KoomStatusPill extends StatelessWidget {
-  const KoomStatusPill({
-    super.key,
-    required this.label,
-    this.icon,
-    this.color,
-  });
+  const KoomStatusPill({super.key, required this.label, this.icon, this.color});
 
   final String label;
   final IconData? icon;
@@ -464,8 +419,9 @@ class KoomStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effective = color ?? Theme.of(context).colorScheme.primary;
-    final maxWidth =
-        (MediaQuery.sizeOf(context).width - 48).clamp(120.0, 420.0).toDouble();
+    final maxWidth = (MediaQuery.sizeOf(context).width - 48)
+        .clamp(120.0, 420.0)
+        .toDouble();
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Container(
@@ -519,10 +475,7 @@ class KoomSectionTitle extends StatelessWidget {
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(
@@ -541,7 +494,8 @@ class KoomSectionTitle extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final stack = constraints.maxWidth < 360 ||
+        final stack =
+            constraints.maxWidth < 360 ||
             MediaQuery.textScalerOf(context).scale(14) > 17.5;
         if (stack) {
           return Column(
@@ -592,8 +546,9 @@ class KoomEmptyState extends StatelessWidget {
             width: 78,
             height: 78,
             decoration: BoxDecoration(
-              color:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(26),
             ),
             child: Icon(

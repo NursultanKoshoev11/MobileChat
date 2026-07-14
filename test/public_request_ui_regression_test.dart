@@ -58,7 +58,9 @@ void main() {
     );
 
     expect(
-        find.byKey(const ValueKey('public_request_read_REQ-UI')), findsNothing);
+      find.byKey(const ValueKey('public_request_read_REQ-UI')),
+      findsNothing,
+    );
     final bodyText = tester.widget<Text>(find.text(longBody));
     expect(bodyText.maxLines, isNull);
     expect(bodyText.overflow, TextOverflow.visible);
@@ -116,12 +118,9 @@ void main() {
     );
     expect(setRequestsBody, isNot(contains('requestsFuture =')));
 
-    final overviewStart = source.indexOf('class _CommunityOverview');
-    final whitePillStart = source.indexOf('class _WhitePill', overviewStart);
-    final overviewBody = source.substring(overviewStart, whitePillStart);
-    expect(overviewBody, isNot(contains('KoomIconTile(')));
-    expect(overviewBody, isNot(contains('onStatistics')));
-    expect(overviewBody, isNot(contains('onAccess')));
+    expect(source, isNot(contains('class _CommunityOverview')));
+    expect(source, isNot(contains('text.publicGroup')));
+    expect(source, isNot(contains('text.privateGroup')));
 
     final mediaSource = File(
       'lib/features/public_requests/public_request_media_widgets.dart',

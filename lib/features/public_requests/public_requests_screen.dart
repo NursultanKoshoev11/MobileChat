@@ -128,12 +128,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void updateRequestCommentCount(String requestId, int delta) {
     if (requestId.isEmpty) return;
     final updated = cachedRequests
-        .map((request) => request.id == requestId
-            ? request.copyWith(
-                commentCount: request.commentCount + delta < 0
-                    ? 0
-                    : request.commentCount + delta)
-            : request)
+        .map(
+          (request) => request.id == requestId
+              ? request.copyWith(
+                  commentCount: request.commentCount + delta < 0
+                      ? 0
+                      : request.commentCount + delta,
+                )
+              : request,
+        )
         .toList();
     setRequests(updated);
   }
@@ -143,9 +146,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     final status = payload['status'] as String?;
     if (status == null || status.isEmpty) return;
     final updated = cachedRequests
-        .map((request) => request.id == requestId
-            ? request.copyWith(status: status)
-            : request)
+        .map(
+          (request) => request.id == requestId
+              ? request.copyWith(status: status)
+              : request,
+        )
         .toList();
     setRequests(updated);
   }
@@ -187,9 +192,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   void replaceRequest(PublicRequest next) {
-    setRequests(cachedRequests
-        .map((request) => request.id == next.id ? next : request)
-        .toList());
+    setRequests(
+      cachedRequests
+          .map((request) => request.id == next.id ? next : request)
+          .toList(),
+    );
   }
 
   void _scheduleRealtimeRefresh() {
@@ -214,8 +221,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<List<PublicRequest>> loadRequests() async {
     final requests = List<PublicRequest>.from(
-        await requestsApi.listRequests(currentGroup.id))
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      await requestsApi.listRequests(currentGroup.id),
+    )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
     _requestsLoaded = true;
     unawaited(_markRequestsRead());
@@ -292,7 +299,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> vote(PublicRequest request, String voteType) async {
     final current = currentRequest(request);
     if (current.interactionMode == 'read_only' ||
-        _votesInFlight.contains(current.id)) return;
+        _votesInFlight.contains(current.id))
+      return;
     _votesInFlight.add(current.id);
     final previous = cachedRequests;
     replaceRequest(optimisticPublicRequestVote(current, voteType));
@@ -327,7 +335,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
         showAppSnack(
-            context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
+          context,
+          text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.',
+        );
       }
     } catch (error) {
       setRequests(previous);
@@ -345,8 +355,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           request: currentRequest(request),
           canModerate: canModerate,
           currentUserId: widget.user.id,
-          onStatusChanged:
-              canModerate ? (status) => updateStatus(request, status) : null,
+          onStatusChanged: canModerate
+              ? (status) => updateStatus(request, status)
+              : null,
           onRequestChanged: replaceRequest,
         ),
       ),
@@ -356,10 +367,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> openModerationQueue() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GroupModerationScreen(
-          api: requestsApi,
-          group: currentGroup,
-        ),
+        builder: (_) =>
+            GroupModerationScreen(api: requestsApi, group: currentGroup),
       ),
     );
   }
@@ -403,9 +412,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => GroupAccessSheet(
-          groupTitle: currentGroup.title,
-          code: code,
-          qrValue: groupAccessQrValue),
+        groupTitle: currentGroup.title,
+        code: code,
+        qrValue: groupAccessQrValue,
+      ),
     );
   }
 
@@ -444,12 +454,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               if (!context.mounted) return;
               Navigator.pop(sheetContext);
-              showAppSnack(context,
-                  role == 'admin' ? text.adminAssigned : text.adminRemoved);
+              showAppSnack(
+                context,
+                role == 'admin' ? text.adminAssigned : text.adminRemoved,
+              );
             } catch (error) {
               if (context.mounted) {
                 showAppSnack(
-                    context, localizedMessage(context, error.toString()));
+                  context,
+                  localizedMessage(context, error.toString()),
+                );
               }
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
@@ -468,10 +482,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               children: [
                 Text(
                   text.manageAdmins,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
                 Text(text.manageAdminsDescription),
@@ -583,7 +596,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               showResult(success: text.mutedDone);
             } catch (error) {
               showResult(
-                  error: localizedMessage(rootContext, error.toString()));
+                error: localizedMessage(rootContext, error.toString()),
+              );
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -599,11 +613,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             });
             try {
               await requestsApi.clearCommentMute(
-                  groupId: currentGroup.id, userId: userId);
+                groupId: currentGroup.id,
+                userId: userId,
+              );
               showResult(success: text.unmutedDone);
             } catch (error) {
               showResult(
-                  error: localizedMessage(rootContext, error.toString()));
+                error: localizedMessage(rootContext, error.toString()),
+              );
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -622,10 +639,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 children: [
                   Text(
                     text.blockComments,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(text.blockCommentsDescription),
@@ -678,7 +694,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                         onChanged: loading
                             ? null
                             : (value) =>
-                                setSheetState(() => selectedUserId = value),
+                                  setSheetState(() => selectedUserId = value),
                       );
                     },
                   ),
@@ -699,8 +715,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                         .toList(),
                     onChanged: loading
                         ? null
-                        : (value) =>
-                            setSheetState(() => durationMinutes = value ?? 60),
+                        : (value) => setSheetState(
+                            () => durationMinutes = value ?? 60,
+                          ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -737,12 +754,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     onPressed: loading || selectedUserId == null ? null : mute,
                     icon: const Icon(Icons.block_rounded),
                     label: Text(
-                        loading ? text.pleaseWait : text.blockCommentsButton),
+                      loading ? text.pleaseWait : text.blockCommentsButton,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    onPressed:
-                        loading || selectedUserId == null ? null : unmute,
+                    onPressed: loading || selectedUserId == null
+                        ? null
+                        : unmute,
                     icon: const Icon(Icons.lock_open_rounded),
                     label: Text(text.unblockCommentsButton),
                   ),
@@ -815,11 +834,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }) {
     return PopupMenuItem<String>(
       value: value,
-      child: Row(children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label)),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+        ],
+      ),
     );
   }
 
@@ -860,11 +881,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         final count = snapshot.data ?? 0;
         final reviewLabel = count > 0
             ? (text.isKy
-                ? 'Текшерүүдөгү материалдар ($count)'
-                : 'Материалы на проверке ($count)')
+                  ? 'Текшерүүдөгү материалдар ($count)'
+                  : 'Материалы на проверке ($count)')
             : (text.isKy
-                ? 'Текшерүүдөгү материалдар'
-                : 'Материалы на проверке');
+                  ? 'Текшерүүдөгү материалдар'
+                  : 'Материалы на проверке');
         return PopupMenuButton<String>(
           tooltip: text.isKy ? 'Меню' : 'Меню',
           icon: const Icon(Icons.more_vert_rounded),
@@ -913,8 +934,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 label: updatingGroupPhoto
                     ? (text.isKy ? 'Жүктөлүүдө...' : 'Загрузка...')
                     : (text.isKy
-                        ? 'Топтун сүрөтүн өзгөртүү'
-                        : 'Изменить фото группы'),
+                          ? 'Топтун сүрөтүн өзгөртүү'
+                          : 'Изменить фото группы'),
               ),
             groupMenuItem(
               value: 'settings',
@@ -956,29 +977,23 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    currentGroup.memberCount > 0
-                        ? (text.isKy
-                            ? '${currentGroup.memberCount} катышуучу'
-                            : '${currentGroup.memberCount} участников')
-                        : (currentGroup.visibility == 'public'
-                            ? text.publicGroup
-                            : text.privateGroup),
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                  if (currentGroup.memberCount > 0)
+                    Text(
+                      text.isKy
+                          ? '${currentGroup.memberCount} ?????????'
+                          : '${currentGroup.memberCount} ??????????',
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
           ],
         ),
-        actions: [
-          groupMenuButton(context),
-          const SizedBox(width: 10),
-        ],
+        actions: [groupMenuButton(context), const SizedBox(width: 10)],
       ),
       floatingActionButton: KoomAdaptiveFab(
         key: const ValueKey('public_request_create_action'),
@@ -1007,38 +1022,37 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                  children: [
-                    _CommunityOverview(group: currentGroup),
-                    const SizedBox(height: 16),
-                    ErrorBanner(message: snapshot.error.toString()),
-                  ],
+                  children: [ErrorBanner(message: snapshot.error.toString())],
                 );
               }
               final allRequests = _requestsLoaded
                   ? cachedRequests
                   : snapshot.data ?? const <PublicRequest>[];
               final requests = switch (_requestFilter) {
-                'resolved' => allRequests
-                    .where((request) =>
-                        request.status == 'resolved' ||
-                        request.status == 'accepted')
-                    .toList(),
-                'unresolved' => allRequests
-                    .where((request) =>
-                        request.status != 'resolved' &&
-                        request.status != 'accepted')
-                    .toList(),
+                'resolved' =>
+                  allRequests
+                      .where(
+                        (request) =>
+                            request.status == 'resolved' ||
+                            request.status == 'accepted',
+                      )
+                      .toList(),
+                'unresolved' =>
+                  allRequests
+                      .where(
+                        (request) =>
+                            request.status != 'resolved' &&
+                            request.status != 'accepted',
+                      )
+                      .toList(),
                 _ => allRequests,
               };
               return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                itemCount: requests.length + (requests.isEmpty ? 3 : 2),
+                itemCount: requests.length + (requests.isEmpty ? 2 : 1),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return _CommunityOverview(group: currentGroup);
-                  }
-                  if (index == 1) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -1065,7 +1079,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                                 label: text.isKy ? 'Чечилбеген' : 'Нерешённые',
                                 selected: _requestFilter == 'unresolved',
                                 onTap: () => setState(
-                                    () => _requestFilter = 'unresolved'),
+                                  () => _requestFilter = 'unresolved',
+                                ),
                               ),
                             ],
                           ),
@@ -1077,8 +1092,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                             subtitle: requests.isEmpty
                                 ? text.postsDescription
                                 : (text.isKy
-                                    ? '${requests.length} жарыя'
-                                    : '${requests.length} публикаций'),
+                                      ? '${requests.length} жарыя'
+                                      : '${requests.length} публикаций'),
                           ),
                         ),
                       ],
@@ -1087,7 +1102,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   if (requests.isEmpty) {
                     return EmptyPostsView(onCreate: createRequest);
                   }
-                  final request = requests[index - 2];
+                  final request = requests[index - 1];
                   return MediaPublicRequestCard(
                     request: request,
                     canModerate: canModerate,
@@ -1101,100 +1116,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CommunityOverview extends StatelessWidget {
-  const _CommunityOverview({required this.group});
-
-  final ChatGroup group;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    final description = group.description.trim().isEmpty
-        ? (text.isKy
-            ? 'Коомчулуктун жаңылыктары, сунуштары жана талкуулары'
-            : 'Новости, предложения и обсуждения сообщества')
-        : group.description.trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        KoomCard(
-          gradient: MobileChatTheme.brandGradient,
-          borderColor: Colors.white.withValues(alpha: 0.14),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  KoomAvatar(
-                    label: group.title,
-                    radius: 29,
-                    background: Colors.white.withValues(alpha: 0.17),
-                    icon: group.visibility == 'public'
-                        ? Icons.groups_2_rounded
-                        : Icons.lock_rounded,
-                    imageBytes: group.avatarBytes,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          group.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                            height: 1.15,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 7,
-                          children: [
-                            _WhitePill(
-                              icon: group.visibility == 'public'
-                                  ? Icons.public_rounded
-                                  : Icons.lock_outline_rounded,
-                              label: group.visibility == 'public'
-                                  ? text.publicGroup
-                                  : text.privateGroup,
-                            ),
-                            if (group.memberCount > 0)
-                              _WhitePill(
-                                icon: Icons.people_outline_rounded,
-                                label: '${group.memberCount}',
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              Text(
-                description,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.86),
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1217,49 +1138,6 @@ class _RequestFilterChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
-    );
-  }
-}
-
-class _WhitePill extends StatelessWidget {
-  const _WhitePill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxWidth =
-        (MediaQuery.sizeOf(context).width - 56).clamp(100.0, 320.0).toDouble();
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: Colors.white),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
