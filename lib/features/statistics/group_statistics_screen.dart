@@ -98,6 +98,7 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
                           radius: 27,
                           background: Colors.white.withValues(alpha: 0.16),
                           icon: Icons.analytics_rounded,
+                          imageBytes: widget.group.avatarBytes,
                         ),
                         const SizedBox(width: 14),
                         Expanded(

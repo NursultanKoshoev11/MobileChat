@@ -82,6 +82,7 @@ void main() {
       'description': '',
       'visibility': 'private',
       'owner_id': 'U-1',
+      'avatar_data': 'data:image/jpeg;base64,YWJj',
       'member_count': 1,
       'my_role': 'admin',
       'created_at': '2026-05-14T00:00:00Z',
@@ -89,6 +90,8 @@ void main() {
 
     expect(admin.isPublic, isFalse);
     expect(admin.canInvite, isTrue);
+    expect(admin.avatarData, 'data:image/jpeg;base64,YWJj');
+    expect(admin.avatarBytes, isNotNull);
   });
 
   test('ChatGroup parses defaults and copyWith overrides fields', () {

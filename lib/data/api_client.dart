@@ -149,6 +149,11 @@ class ApiClient {
     return ChatGroup.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<ChatGroup> updateGroupAvatar({required String groupId, required String avatarData}) async {
+    final response = await _request('PUT', '/api/groups/$groupId/avatar', body: {'avatar_data': avatarData});
+    return ChatGroup.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<void> joinPublicGroup(String groupId) async {
     await _post('/api/groups/$groupId/join', {});
   }
@@ -288,6 +293,10 @@ class ApiClient {
         response = await http.get(uri, headers: headers).timeout(_timeout);
       } else if (method == 'DELETE') {
         response = await http.delete(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      } else if (method == 'PUT') {
+        response = await http.put(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
+      } else if (method == 'PATCH') {
+        response = await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
       } else {
         response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
       }

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -101,6 +104,7 @@ class ChatGroup {
     required this.description,
     required this.visibility,
     required this.ownerId,
+    this.avatarData = '',
     required this.memberCount,
     required this.unreadPublicRequestCount,
     required this.inviteCode,
@@ -114,6 +118,7 @@ class ChatGroup {
   final String description;
   final String visibility;
   final String ownerId;
+  final String avatarData;
   final int memberCount;
   final int unreadPublicRequestCount;
   final String? inviteCode;
@@ -124,6 +129,18 @@ class ChatGroup {
   bool get isPublic => visibility == 'public';
   bool get canInvite => myRole == 'owner' || myRole == 'admin';
 
+  Uint8List? get avatarBytes {
+    final value = avatarData.trim();
+    if (value.isEmpty) return null;
+    try {
+      final separator = value.indexOf(',');
+      final payload = separator >= 0 ? value.substring(separator + 1) : value;
+      return base64Decode(payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
   factory ChatGroup.fromJson(Map<String, dynamic> json) {
     return ChatGroup(
       id: json['id'] as String,
@@ -131,6 +148,7 @@ class ChatGroup {
       description: json['description'] as String? ?? '',
       visibility: json['visibility'] as String,
       ownerId: json['owner_id'] as String? ?? '',
+      avatarData: json['avatar_data'] as String? ?? '',
       memberCount: json['member_count'] as int? ?? 0,
       unreadPublicRequestCount: json['unread_public_request_count'] as int? ?? 0,
       inviteCode: json['invite_code'] as String?,
@@ -146,6 +164,7 @@ class ChatGroup {
     String? description,
     String? visibility,
     String? ownerId,
+    String? avatarData,
     int? memberCount,
     int? unreadPublicRequestCount,
     String? inviteCode,
@@ -159,6 +178,7 @@ class ChatGroup {
       description: description ?? this.description,
       visibility: visibility ?? this.visibility,
       ownerId: ownerId ?? this.ownerId,
+      avatarData: avatarData ?? this.avatarData,
       memberCount: memberCount ?? this.memberCount,
       unreadPublicRequestCount: unreadPublicRequestCount ?? this.unreadPublicRequestCount,
       inviteCode: inviteCode ?? this.inviteCode,

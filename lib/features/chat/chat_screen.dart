@@ -201,6 +201,7 @@ class _ChatScreenState extends State<ChatScreen> {
               icon: widget.group.isPublic
                   ? Icons.groups_2_rounded
                   : Icons.lock_rounded,
+              imageBytes: widget.group.avatarBytes,
             ),
             const SizedBox(width: 12),
             Expanded(

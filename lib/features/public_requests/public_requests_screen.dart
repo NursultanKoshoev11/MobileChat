@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
@@ -36,8 +39,13 @@ class PublicRequestsScreen extends StatefulWidget {
 }
 
 class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
+  static const int maxGroupAvatarBytes = 512 * 1024;
+
   late final PublicRequestsApi requestsApi;
   late final GroupRealtimeService realtime;
+  late ChatGroup currentGroup;
+  final ImagePicker imagePicker = ImagePicker();
+  bool updatingGroupPhoto = false;
   late Future<List<PublicRequest>> requestsFuture;
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
@@ -49,19 +57,20 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   final Set<String> _votesInFlight = <String>{};
 
   bool get canModerate =>
-      widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
-  bool get canInvite => widget.group.canInvite;
-  bool get canChangeRoles => widget.group.ownerId == widget.user.id;
+      currentGroup.myRole == 'owner' || currentGroup.myRole == 'admin';
+  bool get canInvite => currentGroup.canInvite;
+  bool get canChangeRoles => currentGroup.ownerId == widget.user.id;
   bool get canMuteComments => canModerate;
 
   @override
   void initState() {
     super.initState();
+    currentGroup = widget.group;
     requestsApi = PublicRequestsApi(
       baseUrl: widget.api.baseUrl,
       sessionStore: widget.api.sessionStore,
     );
-    realtime = GroupRealtimeService(api: widget.api, groupId: widget.group.id);
+    realtime = GroupRealtimeService(api: widget.api, groupId: currentGroup.id);
     requestsFuture = loadRequests();
     moderationCountFuture = loadModerationCount();
     realtime.connect(onEvent: _handleRealtimeEvent);
@@ -76,7 +85,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   void _handleRealtimeEvent(GroupRealtimeEvent event) {
-    if (!mounted || event.groupId != widget.group.id) return;
+    if (!mounted || event.groupId != currentGroup.id) return;
     switch (event.type) {
       case 'connection.ready':
         _scheduleRealtimeRefresh();
@@ -198,13 +207,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> _markRequestsRead() async {
     try {
-      await widget.api.markPublicRequestsRead(widget.group.id);
+      await widget.api.markPublicRequestsRead(currentGroup.id);
     } catch (_) {}
   }
 
   Future<List<PublicRequest>> loadRequests() async {
     final requests = List<PublicRequest>.from(
-        await requestsApi.listRequests(widget.group.id))
+        await requestsApi.listRequests(currentGroup.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
     _requestsLoaded = true;
@@ -215,7 +224,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<int> loadModerationCount() async {
     if (!canModerate) return 0;
     try {
-      return await requestsApi.countModerationItems(widget.group.id);
+      return await requestsApi.countModerationItems(currentGroup.id);
     } catch (_) {
       return 0;
     }
@@ -247,7 +256,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
-            GroupStatisticsScreen(api: requestsApi, group: widget.group),
+            GroupStatisticsScreen(api: requestsApi, group: currentGroup),
       ),
     );
     await refresh();
@@ -261,7 +270,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => CreatePublicRequestMediaSheet(
         api: requestsApi,
-        groupId: widget.group.id,
+        groupId: currentGroup.id,
       ),
     );
     if (created != null) {
@@ -351,7 +360,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       MaterialPageRoute(
         builder: (_) => GroupModerationScreen(
           api: requestsApi,
-          group: widget.group,
+          group: currentGroup,
         ),
       ),
     );
@@ -359,16 +368,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   String get groupAccessCode =>
-      formatGroupInviteCode(ensuredInviteCode ?? widget.group.inviteCode ?? '');
+      formatGroupInviteCode(ensuredInviteCode ?? currentGroup.inviteCode ?? '');
 
   String get groupAccessQrValue =>
-      ensuredQrPass ?? widget.group.qrPass ?? groupAccessCode;
+      ensuredQrPass ?? currentGroup.qrPass ?? groupAccessCode;
 
   Future<void> showGroupAccess() async {
     var code = groupAccessCode;
     if (code.isEmpty) {
       try {
-        final group = await requestsApi.ensureGroupInviteCode(widget.group.id);
+        final group = await requestsApi.ensureGroupInviteCode(currentGroup.id);
         if (!mounted) return;
         setState(() {
           ensuredInviteCode = group.inviteCode;
@@ -397,7 +406,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => GroupAccessSheet(
-          groupTitle: widget.group.title,
+          groupTitle: currentGroup.title,
           code: code,
           qrValue: groupAccessQrValue),
     );
@@ -410,7 +419,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).cardColor,
-      builder: (_) => InviteByPhoneSheet(api: widget.api, group: widget.group),
+      builder: (_) => InviteByPhoneSheet(api: widget.api, group: currentGroup),
     );
   }
 
@@ -432,7 +441,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             setSheetState(() => loading = true);
             try {
               await requestsApi.updateGroupMemberRoleByPhone(
-                groupId: widget.group.id,
+                groupId: currentGroup.id,
                 phone: phone,
                 role: role,
               );
@@ -505,7 +514,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     final rootContext = context;
     final text = AppLanguageScope.textOf(context);
     final reasonController = TextEditingController();
-    final membersFuture = requestsApi.listGroupMembers(widget.group.id);
+    final membersFuture = requestsApi.listGroupMembers(currentGroup.id);
     var durationMinutes = 60;
     var loading = false;
     String? selectedUserId;
@@ -538,7 +547,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     bool canSelectMember(GroupMember member) {
       if (member.userId == widget.user.id) return false;
       if (member.role == 'owner') return false;
-      if (widget.group.ownerId == widget.user.id) return true;
+      if (currentGroup.ownerId == widget.user.id) return true;
       return member.role == 'member';
     }
 
@@ -569,7 +578,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             });
             try {
               await requestsApi.setCommentMute(
-                groupId: widget.group.id,
+                groupId: currentGroup.id,
                 userId: userId,
                 durationMinutes: durationMinutes,
                 reason: reasonController.text.trim(),
@@ -593,7 +602,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             });
             try {
               await requestsApi.clearCommentMute(
-                  groupId: widget.group.id, userId: userId);
+                  groupId: currentGroup.id, userId: userId);
               showResult(success: text.unmutedDone);
             } catch (error) {
               showResult(
@@ -746,6 +755,58 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     reasonController.dispose();
   }
 
+  Future<void> changeGroupPhoto() async {
+    if (!canModerate || updatingGroupPhoto) return;
+    final text = AppLanguageScope.textOf(context);
+    try {
+      final picked = await imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 82,
+      );
+      if (picked == null || !mounted) return;
+
+      setState(() => updatingGroupPhoto = true);
+      final original = await picked.readAsBytes();
+      final compressed = await FlutterImageCompress.compressWithList(
+        original,
+        minWidth: 512,
+        minHeight: 512,
+        quality: 72,
+        format: CompressFormat.jpeg,
+      );
+      if (compressed.isEmpty || compressed.length > maxGroupAvatarBytes) {
+        throw ApiException(
+          text.isKy
+              ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.'
+              : 'Фото слишком большое. Выберите другое изображение.',
+        );
+      }
+
+      final updated = await widget.api.updateGroupAvatar(
+        groupId: currentGroup.id,
+        avatarData: 'data:image/jpeg;base64,${base64Encode(compressed)}',
+      );
+      if (!mounted) return;
+      setState(() {
+        currentGroup = updated.copyWith(
+          unreadPublicRequestCount: currentGroup.unreadPublicRequestCount,
+          qrPass: currentGroup.qrPass,
+        );
+        updatingGroupPhoto = false;
+      });
+      showAppSnack(
+        context,
+        text.isKy ? 'Топтун сүрөтү жаңыртылды.' : 'Фото группы обновлено.',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => updatingGroupPhoto = false);
+      showAppSnack(context, localizedMessage(context, error.toString()));
+    }
+  }
+
   PopupMenuItem<String> groupMenuItem({
     required String value,
     required IconData icon,
@@ -780,6 +841,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         break;
       case 'moderation':
         await openModerationQueue();
+        break;
+      case 'group_photo':
+        await changeGroupPhoto();
         break;
       case 'settings':
         if (mounted) await showAppSettingsSheet(context);
@@ -841,6 +905,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 icon: Icons.fact_check_outlined,
                 label: reviewLabel,
               ),
+            if (canModerate)
+              groupMenuItem(
+                value: 'group_photo',
+                icon: Icons.add_a_photo_outlined,
+                label: updatingGroupPhoto
+                    ? (text.isKy ? 'Жүктөлүүдө...' : 'Загрузка...')
+                    : (text.isKy
+                        ? 'Топтун сүрөтүн өзгөртүү'
+                        : 'Изменить фото группы'),
+              ),
             groupMenuItem(
               value: 'settings',
               icon: Icons.settings_rounded,
@@ -863,11 +937,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         title: Row(
           children: [
             KoomAvatar(
-              label: widget.group.title,
+              label: currentGroup.title,
               radius: 20,
-              icon: widget.group.visibility == 'public'
+              icon: currentGroup.visibility == 'public'
                   ? Icons.groups_2_rounded
                   : Icons.lock_rounded,
+              imageBytes: currentGroup.avatarBytes,
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -876,16 +951,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.group.title,
+                    currentGroup.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.group.memberCount > 0
+                    currentGroup.memberCount > 0
                         ? (text.isKy
-                            ? '${widget.group.memberCount} катышуучу'
-                            : '${widget.group.memberCount} участников')
-                        : (widget.group.visibility == 'public'
+                            ? '${currentGroup.memberCount} катышуучу'
+                            : '${currentGroup.memberCount} участников')
+                        : (currentGroup.visibility == 'public'
                             ? text.publicGroup
                             : text.privateGroup),
                     style: TextStyle(
@@ -932,7 +1007,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
-                    _CommunityOverview(group: widget.group),
+                    _CommunityOverview(group: currentGroup),
                     const SizedBox(height: 16),
                     ErrorBanner(message: snapshot.error.toString()),
                   ],
@@ -947,7 +1022,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 itemCount: requests.length + (requests.isEmpty ? 3 : 2),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return _CommunityOverview(group: widget.group);
+                    return _CommunityOverview(group: currentGroup);
                   }
                   if (index == 1) {
                     return Padding(
@@ -1015,6 +1090,7 @@ class _CommunityOverview extends StatelessWidget {
                     icon: group.visibility == 'public'
                         ? Icons.groups_2_rounded
                         : Icons.lock_rounded,
+                    imageBytes: group.avatarBytes,
                   ),
                   const SizedBox(width: 14),
                   Expanded(

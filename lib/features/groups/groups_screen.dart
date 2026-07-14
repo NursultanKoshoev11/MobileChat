@@ -838,6 +838,7 @@ class GroupTile extends StatelessWidget {
               icon: group.visibility == 'public'
                   ? Icons.groups_2_rounded
                   : Icons.lock_rounded,
+              imageBytes: group.avatarBytes,
             ),
             const SizedBox(width: 13),
             Expanded(
