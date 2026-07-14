@@ -21,12 +21,13 @@ import '../public_requests/public_requests_screen.dart';
 import 'group_qr_scan_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
-  const GroupsScreen(
-      {super.key,
-      required this.api,
-      required this.session,
-      required this.onSessionChanged,
-      required this.onLogout});
+  const GroupsScreen({
+    super.key,
+    required this.api,
+    required this.session,
+    required this.onSessionChanged,
+    required this.onLogout,
+  });
   final ApiClient api;
   final AppSession session;
   final Future<void> Function(AppSession session) onSessionChanged;
@@ -45,7 +46,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   final Set<String> seenPublicRequestEvents = <String>{};
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
   StreamSubscription<Map<String, String>>? _openedPushSubscription;
-  Timer? _realtimeRefreshDebounce;
+  Timer? _invitationsCountDebounce;
+  Timer? _adminCountDebounce;
   bool get isAdmin => widget.session.user.isPlatformAdmin;
 
   @override
@@ -58,15 +60,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
     _foregroundPushSubscription = PushNotificationService.foregroundDataStream
         .listen(_handleForegroundPushData);
-    _openedPushSubscription =
-        PushNotificationService.openedDataStream.listen(_handleOpenedPushData);
+    _openedPushSubscription = PushNotificationService.openedDataStream.listen(
+      _handleOpenedPushData,
+    );
   }
 
   @override
   void dispose() {
     _foregroundPushSubscription?.cancel();
     _openedPushSubscription?.cancel();
-    _realtimeRefreshDebounce?.cancel();
+    _invitationsCountDebounce?.cancel();
+    _adminCountDebounce?.cancel();
     userRealtime.close();
     super.dispose();
   }
@@ -82,9 +86,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
         break;
       case 'invite.created':
       case 'invite.reviewed':
+        _scheduleInvitationsCountRefresh();
+        break;
       case 'group_creation_request.created':
       case 'group_creation_request.reviewed':
-        _scheduleRealtimeRefresh();
+        _scheduleAdminCountRefresh();
         break;
     }
   }
@@ -94,14 +100,19 @@ class _GroupsScreenState extends State<GroupsScreen> {
     switch (data['type']) {
       case 'public_request.created':
         incrementUnreadPublicRequests(
-            data['group_id'] ?? '', data['request_id'] ?? '');
+          data['group_id'] ?? '',
+          data['request_id'] ?? '',
+        );
         break;
       case 'invite.created':
       case 'invite.reviewed':
+        _scheduleInvitationsCountRefresh();
+        break;
       case 'group_creation_request.created':
       case 'group_creation_request.reviewed':
+        _scheduleAdminCountRefresh();
+        break;
       case 'content_moderation.pending_review':
-        _scheduleRealtimeRefresh();
         break;
     }
   }
@@ -117,10 +128,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         break;
       }
     }
-    if (target == null) {
-      _scheduleRealtimeRefresh();
-      return;
-    }
+    if (target == null) return;
     unawaited(openGroup(target));
   }
 
@@ -128,10 +136,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (groupId.isEmpty) return;
     if (requestId.isNotEmpty && !seenPublicRequestEvents.add(requestId)) return;
     final updated = currentGroups
-        .map((group) => group.id == groupId
-            ? group.copyWith(
-                unreadPublicRequestCount: group.unreadPublicRequestCount + 1)
-            : group)
+        .map(
+          (group) => group.id == groupId
+              ? group.copyWith(
+                  unreadPublicRequestCount: group.unreadPublicRequestCount + 1,
+                )
+              : group,
+        )
         .toList();
     setGroups(updated);
   }
@@ -139,9 +150,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void setUnreadPublicRequests(String groupId, int count) {
     if (groupId.isEmpty) return;
     final updated = currentGroups
-        .map((group) => group.id == groupId
-            ? group.copyWith(unreadPublicRequestCount: count)
-            : group)
+        .map(
+          (group) => group.id == groupId
+              ? group.copyWith(unreadPublicRequestCount: count)
+              : group,
+        )
         .toList();
     setGroups(updated);
   }
@@ -152,11 +165,43 @@ class _GroupsScreenState extends State<GroupsScreen> {
     setState(() => groupsFuture = Future.value(groups));
   }
 
-  void _scheduleRealtimeRefresh() {
-    _realtimeRefreshDebounce?.cancel();
-    _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) unawaited(refresh(silent: true).catchError((_) {}));
+  void _scheduleInvitationsCountRefresh() {
+    _invitationsCountDebounce?.cancel();
+    _invitationsCountDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) unawaited(_refreshInvitationsCount());
     });
+  }
+
+  void _scheduleAdminCountRefresh() {
+    if (!isAdmin) return;
+    _adminCountDebounce?.cancel();
+    _adminCountDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) unawaited(_refreshAdminCount());
+    });
+  }
+
+  Future<void> _refreshInvitationsCount() async {
+    final count = await loadInvitationsCount();
+    if (!mounted) return;
+    setState(() => invitationsCountFuture = Future.value(count));
+  }
+
+  Future<void> _refreshAdminCount() async {
+    final count = await loadAdminRequestsCount();
+    if (!mounted) return;
+    setState(() => adminRequestsCountFuture = Future.value(count));
+  }
+
+  void upsertGroup(ChatGroup group) {
+    final updated = [
+      group,
+      ...currentGroups.where((item) => item.id != group.id),
+    ];
+    setGroups(updated);
+  }
+
+  void removeGroup(String groupId) {
+    setGroups(currentGroups.where((group) => group.id != groupId).toList());
   }
 
   Future<List<ChatGroup>> loadGroups() async {
@@ -168,9 +213,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Future<int> loadAdminRequestsCount() async {
     if (!isAdmin) return 0;
     try {
-      return (await widget.api
-              .fetchAdminGroupCreationRequests(status: 'pending'))
-          .length;
+      return (await widget.api.fetchAdminGroupCreationRequests(
+        status: 'pending',
+      )).length;
     } catch (_) {
       return 0;
     }
@@ -224,29 +269,35 @@ class _GroupsScreenState extends State<GroupsScreen> {
       builder: (_) => CreateGroupSheet(api: widget.api),
     );
     if (group != null) {
-      await refresh();
+      upsertGroup(group);
       if (mounted) await openGroup(group);
     }
   }
 
   Future<void> openGroupRequests() async {
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(
+      MaterialPageRoute(
         builder: (_) => GroupCreationRequestsScreen(
-            api: widget.api, user: widget.session.user)));
+          api: widget.api,
+          user: widget.session.user,
+        ),
+      ),
+    );
   }
 
   Future<void> openAdminRequests() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api),
+      ),
+    );
   }
 
   Future<void> openProfile() async {
     final updatedUser = await Navigator.of(context).push<UserProfile>(
       MaterialPageRoute(
-        builder: (_) => ProfileScreen(
-          api: widget.api,
-          user: widget.session.user,
-        ),
+        builder: (_) =>
+            ProfileScreen(api: widget.api, user: widget.session.user),
       ),
     );
     if (updatedUser != null) {
@@ -263,21 +314,23 @@ class _GroupsScreenState extends State<GroupsScreen> {
       builder: (_) => JoinByCodeSheet(api: widget.api),
     );
     if (group != null) {
-      await refresh();
+      upsertGroup(group);
       if (mounted) await openGroup(group);
     }
   }
 
   Future<void> scanGroupQr() async {
     final inviteCode = await Navigator.of(context).push<String>(
-        MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
+      MaterialPageRoute(builder: (_) => const GroupQrScanScreen()),
+    );
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
     try {
       final group = await widget.api.joinByInviteCode(
-          inviteCode.startsWith('I' + 'NV1.')
-              ? inviteCode
-              : formatGroupInviteCode(inviteCode));
-      await refresh();
+        inviteCode.startsWith('I' + 'NV1.')
+            ? inviteCode
+            : formatGroupInviteCode(inviteCode),
+      );
+      upsertGroup(group);
       if (mounted) await openGroup(group);
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
@@ -286,7 +339,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   Future<void> openInvitations() async {
     await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)));
+      MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)),
+    );
   }
 
   Future<void> openGroup(ChatGroup group) async {
@@ -296,56 +350,71 @@ class _GroupsScreenState extends State<GroupsScreen> {
         setUnreadPublicRequests(group.id, 0);
       } catch (_) {}
     }
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(
+      MaterialPageRoute(
         builder: (_) => PublicRequestsScreen(
-            api: widget.api, user: widget.session.user, group: group)));
+          api: widget.api,
+          user: widget.session.user,
+          group: group,
+        ),
+      ),
+    );
   }
 
   Future<void> leaveGroup(ChatGroup group) async {
     final text = AppLanguageScope.textOf(context);
     if (group.myRole == 'owner') {
       showAppSnack(
-          context,
-          text.isKy
-              ? 'Ээси топтон чыга албайт.'
-              : 'Владелец группы не может выйти из группы.');
+        context,
+        text.isKy
+            ? 'Ээси топтон чыга албайт.'
+            : 'Владелец группы не может выйти из группы.',
+      );
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы'),
-        content: Text(text.isKy
-            ? 'Бул топтон чыгууну каалайсызбы?'
-            : 'Вы действительно хотите выйти из этой группы?'),
+        content: Text(
+          text.isKy
+              ? 'Бул топтон чыгууну каалайсызбы?'
+              : 'Вы действительно хотите выйти из этой группы?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(text.isKy ? 'Жок' : 'Отмена')),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(text.isKy ? 'Жок' : 'Отмена'),
+          ),
           FilledButton.tonal(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(text.isKy ? 'Чыгуу' : 'Выйти')),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(text.isKy ? 'Чыгуу' : 'Выйти'),
+          ),
         ],
       ),
     );
     if (ok != true) return;
     try {
       await PublicRequestsApi(
-              baseUrl: widget.api.baseUrl,
-              sessionStore: widget.api.sessionStore)
-          .leaveGroup(group.id);
-      await refresh();
+        baseUrl: widget.api.baseUrl,
+        sessionStore: widget.api.sessionStore,
+      ).leaveGroup(group.id);
+      removeGroup(group.id);
       if (mounted)
-        showAppSnack(context,
-            text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.');
+        showAppSnack(
+          context,
+          text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.',
+        );
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
     }
   }
 
   Future<void> showMainMenu() async {
-    final counts =
-        await Future.wait([adminRequestsCountFuture, invitationsCountFuture]);
+    final counts = await Future.wait([
+      adminRequestsCountFuture,
+      invitationsCountFuture,
+    ]);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -419,8 +488,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       onJoinByCode: joinByCode,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
-                      onRequests:
-                          isAdmin ? openAdminRequests : openGroupRequests,
+                      onRequests: isAdmin
+                          ? openAdminRequests
+                          : openGroupRequests,
                     ),
                     const SizedBox(height: 16),
                     ErrorBanner(message: snapshot.error.toString()),
@@ -443,8 +513,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       onJoinByCode: joinByCode,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
-                      onRequests:
-                          isAdmin ? openAdminRequests : openGroupRequests,
+                      onRequests: isAdmin
+                          ? openAdminRequests
+                          : openGroupRequests,
                     );
                   }
                   if (index == 1) {
@@ -454,17 +525,19 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         title: text.groups,
                         subtitle: groups.isEmpty
                             ? (text.isKy
-                                ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
-                                : 'Ваши сообщества появятся здесь')
+                                  ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
+                                  : 'Ваши сообщества появятся здесь')
                             : (text.isKy
-                                ? '${groups.length} коомчулук'
-                                : '${groups.length} сообществ'),
+                                  ? '${groups.length} коомчулук'
+                                  : '${groups.length} сообществ'),
                       ),
                     );
                   }
                   if (groups.isEmpty) {
                     return _EmptyGroups(
-                        isAdmin: isAdmin, onCreate: createGroup);
+                      isAdmin: isAdmin,
+                      onCreate: createGroup,
+                    );
                   }
                   final group = groups[index - 2];
                   return GroupTile(
@@ -730,8 +803,9 @@ class _MenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final foreground =
-        destructive ? Theme.of(context).colorScheme.error : colors.textStrong;
+    final foreground = destructive
+        ? Theme.of(context).colorScheme.error
+        : colors.textStrong;
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Material(
@@ -783,8 +857,9 @@ class _EmptyGroups extends StatelessWidget {
         action: FilledButton.icon(
           key: const ValueKey('groups_empty_create_action'),
           onPressed: onCreate,
-          icon:
-              Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined),
+          icon: Icon(
+            isAdmin ? Icons.add_rounded : Icons.verified_user_outlined,
+          ),
           label: Text(isAdmin ? text.newGroup : text.requestGroup),
         ),
       ),
@@ -851,9 +926,7 @@ class GroupTile extends StatelessWidget {
                         ),
                       ),
                       if (group.unreadPublicRequestCount > 0)
-                        Badge(
-                          label: Text('${group.unreadPublicRequestCount}'),
-                        ),
+                        Badge(label: Text('${group.unreadPublicRequestCount}')),
                     ],
                   ),
                   if (group.description.isNotEmpty) ...[
@@ -935,9 +1008,7 @@ class GroupTile extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          text.isKy
-                              ? 'Топтон чыгуу'
-                              : 'Выйти из группы',
+                          text.isKy ? 'Топтон чыгуу' : 'Выйти из группы',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

@@ -56,6 +56,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   String? ensuredInviteCode;
   String? ensuredQrPass;
   final Set<String> _votesInFlight = <String>{};
+  bool _realtimeWasReady = false;
 
   bool get canModerate =>
       currentGroup.myRole == 'owner' || currentGroup.myRole == 'admin';
@@ -89,7 +90,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (!mounted || event.groupId != currentGroup.id) return;
     switch (event.type) {
       case 'connection.ready':
-        _scheduleRealtimeRefresh();
+        if (_realtimeWasReady) {
+          _scheduleRealtimeRefresh();
+        } else {
+          _realtimeWasReady = true;
+        }
         break;
       case 'public_request.created':
         upsertRequestFromPayload(event.payload);
@@ -110,7 +115,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         break;
       case 'content_moderation.reviewed':
       case 'content_moderation.pending_review':
-        _scheduleRealtimeRefresh();
+        unawaited(_refreshModerationCount());
         break;
     }
   }
@@ -236,6 +241,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     } catch (_) {
       return 0;
     }
+  }
+
+  Future<void> _refreshModerationCount() async {
+    final count = await loadModerationCount();
+    if (!mounted) return;
+    setState(() {
+      moderationCountFuture = Future.value(count);
+    });
   }
 
   Future<void> refresh({bool silent = false}) async {

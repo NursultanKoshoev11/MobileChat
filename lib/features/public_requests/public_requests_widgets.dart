@@ -44,12 +44,12 @@ class EmptyPostsView extends StatelessWidget {
 }
 
 class GroupAccessSheet extends StatelessWidget {
-  const GroupAccessSheet(
-      {super.key,
-      required this.groupTitle,
-      required this.code,
-      String? qrValue})
-      : qrValue = qrValue ?? code;
+  const GroupAccessSheet({
+    super.key,
+    required this.groupTitle,
+    required this.code,
+    String? qrValue,
+  }) : qrValue = qrValue ?? code;
   final String groupTitle;
   final String code;
   final String qrValue;
@@ -64,53 +64,73 @@ class GroupAccessSheet extends StatelessWidget {
         margin: const EdgeInsets.all(10),
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
         decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: colors.border)),
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.border),
+        ),
         child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: [
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
                 Expanded(
-                    child: Text(groupTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w900, fontSize: 20))),
-                IconButton.filledTonal(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded)),
-              ]),
-              const SizedBox(height: 12),
-              SelectableText(code,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: colors.textStrong,
-                      fontSize: 26,
+                  child: Text(
+                    groupTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2)),
-              const SizedBox(height: 16),
-              Center(
-                  child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20)),
-                      child: QrImageView(
-                          data: qrValue,
-                          version: QrVersions.auto,
-                          size: 210,
-                          backgroundColor: Colors.white))),
-              const SizedBox(height: 12),
-              Text(
-                  text.isKy
-                      ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз.'
-                      : 'Передайте этот код или QR другому пользователю.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: colors.textMuted, fontWeight: FontWeight.w600)),
-            ]),
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+                IconButton.filledTonal(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              code,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textStrong,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: QrImageView(
+                  data: qrValue,
+                  version: QrVersions.auto,
+                  size: 210,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              text.isKy
+                  ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз.'
+                  : 'Передайте этот код или QR другому пользователю.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -143,15 +163,17 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     });
     try {
       await widget.api.inviteUserByPhone(
-          groupId: widget.group.id,
-          mobile: '+996${phoneController.text.trim()}');
+        groupId: widget.group.id,
+        mobile: '+996${phoneController.text.trim()}',
+      );
       if (!mounted) return;
       Navigator.of(context).pop();
       showAppSnack(
-          context,
-          AppLanguageScope.textOf(context).isKy
-              ? 'Чакыруу жөнөтүлдү.'
-              : 'Приглашение отправлено.');
+        context,
+        AppLanguageScope.textOf(context).isKy
+            ? 'Чакыруу жөнөтүлдү.'
+            : 'Приглашение отправлено.',
+      );
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -164,45 +186,49 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+      ),
       child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              maxLength: 9,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: text.mobileNumber,
-                hintText: '700123456',
-                prefixText: '+996 ',
-                prefixIcon: const Icon(Icons.phone_iphone_rounded),
-                counterText: '',
-              ),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: phoneController,
+            keyboardType: TextInputType.phone,
+            maxLength: 9,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: text.mobileNumber,
+              hintText: '700123456',
+              prefixText: '+996 ',
+              prefixIcon: const Icon(Icons.phone_iphone_rounded),
+              counterText: '',
             ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              ErrorBanner(message: error!)
-            ],
-            const SizedBox(height: 16),
-            FilledButton(
-                onPressed: loading ? null : submit,
-                child: Text(loading
-                    ? text.pleaseWait
-                    : (text.isKy
-                        ? 'Чакыруу жөнөтүү'
-                        : 'Отправить приглашение'))),
-          ]),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: error!),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: loading ? null : submit,
+            child: Text(
+              loading
+                  ? text.pleaseWait
+                  : (text.isKy ? 'Чакыруу жөнөтүү' : 'Отправить приглашение'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -249,21 +275,23 @@ class _PostPhotoPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          const Icon(Icons.photo_outlined, size: 16),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: context.appColors.textMuted,
-                  ),
+        Row(
+          children: [
+            const Icon(Icons.photo_outlined, size: 16),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: context.appColors.textMuted,
+                ),
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => _openPhotoViewer(context, decoded),
@@ -302,13 +330,14 @@ void _openPhotoViewer(BuildContext context, Uint8List bytes) {
 }
 
 class PublicRequestCard extends StatelessWidget {
-  const PublicRequestCard(
-      {super.key,
-      required this.request,
-      required this.onTap,
-      required this.onVote,
-      this.canModerate = false,
-      this.onStatus});
+  const PublicRequestCard({
+    super.key,
+    required this.request,
+    required this.onTap,
+    required this.onVote,
+    this.canModerate = false,
+    this.onStatus,
+  });
   final PublicRequest request;
   final VoidCallback onTap;
   final ValueChanged<String> onVote;
@@ -390,65 +419,91 @@ class PublicRequestCard extends StatelessWidget {
           onTap: request.interactionMode == 'discussion' ? onTap : null,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Text(
-                    statusText,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.textMuted, fontWeight: FontWeight.w800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.textMuted,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (canModerate && onStatus != null)
+                      _StatusButton(onChanged: onStatus!),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  request.title,
+                  style: TextStyle(
+                    color: colors.textStrong,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (canModerate && onStatus != null)
-                  _StatusButton(onChanged: onStatus!),
-              ]),
-              const SizedBox(height: 6),
-              Text(request.title,
-                  style: TextStyle(
-                      color: colors.textStrong,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800)),
-              if (request.displayBody.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(request.displayBody,
-                    maxLines: 3, overflow: TextOverflow.ellipsis),
-              ],
-              if (requestPhotos.isNotEmpty) ...[
+                if (request.displayBody.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    request.displayBody,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (requestPhotos.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _PostPhotoPreview(photos: requestPhotos),
+                ],
                 const SizedBox(height: 10),
-                _PostPhotoPreview(photos: requestPhotos),
-              ],
-              const SizedBox(height: 10),
-              Text('${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
-                  style: TextStyle(color: colors.textMuted, fontSize: 12)),
-              const SizedBox(height: 10),
-              Wrap(
+                Text(
+                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
+                  style: TextStyle(color: colors.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (request.interactionMode == 'discussion')
                       FilledButton.tonal(
-                          onPressed: onTap, child: Text(text.read)),
+                        onPressed: onTap,
+                        child: Text(text.read),
+                      ),
                     if (request.interactionMode != 'read_only')
                       OutlinedButton.icon(
-                          onPressed: () => onVote('support'),
-                          icon: Icon(request.supportedByMe
+                        onPressed: () => onVote('support'),
+                        icon: Icon(
+                          request.supportedByMe
                               ? Icons.thumb_up_alt_rounded
-                              : Icons.thumb_up_alt_outlined),
-                          label: Text('${request.supportCount}')),
+                              : Icons.thumb_up_alt_outlined,
+                        ),
+                        label: Text('${request.supportCount}'),
+                      ),
                     if (request.interactionMode != 'read_only')
                       OutlinedButton.icon(
-                          onPressed: () => onVote('oppose'),
-                          icon: Icon(request.opposedByMe
+                        onPressed: () => onVote('oppose'),
+                        icon: Icon(
+                          request.opposedByMe
                               ? Icons.thumb_down_alt_rounded
-                              : Icons.thumb_down_alt_outlined),
-                          label: Text('${request.opposeCount}')),
+                              : Icons.thumb_down_alt_outlined,
+                        ),
+                        label: Text('${request.opposeCount}'),
+                      ),
                     if (request.interactionMode == 'discussion')
-                      Text('${request.commentCount} ${text.comments}',
-                          style: TextStyle(color: colors.textMuted)),
-                  ]),
-            ]),
+                      Text(
+                        '${request.commentCount} ${text.comments}',
+                        style: TextStyle(color: colors.textMuted),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -467,7 +522,9 @@ class _StatusButton extends StatelessWidget {
       onSelected: onChanged,
       itemBuilder: (_) => [
         PopupMenuItem(
-            value: 'under_review', child: Text(text.statusUnderReview)),
+          value: 'under_review',
+          child: Text(text.statusUnderReview),
+        ),
         PopupMenuItem(value: 'resolved', child: Text(text.statusResolved)),
         PopupMenuItem(value: 'new', child: Text(text.statusNew)),
         PopupMenuItem(value: 'rejected', child: Text(text.statusRejected)),
@@ -475,16 +532,22 @@ class _StatusButton extends StatelessWidget {
       tooltip: text.adminStatus,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Icon(Icons.sync_alt_rounded,
-            size: 18, color: Theme.of(context).colorScheme.primary),
+        child: Icon(
+          Icons.sync_alt_rounded,
+          size: 18,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
 }
 
 class CreatePublicRequestSheet extends StatefulWidget {
-  const CreatePublicRequestSheet(
-      {super.key, required this.api, required this.group});
+  const CreatePublicRequestSheet({
+    super.key,
+    required this.api,
+    required this.group,
+  });
   final PublicRequestsApi api;
   final ChatGroup group;
 
@@ -517,26 +580,32 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
       final bytes = await image.readAsBytes();
       if (!mounted) return;
       if (bytes.length > maxPhotoBytes) {
-        setState(() => error = AppLanguageScope.textOf(context).isKy
-            ? 'Фото өтө чоң. Башка сүрөт тандаңыз.'
-            : 'Фото слишком большое. Выберите другое фото.');
+        setState(
+          () => error = AppLanguageScope.textOf(context).isKy
+              ? 'Фото өтө чоң. Башка сүрөт тандаңыз.'
+              : 'Фото слишком большое. Выберите другое фото.',
+        );
         return;
       }
       setState(() {
         photos
           ..clear()
-          ..add(PublicRequestPhoto(
-            name: image.name.isNotEmpty ? image.name : 'photo.jpg',
-            sizeBytes: bytes.length,
-            base64Data: base64Encode(bytes),
-          ));
+          ..add(
+            PublicRequestPhoto(
+              name: image.name.isNotEmpty ? image.name : 'photo.jpg',
+              sizeBytes: bytes.length,
+              base64Data: base64Encode(bytes),
+            ),
+          );
         error = null;
       });
     } catch (e) {
       if (mounted) {
-        setState(() => error = AppLanguageScope.textOf(context).isKy
-            ? 'Фото тандалган жок: $e'
-            : 'Не удалось выбрать фото: $e');
+        setState(
+          () => error = AppLanguageScope.textOf(context).isKy
+              ? 'Фото тандалган жок: $e'
+              : 'Не удалось выбрать фото: $e',
+        );
       }
     }
   }
@@ -556,9 +625,11 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
   Future<void> submit() async {
     final bodyText = bodyController.text.trim();
     if (bodyText.isEmpty && photos.isEmpty) {
-      setState(() => error = AppLanguageScope.textOf(context).isKy
-          ? 'Текст же фото кошуңуз.'
-          : 'Добавьте текст или фото.');
+      setState(
+        () => error = AppLanguageScope.textOf(context).isKy
+            ? 'Текст же фото кошуңуз.'
+            : 'Добавьте текст или фото.',
+      );
       return;
     }
     final payload = PublicRequestContent(
@@ -571,11 +642,12 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
     });
     try {
       await widget.api.createRequest(
-          groupId: widget.group.id,
-          type: type,
-          interactionMode: interactionMode,
-          title: titleController.text.trim(),
-          body: payload);
+        groupId: widget.group.id,
+        type: type,
+        interactionMode: interactionMode,
+        title: titleController.text.trim(),
+        body: payload,
+      );
       if (mounted) Navigator.of(context).pop(true);
     } on ModerationPendingException catch (e) {
       titleController.clear();
@@ -598,130 +670,152 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
     final text = AppLanguageScope.textOf(context);
     return Padding(
       padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+      ),
       child: SingleChildScrollView(
         child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(text.newPost,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                  value: type,
-                  decoration: InputDecoration(labelText: text.postType),
-                  items: [
-                    DropdownMenuItem(
-                        value: 'announcement', child: Text(text.announcement)),
-                    DropdownMenuItem(
-                        value: 'suggestion', child: Text(text.suggestion)),
-                    DropdownMenuItem(
-                        value: 'complaint', child: Text(text.complaint)),
-                    DropdownMenuItem(
-                        value: 'requirement', child: Text(text.requirement)),
-                    DropdownMenuItem(
-                        value: 'problem', child: Text(text.problem)),
-                    DropdownMenuItem(value: 'idea', child: Text(text.idea))
-                  ],
-                  onChanged: loading
-                      ? null
-                      : (value) =>
-                          setState(() => type = value ?? 'announcement')),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                  key: const ValueKey('post_mode_dropdown'),
-                  value: interactionMode,
-                  decoration: InputDecoration(labelText: text.interactionMode),
-                  items: [
-                    DropdownMenuItem(
-                        value: 'read_only', child: Text(text.textOnly)),
-                    DropdownMenuItem(
-                        value: 'vote_only', child: Text(text.votingOnly)),
-                    DropdownMenuItem(
-                        value: 'discussion',
-                        child: Text(
-                          text.discussionWithComments,
-                          key: const ValueKey('post_mode_discussion'),
-                        ))
-                  ],
-                  onChanged: loading
-                      ? null
-                      : (value) => setState(
-                          () => interactionMode = value ?? 'read_only')),
-              const SizedBox(height: 12),
-              TextField(
-                  key: const ValueKey('post_title_field'),
-                  controller: titleController,
-                  decoration: InputDecoration(labelText: text.title)),
-              const SizedBox(height: 12),
-              TextField(
-                  key: const ValueKey('post_body_field'),
-                  controller: bodyController,
-                  minLines: 4,
-                  maxLines: 8,
-                  decoration: InputDecoration(labelText: text.description)),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: loading ? null : pickPhoto,
-                icon: const Icon(Icons.photo_library_outlined),
-                label: Text(photos.isEmpty
-                    ? (text.isKy ? 'Фото кошуу' : 'Добавить фото')
-                    : (text.isKy ? 'Фото алмаштыруу' : 'Заменить фото')),
-              ),
-              if (photos.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Stack(
-                  children: [
-                    _PostPhotoPreview(photos: photos, compact: false),
-                    Positioned(
-                      top: 32,
-                      right: 8,
-                      child: IconButton.filledTonal(
-                        onPressed: removePhoto,
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        tooltip: text.isKy ? 'Фото өчүрүү' : 'Удалить фото',
-                      ),
-                    ),
-                  ],
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              text.newPost,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: type,
+              decoration: InputDecoration(labelText: text.postType),
+              items: [
+                DropdownMenuItem(
+                  value: 'announcement',
+                  child: Text(text.announcement),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${(photos.first.sizeBytes / 1024).round()} KB',
-                  style: TextStyle(
-                    color: context.appColors.textMuted,
-                    fontSize: 12,
+                DropdownMenuItem(
+                  value: 'suggestion',
+                  child: Text(text.suggestion),
+                ),
+                DropdownMenuItem(
+                  value: 'complaint',
+                  child: Text(text.complaint),
+                ),
+                DropdownMenuItem(
+                  value: 'requirement',
+                  child: Text(text.requirement),
+                ),
+                DropdownMenuItem(value: 'problem', child: Text(text.problem)),
+                DropdownMenuItem(value: 'idea', child: Text(text.idea)),
+              ],
+              onChanged: loading
+                  ? null
+                  : (value) => setState(() => type = value ?? 'announcement'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const ValueKey('post_mode_dropdown'),
+              value: interactionMode,
+              decoration: InputDecoration(labelText: text.interactionMode),
+              items: [
+                DropdownMenuItem(
+                  value: 'read_only',
+                  child: Text(text.textOnly),
+                ),
+                DropdownMenuItem(
+                  value: 'vote_only',
+                  child: Text(text.votingOnly),
+                ),
+                DropdownMenuItem(
+                  value: 'discussion',
+                  child: Text(
+                    text.discussionWithComments,
+                    key: const ValueKey('post_mode_discussion'),
                   ),
                 ),
               ],
-              if (error != null) ...[
-                const SizedBox(height: 12),
-                ErrorBanner(message: error!)
-              ],
-              const SizedBox(height: 16),
-              FilledButton(
-                  key: const ValueKey('post_submit_button'),
-                  onPressed: loading ? null : submit,
-                  child: Text(loading ? text.publishing : text.publish)),
-            ]),
+              onChanged: loading
+                  ? null
+                  : (value) =>
+                        setState(() => interactionMode = value ?? 'read_only'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('post_title_field'),
+              controller: titleController,
+              decoration: InputDecoration(labelText: text.title),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('post_body_field'),
+              controller: bodyController,
+              minLines: 4,
+              maxLines: 8,
+              decoration: InputDecoration(labelText: text.description),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: loading ? null : pickPhoto,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(
+                photos.isEmpty
+                    ? (text.isKy ? 'Фото кошуу' : 'Добавить фото')
+                    : (text.isKy ? 'Фото алмаштыруу' : 'Заменить фото'),
+              ),
+            ),
+            if (photos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Stack(
+                children: [
+                  _PostPhotoPreview(photos: photos, compact: false),
+                  Positioned(
+                    top: 32,
+                    right: 8,
+                    child: IconButton.filledTonal(
+                      onPressed: removePhoto,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      tooltip: text.isKy ? 'Фото өчүрүү' : 'Удалить фото',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${(photos.first.sizeBytes / 1024).round()} KB',
+                style: TextStyle(
+                  color: context.appColors.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            if (error != null) ...[
+              const SizedBox(height: 12),
+              ErrorBanner(message: error!),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const ValueKey('post_submit_button'),
+              onPressed: loading ? null : submit,
+              child: Text(loading ? text.publishing : text.publish),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class PublicRequestDetailsScreen extends StatefulWidget {
-  const PublicRequestDetailsScreen(
-      {super.key,
-      required this.api,
-      required this.request,
-      required this.canModerate,
-      required this.currentUserId,
-      this.onStatusChanged,
-      this.onRequestChanged});
+  const PublicRequestDetailsScreen({
+    super.key,
+    required this.api,
+    required this.request,
+    required this.canModerate,
+    required this.currentUserId,
+    this.onStatusChanged,
+    this.onRequestChanged,
+  });
   final PublicRequestsApi api;
   final PublicRequest request;
   final bool canModerate;
@@ -741,7 +835,6 @@ class _PublicRequestDetailsScreenState
   late Future<List<PublicRequestComment>> commentsFuture;
   late final GroupRealtimeService realtime;
   List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
-  Timer? realtimeRefreshDebounce;
   bool sending = false;
   bool commentsLoaded = false;
   bool voteInFlight = false;
@@ -754,7 +847,9 @@ class _PublicRequestDetailsScreenState
     commentsFuture = loadComments();
     realtime = GroupRealtimeService(
       api: ApiClient(
-          baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
+        baseUrl: widget.api.baseUrl,
+        sessionStore: widget.api.sessionStore,
+      ),
       groupId: request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
@@ -762,7 +857,6 @@ class _PublicRequestDetailsScreenState
 
   @override
   void dispose() {
-    realtimeRefreshDebounce?.cancel();
     realtime.close();
     commentController.dispose();
     super.dispose();
@@ -788,13 +882,7 @@ class _PublicRequestDetailsScreenState
 
   void handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != request.groupId) return;
-    if (event.type == 'connection.ready') {
-      realtimeRefreshDebounce?.cancel();
-      realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
-        if (mounted) {}
-      });
-      return;
-    }
+    if (event.type == 'connection.ready') return;
     if (event.requestId != request.id) return;
     switch (event.type) {
       case 'public_request.comment_created':
@@ -828,8 +916,9 @@ class _PublicRequestDetailsScreenState
 
   void removeRealtimeComment(String commentId) {
     if (commentId.isEmpty) return;
-    final updated =
-        cachedComments.where((comment) => comment.id != commentId).toList();
+    final updated = cachedComments
+        .where((comment) => comment.id != commentId)
+        .toList();
     setComments(updated);
   }
 
@@ -892,12 +981,18 @@ class _PublicRequestDetailsScreenState
       error = null;
     });
     try {
-      final comment =
-          await widget.api.addComment(requestId: request.id, body: body);
+      final comment = await widget.api.addComment(
+        requestId: request.id,
+        body: body,
+      );
       commentController.clear();
       addRealtimeComment(comment);
-      setRequest(request.copyWith(
-          commentCount: request.commentCount + 1, updatedAt: DateTime.now()));
+      setRequest(
+        request.copyWith(
+          commentCount: request.commentCount + 1,
+          updatedAt: DateTime.now(),
+        ),
+      );
     } on ModerationPendingException catch (e) {
       commentController.clear();
       if (mounted) {
@@ -916,10 +1011,14 @@ class _PublicRequestDetailsScreenState
     final previousComments = cachedComments;
     final previousRequest = request;
     removeRealtimeComment(comment.id);
-    setRequest(request.copyWith(
-      commentCount: request.commentCount - 1 < 0 ? 0 : request.commentCount - 1,
-      updatedAt: DateTime.now(),
-    ));
+    setRequest(
+      request.copyWith(
+        commentCount: request.commentCount - 1 < 0
+            ? 0
+            : request.commentCount - 1,
+        updatedAt: DateTime.now(),
+      ),
+    );
     try {
       await widget.api.deleteComment(comment.id);
     } catch (e) {
@@ -936,7 +1035,9 @@ class _PublicRequestDetailsScreenState
     final colors = context.appColors;
     return Scaffold(
       appBar: AppBar(
-          title: Text(text.readPost), actions: const [AppSettingsButton()]),
+        title: Text(text.readPost),
+        actions: const [AppSettingsButton()],
+      ),
       body: KoomPageBackground(
         child: RefreshIndicator(
           onRefresh: refreshComments,
@@ -959,19 +1060,24 @@ class _PublicRequestDetailsScreenState
                     onStatus: widget.onStatusChanged == null
                         ? null
                         : (status) {
-                            setRequest(request.copyWith(
-                                status: status, updatedAt: DateTime.now()));
+                            setRequest(
+                              request.copyWith(
+                                status: status,
+                                updatedAt: DateTime.now(),
+                              ),
+                            );
                             widget.onStatusChanged!(status);
                           },
                     compact: false,
                     showOpenAction: false,
                   ),
                   const SizedBox(height: 18),
-                  Text(text.comments,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(
+                    text.comments,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   if (error != null) ...[
                     ErrorBanner(message: error!),
@@ -994,18 +1100,22 @@ class _PublicRequestDetailsScreenState
                         border: Border.all(color: colors.border),
                       ),
                       child: Text(
-                          text.isKy
-                              ? 'Комментарий азырынча жок.'
-                              : 'Комментариев пока нет.',
-                          style: TextStyle(color: colors.textMuted)),
+                        text.isKy
+                            ? 'Комментарий азырынча жок.'
+                            : 'Комментариев пока нет.',
+                        style: TextStyle(color: colors.textMuted),
+                      ),
                     )
                   else
-                    ...comments.map((comment) => _CommentTile(
-                          comment: comment,
-                          canDelete: widget.canModerate ||
-                              comment.authorId == widget.currentUserId,
-                          onDelete: () => deleteComment(comment),
-                        )),
+                    ...comments.map(
+                      (comment) => _CommentTile(
+                        comment: comment,
+                        canDelete:
+                            widget.canModerate ||
+                            comment.authorId == widget.currentUserId,
+                        onDelete: () => deleteComment(comment),
+                      ),
+                    ),
                 ],
               );
             },
@@ -1017,40 +1127,45 @@ class _PublicRequestDetailsScreenState
               top: false,
               child: Container(
                 padding: EdgeInsets.only(
-                    left: 12,
-                    right: 12,
-                    top: 10,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 10),
+                  left: 12,
+                  right: 12,
+                  top: 10,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 10,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surface,
                   border: Border(top: BorderSide(color: colors.border)),
                 ),
-                child: Row(children: [
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('comment_field'),
-                      controller: commentController,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => submitComment(),
-                      decoration: InputDecoration(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('comment_field'),
+                        controller: commentController,
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => submitComment(),
+                        decoration: InputDecoration(
                           hintText: text.isKy
                               ? 'Комментарий кошуу'
-                              : 'Добавить комментарий'),
+                              : 'Добавить комментарий',
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: sending ? null : submitComment,
-                    icon: sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.send_rounded),
-                  ),
-                ]),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: sending ? null : submitComment,
+                      icon: sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_rounded),
+                    ),
+                  ],
+                ),
               ),
             )
           : null,
@@ -1059,8 +1174,11 @@ class _PublicRequestDetailsScreenState
 }
 
 class _CommentTile extends StatelessWidget {
-  const _CommentTile(
-      {required this.comment, required this.canDelete, required this.onDelete});
+  const _CommentTile({
+    required this.comment,
+    required this.canDelete,
+    required this.onDelete,
+  });
   final PublicRequestComment comment;
   final bool canDelete;
   final VoidCallback onDelete;
@@ -1076,35 +1194,51 @@ class _CommentTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: colors.border),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-          child: Text(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.12),
+            child: Text(
               comment.authorName.isEmpty
                   ? '?'
                   : comment.authorName.substring(0, 1).toUpperCase(),
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w900)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(comment.authorName,
-              style: TextStyle(
-                  color: colors.textStrong, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 3),
-          Text(comment.body,
-              style: TextStyle(color: colors.textStrong, height: 1.3)),
-        ])),
-        if (canDelete)
-          IconButton(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  comment.authorName,
+                  style: TextStyle(
+                    color: colors.textStrong,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  comment.body,
+                  style: TextStyle(color: colors.textStrong, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+          if (canDelete)
+            IconButton(
               onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded)),
-      ]),
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+        ],
+      ),
     );
   }
 }
