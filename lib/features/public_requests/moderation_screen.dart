@@ -350,27 +350,30 @@ class _ModerationItemCard extends StatelessWidget {
               style: const TextStyle(height: 1.35),
             ),
             const SizedBox(height: 14),
-            Row(
+            KoomResponsiveActions(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: loading ? null : onReject,
-                    icon: const Icon(Icons.close_rounded),
-                    label: Text(_reject),
+                OutlinedButton.icon(
+                  onPressed: loading ? null : onReject,
+                  icon: const Icon(Icons.close_rounded),
+                  label: Text(
+                    _reject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: loading ? null : onApprove,
-                    icon: loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check_rounded),
-                    label: Text(_approve),
+                FilledButton.icon(
+                  onPressed: loading ? null : onApprove,
+                  icon: loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(
+                    _approve,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

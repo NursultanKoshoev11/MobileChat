@@ -134,6 +134,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     final colors = context.appColors;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final compact = screenWidth < 390;
+    final veryCompact = screenWidth < 350;
 
     return Scaffold(
       body: KoomPageBackground(
@@ -141,14 +142,22 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                padding: EdgeInsets.fromLTRB(compact ? 10 : 18, 8,
+                    compact ? 10 : 18, 0),
                 child: Row(
                   children: [
-                    const KoomBrandTitle(compact: true),
-                    const Spacer(),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: veryCompact
+                            ? const KoomLogoMark(size: 36, showShadow: false)
+                            : const KoomBrandTitle(compact: true),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     const ThemeModeButton(),
-                    const SizedBox(width: 6),
-                    const LanguageMenuButton(),
+                    const SizedBox(width: 4),
+                    LanguageMenuButton(compact: compact),
                   ],
                 ),
               ),

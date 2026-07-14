@@ -203,20 +203,23 @@ class _InvitationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 17),
-          Row(
+          KoomResponsiveActions(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onDecline,
-                  child: Text(text.isKy ? 'Баш тартуу' : 'Отклонить'),
+              OutlinedButton(
+                onPressed: onDecline,
+                child: Text(
+                  text.isKy ? 'Баш тартуу' : 'Отклонить',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onAccept,
-                  icon: const Icon(Icons.check_rounded),
-                  label: Text(text.isKy ? 'Кабыл алуу' : 'Принять'),
+              FilledButton.icon(
+                onPressed: onAccept,
+                icon: const Icon(Icons.check_rounded),
+                label: Text(
+                  text.isKy ? 'Кабыл алуу' : 'Принять',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

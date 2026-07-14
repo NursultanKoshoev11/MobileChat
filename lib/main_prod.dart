@@ -585,7 +585,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       drawer: ProfileDrawer(user: widget.session.user, apiBaseUrl: widget.api.baseUrl, onLogout: widget.onLogout),
-      floatingActionButton: FloatingActionButton.extended(onPressed: openCreateGroup, icon: const Icon(Icons.add_rounded), label: const Text('New group')),
+      floatingActionButton: MediaQuery.sizeOf(context).width < 380
+          ? FloatingActionButton(
+              onPressed: openCreateGroup,
+              tooltip: 'New group',
+              child: const Icon(Icons.add_rounded),
+            )
+          : FloatingActionButton.extended(
+              onPressed: openCreateGroup,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New group'),
+            ),
       body: RefreshIndicator(
         onRefresh: refresh,
         child: FutureBuilder<List<ChatGroup>>(
@@ -863,7 +873,15 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
       const SizedBox(height: 12),
       TextField(controller: descriptionController, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.notes_rounded))),
       const SizedBox(height: 14),
-      SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'public', label: Text('Public'), icon: Icon(Icons.public_rounded)), ButtonSegment(value: 'private', label: Text('Invite only'), icon: Icon(Icons.lock_rounded))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
+      LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'public', label: Text('Public'), icon: Icon(Icons.public_rounded)), ButtonSegment(value: 'private', label: Text('Invite only'), icon: Icon(Icons.lock_rounded))], selected: {visibility}, onSelectionChanged: (value) => setState(() => visibility = value.first)),
+          ),
+        ),
+      ),
       if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
       const SizedBox(height: 16),
       FilledButton.icon(onPressed: loading ? null : create, icon: const Icon(Icons.add_rounded), label: Text(loading ? 'Creating...' : 'Create group')),
@@ -1034,7 +1052,27 @@ class InfoBanner extends StatelessWidget { const InfoBanner({super.key, required
 class InfoPanel extends StatelessWidget { const InfoPanel({super.key, required this.icon, required this.title, required this.message}); final IconData icon; final String title; final String message; @override Widget build(BuildContext context) => Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, color: AppTheme.primaryDark), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 3), SelectableText(message, style: const TextStyle(color: AppTheme.textMuted))]))])); }
 class InviteCodeBanner extends StatelessWidget { const InviteCodeBanner({super.key, required this.code}); final String code; @override Widget build(BuildContext context) => Container(width: double.infinity, margin: const EdgeInsets.fromLTRB(12, 8, 12, 0), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFFDE68A))), child: Row(children: [const Icon(Icons.key_rounded, color: Color(0xFFA16207)), const SizedBox(width: 10), Expanded(child: SelectableText('Invite code: $code'))])); }
 class LoadingList extends StatelessWidget { const LoadingList({super.key}); @override Widget build(BuildContext context) => ListView.builder(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), itemCount: 8, itemBuilder: (_, __) => const Padding(padding: EdgeInsets.only(bottom: 10), child: SkeletonCard(height: 82))); }
-class LoadingMessages extends StatelessWidget { const LoadingMessages({super.key}); @override Widget build(BuildContext context) => ListView.builder(reverse: true, padding: const EdgeInsets.all(12), itemCount: 8, itemBuilder: (_, index) => Align(alignment: index.isEven ? Alignment.centerRight : Alignment.centerLeft, child: const Padding(padding: EdgeInsets.only(bottom: 8), child: SkeletonCard(width: 240, height: 58)))); }
+class LoadingMessages extends StatelessWidget {
+  const LoadingMessages({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final skeletonWidth =
+        (MediaQuery.sizeOf(context).width * 0.62).clamp(140.0, 240.0).toDouble();
+    return ListView.builder(
+      reverse: true,
+      padding: const EdgeInsets.all(12),
+      itemCount: 8,
+      itemBuilder: (context, index) => Align(
+        alignment: index.isEven ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: SkeletonCard(width: skeletonWidth, height: 58),
+        ),
+      ),
+    );
+  }
+}
 class SkeletonCard extends StatelessWidget { const SkeletonCard({super.key, this.width, required this.height}); final double? width; final double height; @override Widget build(BuildContext context) => Container(width: width, height: height, decoration: BoxDecoration(color: Colors.white.withOpacity(0.82), borderRadius: BorderRadius.circular(22))); }
 class EmptyState extends StatelessWidget { const EmptyState({super.key, required this.icon, required this.title, required this.message, required this.primaryLabel, required this.onPrimary}); final IconData icon; final String title; final String message; final String primaryLabel; final VoidCallback onPrimary; @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(24), children: [const SizedBox(height: 80), Icon(icon, size: 76, color: AppTheme.primary), const SizedBox(height: 16), Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMuted)), const SizedBox(height: 20), Center(child: FilledButton(onPressed: onPrimary, child: Text(primaryLabel)))]); }
 class ErrorState extends StatelessWidget { const ErrorState({super.key, required this.title, required this.message, required this.onAction}); final String title; final String message; final Future<void> Function() onAction; @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(24), children: [const SizedBox(height: 80), const Icon(Icons.error_outline_rounded, size: 76, color: Colors.redAccent), const SizedBox(height: 16), Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMuted)), const SizedBox(height: 20), Center(child: FilledButton(onPressed: onAction, child: const Text('Try again')))]); }

@@ -401,7 +401,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), child: TextField(onChanged: (value) => setState(() => query = value), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search groups'))),
         Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), itemCount: groups.length, itemBuilder: (_, index) => GroupTile(group: groups[index]))),
       ]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RequestGroupScreen())), icon: const Icon(Icons.verified_user_outlined), label: const Text('Request group')),
+      floatingActionButton: MediaQuery.sizeOf(context).width < 380
+          ? FloatingActionButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RequestGroupScreen()),
+              ),
+              tooltip: 'Request group',
+              child: const Icon(Icons.verified_user_outlined),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RequestGroupScreen()),
+              ),
+              icon: const Icon(Icons.verified_user_outlined),
+              label: const Text('Request group'),
+            ),
     );
   }
 }
@@ -766,7 +780,17 @@ class _PostsScreenState extends State<PostsScreen> {
         SingleChildScrollView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 6), scrollDirection: Axis.horizontal, child: SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'newest', label: Text('Newest')), ButtonSegment(value: 'popular', label: Text('Popular')), ButtonSegment(value: 'resolved', label: Text('Resolved'))], selected: {filter}, onSelectionChanged: (value) => setState(() => filter = value.first))),
         Expanded(child: ListView.builder(padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), itemCount: posts.length, itemBuilder: (_, index) => FeedPostCard(post: posts[index], group: widget.group))),
       ]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: createPost, icon: const Icon(Icons.add_rounded), label: const Text('New post')),
+      floatingActionButton: MediaQuery.sizeOf(context).width < 380
+          ? FloatingActionButton(
+              onPressed: createPost,
+              tooltip: 'New post',
+              child: const Icon(Icons.add_rounded),
+            )
+          : FloatingActionButton.extended(
+              onPressed: createPost,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New post'),
+            ),
     );
   }
 
@@ -815,7 +839,23 @@ class FeedPostCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [ChipLabel(text: post.type), const SizedBox(width: 8), ChipLabel(text: post.mode.label), const Spacer(), Text(post.status, style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w700))]),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ChipLabel(text: post.type),
+                ChipLabel(text: post.mode.label),
+                Text(
+                  post.status,
+                  style: const TextStyle(
+                    color: MobileChatTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
             Text(post.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
@@ -823,17 +863,43 @@ class FeedPostCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text('By ${post.author}', style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12)),
             const SizedBox(height: 12),
-            Row(children: [
-              if (post.canComment) FilledButton.tonal(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DetailsScreen(post: post, group: group))), child: const Text('Read')),
-              if (post.canComment) const SizedBox(width: 8),
-              if (post.canVote) ...[
-                OutlinedButton.icon(onPressed: () => demo.vote(post, 'support'), icon: Icon(myVote == 'support' ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined), label: Text('${post.support}')),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(onPressed: () => demo.vote(post, 'oppose'), icon: Icon(myVote == 'oppose' ? Icons.thumb_down_alt_rounded : Icons.thumb_down_alt_outlined), label: Text('${post.oppose}')),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (post.canComment)
+                  FilledButton.tonal(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DetailsScreen(post: post, group: group),
+                      ),
+                    ),
+                    child: const Text('Read'),
+                  ),
+                if (post.canVote)
+                  OutlinedButton.icon(
+                    onPressed: () => demo.vote(post, 'support'),
+                    icon: Icon(myVote == 'support'
+                        ? Icons.thumb_up_alt_rounded
+                        : Icons.thumb_up_alt_outlined),
+                    label: Text('${post.support}'),
+                  ),
+                if (post.canVote)
+                  OutlinedButton.icon(
+                    onPressed: () => demo.vote(post, 'oppose'),
+                    icon: Icon(myVote == 'oppose'
+                        ? Icons.thumb_down_alt_rounded
+                        : Icons.thumb_down_alt_outlined),
+                    label: Text('${post.oppose}'),
+                  ),
+                if (post.canComment)
+                  Text(
+                    '$commentCount comments',
+                    style: const TextStyle(color: MobileChatTheme.textMuted),
+                  ),
               ],
-              const Spacer(),
-              if (post.canComment) Text('$commentCount comments', style: const TextStyle(color: MobileChatTheme.textMuted)),
-            ]),
+            ),
           ]),
         ),
       ),

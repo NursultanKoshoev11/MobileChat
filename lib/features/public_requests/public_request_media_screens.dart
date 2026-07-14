@@ -307,12 +307,16 @@ class _RequestActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 19, color: foreground),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],

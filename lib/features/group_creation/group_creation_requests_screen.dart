@@ -68,10 +68,11 @@ class _GroupCreationRequestsScreenState
     return Scaffold(
       appBar: AppBar(
           title: Text(text.myRequests), actions: const [AppSettingsButton()]),
-      floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => createRequest(),
-          icon: const Icon(Icons.verified_user_outlined),
-          label: Text(text.requestGroup)),
+      floatingActionButton: KoomAdaptiveFab(
+        onPressed: () => createRequest(),
+        icon: Icons.verified_user_outlined,
+        label: text.requestGroup,
+      ),
       body: KoomPageBackground(
         child: RefreshIndicator(
           onRefresh: refresh,
@@ -357,36 +358,77 @@ class GroupCreationRequestCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            if (number != null) ...[
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    color: MobileChatTheme.primary,
-                    borderRadius: BorderRadius.circular(999)),
-                child: Text('$number',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w900)),
-              ),
-              const SizedBox(width: 8),
-            ],
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(999)),
-              child: Text(statusText(text),
-                  style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12)),
-            ),
-            const Spacer(),
-            Text(request.createdAt?.toLocal().toString().split('.').first ?? '',
-                style: TextStyle(color: colors.textMuted, fontSize: 12)),
-          ]),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final leading = Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (number != null)
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: MobileChatTheme.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$number',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      statusText(text),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+              final createdAt = Text(
+                request.createdAt?.toLocal().toString().split('.').first ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colors.textMuted, fontSize: 12),
+              );
+
+              if (constraints.maxWidth < 360) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    leading,
+                    const SizedBox(height: 6),
+                    createdAt,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: leading),
+                  const SizedBox(width: 10),
+                  Flexible(child: createdAt),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 10),
           Text(request.groupTitle,
               style: TextStyle(

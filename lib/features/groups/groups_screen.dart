@@ -388,11 +388,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: KoomAdaptiveFab(
         key: const ValueKey('groups_create_action'),
         onPressed: createGroup,
-        icon: Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined),
-        label: Text(isAdmin ? text.newGroup : text.requestGroup),
+        icon: isAdmin ? Icons.add_rounded : Icons.verified_user_outlined,
+        label: isAdmin ? text.newGroup : text.requestGroup,
       ),
       body: KoomPageBackground(
         child: RefreshIndicator(
@@ -585,48 +585,44 @@ class _GroupsOverview extends StatelessWidget {
         KoomCard(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           showShadow: false,
-          child: Row(
+          child: KoomAdaptiveTileGrid(
+            minItemWidth: 112,
+            maxColumns: 4,
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: KoomIconTile(
+              KoomIconTile(
+                compact: true,
+                icon: Icons.key_rounded,
+                label: text.joinByCode,
+                onTap: onJoinByCode,
+              ),
+              KoomIconTile(
+                compact: true,
+                icon: Icons.qr_code_scanner_rounded,
+                label: text.scanQr,
+                onTap: onScanQr,
+              ),
+              FutureBuilder<int>(
+                future: invitationsCountFuture,
+                builder: (context, snapshot) => KoomIconTile(
                   compact: true,
-                  icon: Icons.key_rounded,
-                  label: text.joinByCode,
-                  onTap: onJoinByCode,
+                  icon: Icons.mark_email_unread_outlined,
+                  label: text.invitations,
+                  badge: snapshot.data ?? 0,
+                  onTap: onInvitations,
                 ),
               ),
-              Expanded(
-                child: KoomIconTile(
+              FutureBuilder<int>(
+                future: adminRequestsCountFuture,
+                builder: (context, snapshot) => KoomIconTile(
                   compact: true,
-                  icon: Icons.qr_code_scanner_rounded,
-                  label: text.scanQr,
-                  onTap: onScanQr,
-                ),
-              ),
-              Expanded(
-                child: FutureBuilder<int>(
-                  future: invitationsCountFuture,
-                  builder: (context, snapshot) => KoomIconTile(
-                    compact: true,
-                    icon: Icons.mark_email_unread_outlined,
-                    label: text.invitations,
-                    badge: snapshot.data ?? 0,
-                    onTap: onInvitations,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: FutureBuilder<int>(
-                  future: adminRequestsCountFuture,
-                  builder: (context, snapshot) => KoomIconTile(
-                    compact: true,
-                    icon: isAdmin
-                        ? Icons.fact_check_outlined
-                        : Icons.verified_user_outlined,
-                    label: isAdmin ? text.adminRequests : text.myRequests,
-                    badge: isAdmin ? snapshot.data ?? 0 : null,
-                    onTap: onRequests,
-                  ),
+                  icon: isAdmin
+                      ? Icons.fact_check_outlined
+                      : Icons.verified_user_outlined,
+                  label: isAdmin ? text.adminRequests : text.myRequests,
+                  badge: isAdmin ? snapshot.data ?? 0 : null,
+                  onTap: onRequests,
                 ),
               ),
             ],
@@ -941,10 +937,16 @@ class GroupTile extends StatelessWidget {
                         color: Theme.of(context).colorScheme.error,
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        text.isKy ? 'Топтон чыгуу' : 'Выйти из группы',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                      Expanded(
+                        child: Text(
+                          text.isKy
+                              ? 'Топтон чыгуу'
+                              : 'Выйти из группы',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
                     ],

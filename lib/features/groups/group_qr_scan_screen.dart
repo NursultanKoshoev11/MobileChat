@@ -114,15 +114,26 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
                 decoration: BoxDecoration(
                   border: Border.all(color: MobileChatTheme.primary, width: 4),
                 ),
-                child: Center(
-                  child: Container(
-                    width: 260,
-                    height: 260,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white, width: 3),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final available = constraints.maxWidth < constraints.maxHeight
+                        ? constraints.maxWidth
+                        : constraints.maxHeight;
+                    final frameSize =
+                        (available * 0.62).clamp(120.0, 260.0).toDouble();
+                    return Center(
+                      child: SizedBox(
+                        width: frameSize,
+                        height: frameSize,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.white, width: 3),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -131,7 +142,10 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
             left: 16,
             right: 16,
             bottom: 24,
-            child: Container(
+            child: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.only(bottom: 4),
+              child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: colors.surface.withOpacity(0.92),
@@ -152,6 +166,7 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
                     ErrorBanner(message: error!),
                   ],
                 ],
+              ),
               ),
             ),
           ),

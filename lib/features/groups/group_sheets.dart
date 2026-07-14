@@ -78,24 +78,34 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: 'public',
-                icon: const Icon(Icons.public_rounded),
-                label: Text(text.isKy ? 'Ачык' : 'Открытая'),
+          LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: 'public',
+                      icon: const Icon(Icons.public_rounded),
+                      label: Text(text.isKy ? 'Ачык' : 'Открытая'),
+                    ),
+                    ButtonSegment(
+                      value: 'private',
+                      icon: const Icon(Icons.lock_outline_rounded),
+                      label: Text(
+                        text.isKy ? 'Чакыруу менен' : 'По приглашению',
+                      ),
+                    ),
+                  ],
+                  selected: {visibility},
+                  onSelectionChanged: (value) {
+                    setState(() => visibility = value.first);
+                  },
+                ),
               ),
-              ButtonSegment(
-                value: 'private',
-                icon: const Icon(Icons.lock_outline_rounded),
-                label: Text(text.isKy ? 'Чакыруу менен' : 'По приглашению'),
-              ),
-            ],
-            selected: {visibility},
-            onSelectionChanged: (value) {
-              setState(() => visibility = value.first);
-            },
+            ),
           ),
           if (error != null) ...[
             const SizedBox(height: 12),

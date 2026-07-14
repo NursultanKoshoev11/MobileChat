@@ -243,12 +243,16 @@ class _PostPhotoPreview extends StatelessWidget {
         Row(children: [
           const Icon(Icons.photo_outlined, size: 16),
           const SizedBox(width: 6),
-          Text(
-            '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: context.appColors.textMuted,
-                ),
+          Expanded(
+            child: Text(
+              '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: context.appColors.textMuted,
+                  ),
+            ),
           ),
         ]),
         const SizedBox(height: 8),

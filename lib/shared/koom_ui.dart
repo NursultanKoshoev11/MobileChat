@@ -183,6 +183,134 @@ class KoomCard extends StatelessWidget {
   }
 }
 
+
+class KoomResponsiveActions extends StatelessWidget {
+  const KoomResponsiveActions({
+    super.key,
+    required this.children,
+    this.breakpoint = 430,
+    this.spacing = 10,
+  });
+
+  final List<Widget> children;
+  final double breakpoint;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaledBodySize = MediaQuery.textScalerOf(context).scale(14);
+        final stackVertically =
+            constraints.maxWidth < breakpoint || scaledBodySize > 17.5;
+
+        if (stackVertically) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                SizedBox(width: double.infinity, child: children[index]),
+                if (index < children.length - 1) SizedBox(height: spacing),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              Expanded(child: children[index]),
+              if (index < children.length - 1) SizedBox(width: spacing),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class KoomAdaptiveTileGrid extends StatelessWidget {
+  const KoomAdaptiveTileGrid({
+    super.key,
+    required this.children,
+    this.minItemWidth = 112,
+    this.maxColumns = 4,
+    this.spacing = 8,
+    this.runSpacing = 8,
+  });
+
+  final List<Widget> children;
+  final double minItemWidth;
+  final int maxColumns;
+  final double spacing;
+  final double runSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final calculatedColumns =
+            ((availableWidth + spacing) / (minItemWidth + spacing)).floor();
+        final columns = calculatedColumns.clamp(1, maxColumns).toInt();
+        final itemWidth =
+            (availableWidth - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: runSpacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class KoomAdaptiveFab extends StatelessWidget {
+  const KoomAdaptiveFab({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.compactBreakpoint = 380,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+  final double compactBreakpoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < compactBreakpoint ||
+        MediaQuery.textScalerOf(context).scale(14) > 17.5;
+
+    if (compact) {
+      return FloatingActionButton(
+        onPressed: onPressed,
+        tooltip: label,
+        child: Icon(icon),
+      );
+    }
+
+    return FloatingActionButton.extended(
+      onPressed: onPressed,
+      tooltip: label,
+      icon: Icon(icon),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+  }
+}
+
 class KoomIconTile extends StatelessWidget {
   const KoomIconTile({
     super.key,
@@ -203,52 +331,59 @@ class KoomIconTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 8 : 10,
-          vertical: compact ? 8 : 10,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
+    return Semantics(
+      button: true,
+      label: label,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: compact ? 88 : 102),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 6 : 10,
+              vertical: compact ? 8 : 10,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: compact ? 42 : 48,
-                  height: compact ? 42 : 48,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.11),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Icon(icon,
-                      color: scheme.primary, size: compact ? 21 : 24),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: compact ? 42 : 48,
+                      height: compact ? 42 : 48,
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: 0.11),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(icon,
+                          color: scheme.primary, size: compact ? 21 : 24),
+                    ),
+                    if ((badge ?? 0) > 0)
+                      Positioned(
+                        top: -5,
+                        right: -5,
+                        child: Badge(label: Text('${badge!}')),
+                      ),
+                  ],
                 ),
-                if ((badge ?? 0) > 0)
-                  Positioned(
-                    top: -5,
-                    right: -5,
-                    child: Badge(label: Text('${badge!}')),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textStrong,
+                    fontSize: compact ? 11 : 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
                   ),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.textStrong,
-                fontSize: compact ? 11 : 12,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -329,29 +464,38 @@ class KoomStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effective = color ?? Theme.of(context).colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: effective.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: effective.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: effective),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: effective,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
+    final maxWidth =
+        (MediaQuery.sizeOf(context).width - 48).clamp(120.0, 420.0).toDouble();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: effective.withValues(alpha: 0.11),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: effective.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: effective),
+              const SizedBox(width: 5),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: effective,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -372,33 +516,52 @@ class KoomSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              if (subtitle != null && subtitle!.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(
-                  subtitle!,
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge,
         ),
-        if (trailing != null) trailing!,
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            subtitle!,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
+    );
+
+    if (trailing == null) return titleBlock;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(14) > 17.5;
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleBlock,
+              const SizedBox(height: 10),
+              Align(alignment: Alignment.centerRight, child: trailing!),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: titleBlock),
+            const SizedBox(width: 12),
+            trailing!,
+          ],
+        );
+      },
     );
   }
 }
@@ -453,7 +616,10 @@ class KoomEmptyState extends StatelessWidget {
           ),
           if (action != null) ...[
             const SizedBox(height: 20),
-            action!,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: SizedBox(width: double.infinity, child: action!),
+            ),
           ],
         ],
       ),
@@ -480,59 +646,77 @@ class KoomSheetFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+
     return SafeArea(
       top: false,
       child: Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: SingleChildScrollView(
-          padding: padding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 18),
-                  decoration: BoxDecoration(
-                    color: colors.textMuted.withValues(alpha: 0.30),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              if (title != null)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title!,
-                              style: Theme.of(context).textTheme.titleLarge),
-                          if (subtitle != null && subtitle!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle!,
-                              style: TextStyle(
-                                  color: colors.textMuted, height: 1.35),
-                            ),
-                          ],
-                        ],
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 640,
+              maxHeight: screenHeight * 0.92,
+            ),
+            child: SingleChildScrollView(
+              padding: padding,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: colors.textMuted.withValues(alpha: 0.30),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    if (showClose)
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                  ],
-                ),
-              if (title != null) const SizedBox(height: 18),
-              child,
-            ],
+                  ),
+                  if (title != null)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title!,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  subtitle!,
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (showClose) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ],
+                    ),
+                  if (title != null) const SizedBox(height: 18),
+                  child,
+                ],
+              ),
+            ),
           ),
         ),
       ),

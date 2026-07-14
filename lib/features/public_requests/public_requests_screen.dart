@@ -903,11 +903,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           const SizedBox(width: 10),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: KoomAdaptiveFab(
         key: const ValueKey('public_request_create_action'),
         onPressed: createRequest,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(text.newPost),
+        icon: Icons.add_rounded,
+        label: text.newPost,
       ),
       body: KoomPageBackground(
         child: RefreshIndicator(
@@ -1105,44 +1105,40 @@ class _CommunityOverview extends StatelessWidget {
         KoomCard(
           showShadow: false,
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-          child: Row(
+          child: KoomAdaptiveTileGrid(
+            minItemWidth: 112,
+            maxColumns: 4,
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: KoomIconTile(
-                  compact: true,
-                  icon: Icons.analytics_outlined,
-                  label: text.statistics,
-                  onTap: onStatistics,
-                ),
+              KoomIconTile(
+                compact: true,
+                icon: Icons.analytics_outlined,
+                label: text.statistics,
+                onTap: onStatistics,
               ),
-              Expanded(
-                child: KoomIconTile(
-                  compact: true,
-                  icon: Icons.qr_code_rounded,
-                  label: text.codeAndQr,
-                  onTap: onAccess,
-                ),
+              KoomIconTile(
+                compact: true,
+                icon: Icons.qr_code_rounded,
+                label: text.codeAndQr,
+                onTap: onAccess,
               ),
               if (canInvite)
-                Expanded(
-                  child: KoomIconTile(
-                    compact: true,
-                    icon: Icons.person_add_alt_1_rounded,
-                    label: text.inviteByPhone,
-                    onTap: onInvite,
-                  ),
+                KoomIconTile(
+                  compact: true,
+                  icon: Icons.person_add_alt_1_rounded,
+                  label: text.inviteByPhone,
+                  onTap: onInvite,
                 ),
               if (canModerate)
-                Expanded(
-                  child: FutureBuilder<int>(
-                    future: moderationCountFuture,
-                    builder: (context, snapshot) => KoomIconTile(
-                      compact: true,
-                      icon: Icons.fact_check_outlined,
-                      label: text.isKy ? 'Текшерүү' : 'Проверка',
-                      badge: snapshot.data ?? 0,
-                      onTap: onModeration,
-                    ),
+                FutureBuilder<int>(
+                  future: moderationCountFuture,
+                  builder: (context, snapshot) => KoomIconTile(
+                    compact: true,
+                    icon: Icons.fact_check_outlined,
+                    label: text.isKy ? 'Текшерүү' : 'Проверка',
+                    badge: snapshot.data ?? 0,
+                    onTap: onModeration,
                   ),
                 ),
             ],
@@ -1161,27 +1157,36 @@ class _WhitePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: Colors.white),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+    final maxWidth =
+        (MediaQuery.sizeOf(context).width - 56).clamp(100.0, 320.0).toDouble();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: Colors.white),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -149,6 +149,13 @@ jobs:
       - name: Run network error regression test
         run: flutter test test/network_guard_test.dart
 
+      - name: Run responsive layout regression tests
+        run: >-
+          flutter test
+          test/theme_test.dart
+          test/appearance_layout_test.dart
+          test/responsive_layout_test.dart
+
       - name: Resolve API base URL
         run: |
           API_BASE_URL="${{ github.event.inputs.api_base_url }}"

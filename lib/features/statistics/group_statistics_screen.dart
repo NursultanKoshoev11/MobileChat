@@ -236,39 +236,52 @@ class _PeriodSelector extends StatelessWidget {
     return KoomCard(
       showShadow: false,
       padding: const EdgeInsets.all(5),
-      child: Row(
-        children: items.map((item) {
-          final selected = item.$1 == period;
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Material(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(13),
-                child: InkWell(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth < 300 ? 2 : 4;
+          const spacing = 4.0;
+          final itemWidth =
+              (constraints.maxWidth - spacing * (columns - 1)) / columns;
+          return Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: items.map((item) {
+              final selected = item.$1 == period;
+              return SizedBox(
+                width: itemWidth,
+                child: Material(
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(13),
-                  onTap: () => onChanged(item.$1),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    child: Text(
-                      item.$2,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: selected
-                            ? Colors.white
-                            : context.appColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(13),
+                    onTap: () => onChanged(item.$1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 11,
+                      ),
+                      child: Text(
+                        item.$2,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : context.appColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            }).toList(),
           );
-        }).toList(),
+        },
       ),
     );
   }
@@ -297,16 +310,26 @@ class _SummaryGrid extends StatelessWidget {
           '${stats.supportVotes + stats.opposeVotes}',
           Icons.how_to_vote_rounded),
     ];
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.55,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10),
-      itemBuilder: (_, index) => _MetricCard(metric: items[index]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth < 310
+            ? 1
+            : constraints.maxWidth < 760
+                ? 2
+                : 3;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisExtent: 126,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemBuilder: (_, index) => _MetricCard(metric: items[index]),
+        );
+      },
     );
   }
 }
@@ -343,11 +366,19 @@ class _MetricCard extends StatelessWidget {
             child: Icon(metric.icon,
                 color: Theme.of(context).colorScheme.primary, size: 19),
           ),
-          Text(metric.value,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              metric.value,
+              maxLines: 1,
               style: TextStyle(
-                  color: colors.textStrong,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900)),
+                color: colors.textStrong,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
           Text(metric.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -388,12 +419,23 @@ class _ProgressLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        Text('${percent.toStringAsFixed(1)}%',
-            style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: MobileChatTheme.primaryDark)),
+      Row(children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '${percent.toStringAsFixed(1)}%',
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            color: MobileChatTheme.primaryDark,
+          ),
+        ),
       ]),
       const SizedBox(height: 8),
       ClipRRect(
@@ -427,13 +469,21 @@ class _TimelineCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(item.bucket,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800)),
-                            Text('${item.total}')
-                          ]),
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.bucket,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text('${item.total}'),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       ClipRRect(
                           borderRadius: BorderRadius.circular(999),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../shared/koom_ui.dart';
+
 import 'localization.dart';
 import 'theme.dart';
 
@@ -88,6 +90,7 @@ class AppSettingsSheet extends StatelessWidget {
     final language = AppLanguageScope.controllerOf(context);
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+
     return SafeArea(
       top: false,
       child: Container(
@@ -98,84 +101,122 @@ class AppSettingsSheet extends StatelessWidget {
           border: Border.all(color: colors.border),
           boxShadow: [
             BoxShadow(
-                color: colors.shadow,
-                blurRadius: 24,
-                offset: const Offset(0, 12))
+              color: colors.shadow,
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
-          child: Column(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Center(
-                    child: Container(
-                        width: 44,
-                        height: 5,
-                        decoration: BoxDecoration(
-                            color: colors.textMuted.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(999)))),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                      child: Text(text.settings,
-                          style: TextStyle(
-                              color: colors.textStrong,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 24))),
-                  IconButton.filledTonal(
-                    onPressed: () => Navigator.pop(context),
-                    style: IconButton.styleFrom(
-                        backgroundColor: colors.surfaceSoft,
-                        foregroundColor: colors.textStrong),
-                    icon: const Icon(Icons.close_rounded),
-                    tooltip: text.close,
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: colors.textMuted.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
-                ]),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        text.settings,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textStrong,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton.filledTonal(
+                      onPressed: () => Navigator.pop(context),
+                      style: IconButton.styleFrom(
+                        backgroundColor: colors.surfaceSoft,
+                        foregroundColor: colors.textStrong,
+                      ),
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: text.close,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 14),
-                Text(text.isKy ? 'Тема' : 'Тема',
-                    style: TextStyle(
-                        color: colors.textMuted, fontWeight: FontWeight.w800)),
+                Text(
+                  text.isKy ? 'Тема' : 'Тема',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                      child: _SettingsOption(
-                          label: text.lightMode,
-                          icon: Icons.light_mode_rounded,
-                          selected: !appearance.isDark,
-                          onTap: () =>
-                              appearance.setThemeMode(ThemeMode.light))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: _SettingsOption(
-                          label: text.darkMode,
-                          icon: Icons.dark_mode_rounded,
-                          selected: appearance.isDark,
-                          onTap: () =>
-                              appearance.setThemeMode(ThemeMode.dark))),
-                ]),
+                KoomAdaptiveTileGrid(
+                  minItemWidth: 150,
+                  maxColumns: 2,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _SettingsOption(
+                      label: text.lightMode,
+                      icon: Icons.light_mode_rounded,
+                      selected: !appearance.isDark,
+                      onTap: () =>
+                          appearance.setThemeMode(ThemeMode.light),
+                    ),
+                    _SettingsOption(
+                      label: text.darkMode,
+                      icon: Icons.dark_mode_rounded,
+                      selected: appearance.isDark,
+                      onTap: () =>
+                          appearance.setThemeMode(ThemeMode.dark),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                Text(text.languageLabel,
-                    style: TextStyle(
-                        color: colors.textMuted, fontWeight: FontWeight.w800)),
+                Text(
+                  text.languageLabel,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                      child: _SettingsOption(
-                          label: 'Русский',
-                          icon: Icons.language_rounded,
-                          selected: language.language == AppLanguage.ru,
-                          onTap: () => language.setLanguage(AppLanguage.ru))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: _SettingsOption(
-                          label: 'Кыргызча',
-                          icon: Icons.language_rounded,
-                          selected: language.language == AppLanguage.ky,
-                          onTap: () => language.setLanguage(AppLanguage.ky))),
-                ]),
-              ]),
+                KoomAdaptiveTileGrid(
+                  minItemWidth: 150,
+                  maxColumns: 2,
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _SettingsOption(
+                      label: AppLanguage.ru.displayName,
+                      icon: Icons.language_rounded,
+                      selected: language.language == AppLanguage.ru,
+                      onTap: () => language.setLanguage(AppLanguage.ru),
+                    ),
+                    _SettingsOption(
+                      label: AppLanguage.ky.displayName,
+                      icon: Icons.language_rounded,
+                      selected: language.language == AppLanguage.ky,
+                      onTap: () => language.setLanguage(AppLanguage.ky),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

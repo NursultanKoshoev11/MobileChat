@@ -39,7 +39,9 @@ class AppLanguageScope extends InheritedNotifier<AppLanguageController> {
 }
 
 class LanguageMenuButton extends StatelessWidget {
-  const LanguageMenuButton({super.key});
+  const LanguageMenuButton({super.key, this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -63,34 +65,55 @@ class LanguageMenuButton extends StatelessWidget {
                   else
                     const SizedBox(width: 18),
                   const SizedBox(width: 8),
-                  Text(language.displayName,
+                  Flexible(
+                    child: Text(
+                      language.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: colors.textStrong,
-                          fontWeight: FontWeight.w700)),
+                        color: colors.textStrong,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ]),
               ))
           .toList(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: colors.border),
-            color: colors.surfaceSoft,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.language_rounded,
-                  color: MobileChatTheme.primary, size: 18),
-              const SizedBox(width: 6),
-              Text(controller.language.shortName,
-                  style: TextStyle(
-                      color: colors.textStrong, fontWeight: FontWeight.w800)),
-            ]),
-          ),
-        ),
-      ),
+      child: compact
+          ? SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                child: Icon(
+                  Icons.language_rounded,
+                  color: MobileChatTheme.primary,
+                  size: 21,
+                ),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colors.border),
+                  color: colors.surfaceSoft,
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.language_rounded,
+                        color: MobileChatTheme.primary, size: 18),
+                    const SizedBox(width: 6),
+                    Text(controller.language.shortName,
+                        style: TextStyle(
+                            color: colors.textStrong,
+                            fontWeight: FontWeight.w800)),
+                  ]),
+                ),
+              ),
+            ),
     );
   }
 }
