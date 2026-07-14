@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -125,7 +126,7 @@ class InviteByPhoneSheet extends StatefulWidget {
 }
 
 class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
-  final phoneController = TextEditingController(text: '+996');
+  final phoneController = TextEditingController();
   bool loading = false;
   String? error;
 
@@ -142,7 +143,8 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     });
     try {
       await widget.api.inviteUserByPhone(
-          groupId: widget.group.id, mobile: phoneController.text);
+          groupId: widget.group.id,
+          mobile: '+996${phoneController.text.trim()}');
       if (!mounted) return;
       Navigator.of(context).pop();
       showAppSnack(
@@ -176,12 +178,18 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
                     ?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                    labelText: text.mobileNumber,
-                    hintText: '+996700123456',
-                    prefixIcon: const Icon(Icons.phone_iphone_rounded))),
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              maxLength: 9,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: text.mobileNumber,
+                hintText: '700123456',
+                prefixText: '+996 ',
+                prefixIcon: const Icon(Icons.phone_iphone_rounded),
+                counterText: '',
+              ),
+            ),
             if (error != null) ...[
               const SizedBox(height: 12),
               ErrorBanner(message: error!)
@@ -735,6 +743,7 @@ class _PublicRequestDetailsScreenState
   List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
   Timer? realtimeRefreshDebounce;
   bool sending = false;
+  bool commentsLoaded = false;
   bool voteInFlight = false;
   String? error;
 
@@ -762,6 +771,7 @@ class _PublicRequestDetailsScreenState
   Future<List<PublicRequestComment>> loadComments() async {
     final comments = await widget.api.listComments(request.id);
     cachedComments = comments;
+    commentsLoaded = true;
     return comments;
   }
 
@@ -781,8 +791,7 @@ class _PublicRequestDetailsScreenState
     if (event.type == 'connection.ready') {
       realtimeRefreshDebounce?.cancel();
       realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
-        if (mounted)
-          unawaited(refreshComments(silent: true).catchError((_) {}));
+        if (mounted) {}
       });
       return;
     }
@@ -827,7 +836,8 @@ class _PublicRequestDetailsScreenState
   void setComments(List<PublicRequestComment> comments) {
     if (!mounted) return;
     cachedComments = comments;
-    setState(() => commentsFuture = Future.value(comments));
+    commentsLoaded = true;
+    setState(() {});
   }
 
   void setRequest(PublicRequest next) {
@@ -894,7 +904,6 @@ class _PublicRequestDetailsScreenState
         setState(() => error = null);
         showAppSnack(context, e.message);
       }
-      unawaited(refreshComments(silent: true).catchError((_) {}));
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
@@ -934,7 +943,7 @@ class _PublicRequestDetailsScreenState
           child: FutureBuilder<List<PublicRequestComment>>(
             future: commentsFuture,
             builder: (context, snapshot) {
-              final comments = cachedComments.isNotEmpty
+              final comments = commentsLoaded
                   ? cachedComments
                   : snapshot.data ?? const <PublicRequestComment>[];
               return ListView(
@@ -969,7 +978,7 @@ class _PublicRequestDetailsScreenState
                     const SizedBox(height: 10),
                   ],
                   if (snapshot.connectionState == ConnectionState.waiting &&
-                      cachedComments.isEmpty)
+                      !commentsLoaded)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 28),
                       child: Center(child: CircularProgressIndicator()),

@@ -50,6 +50,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   bool _requestsLoaded = false;
+  String _requestFilter = 'all';
   Timer? _refreshDebounce;
   Timer? _markReadDebounce;
   String? ensuredInviteCode;
@@ -259,7 +260,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             GroupStatisticsScreen(api: requestsApi, group: currentGroup),
       ),
     );
-    await refresh();
   }
 
   Future<void> createRequest() async {
@@ -281,12 +281,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       cachedRequests = updated;
       if (mounted) {
         setState(() {
-          requestsFuture = Future.value(updated);
-          moderationCountFuture = loadModerationCount();
+          cachedRequests = updated;
+          _requestsLoaded = true;
         });
         showAppSnack(context, AppLanguageScope.textOf(context).postPublished);
       }
-      unawaited(refresh(silent: true).catchError((_) {}));
     }
   }
 
@@ -325,7 +324,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     replaceRequest(next);
     try {
       await requestsApi.updateStatus(requestId: current.id, status: status);
-      unawaited(refresh(silent: true).catchError((_) {}));
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
         showAppSnack(
@@ -364,7 +362,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         ),
       ),
     );
-    await refresh();
   }
 
   String get groupAccessCode =>
@@ -661,6 +658,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                       selectedUserId ??= members.first.userId;
                       return DropdownButtonFormField<String>(
                         value: selectedUserId,
+                        isExpanded: true,
                         decoration: InputDecoration(
                           labelText: text.mobileNumber,
                           prefixIcon: const Icon(Icons.people_outline_rounded),
@@ -670,7 +668,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                               (member) => DropdownMenuItem<String>(
                                 value: member.userId,
                                 child: Text(
-                                    '${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
+                                  '${member.displayName} · ${member.phone ?? ''} · ${member.role}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             )
                             .toList(),
@@ -1013,9 +1014,22 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   ],
                 );
               }
-              final requests = _requestsLoaded
+              final allRequests = _requestsLoaded
                   ? cachedRequests
                   : snapshot.data ?? const <PublicRequest>[];
+              final requests = switch (_requestFilter) {
+                'resolved' => allRequests
+                    .where((request) =>
+                        request.status == 'resolved' ||
+                        request.status == 'accepted')
+                    .toList(),
+                'unresolved' => allRequests
+                    .where((request) =>
+                        request.status != 'resolved' &&
+                        request.status != 'accepted')
+                    .toList(),
+                _ => allRequests,
+              };
               return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
@@ -1025,16 +1039,49 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     return _CommunityOverview(group: currentGroup);
                   }
                   if (index == 1) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
-                      child: KoomSectionTitle(
-                        title: text.isKy ? 'Жарыялар' : 'Публикации',
-                        subtitle: requests.isEmpty
-                            ? text.postsDescription
-                            : (text.isKy
-                                ? '${requests.length} жарыя'
-                                : '${requests.length} публикаций'),
-                      ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 14),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _RequestFilterChip(
+                                label: text.isKy ? 'Баары' : 'Все',
+                                selected: _requestFilter == 'all',
+                                onTap: () =>
+                                    setState(() => _requestFilter = 'all'),
+                              ),
+                              const SizedBox(width: 8),
+                              _RequestFilterChip(
+                                label: text.isKy ? 'Чечилген' : 'Решённые',
+                                selected: _requestFilter == 'resolved',
+                                onTap: () =>
+                                    setState(() => _requestFilter = 'resolved'),
+                              ),
+                              const SizedBox(width: 8),
+                              _RequestFilterChip(
+                                label: text.isKy ? 'Чечилбеген' : 'Нерешённые',
+                                selected: _requestFilter == 'unresolved',
+                                onTap: () => setState(
+                                    () => _requestFilter = 'unresolved'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
+                          child: KoomSectionTitle(
+                            title: text.isKy ? 'Жарыялар' : 'Публикации',
+                            subtitle: requests.isEmpty
+                                ? text.postsDescription
+                                : (text.isKy
+                                    ? '${requests.length} жарыя'
+                                    : '${requests.length} публикаций'),
+                          ),
+                        ),
+                      ],
                     );
                   }
                   if (requests.isEmpty) {
@@ -1148,6 +1195,28 @@ class _CommunityOverview extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RequestFilterChip extends StatelessWidget {
+  const _RequestFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: false,
     );
   }
 }

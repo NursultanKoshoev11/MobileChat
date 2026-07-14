@@ -144,6 +144,8 @@ class GroupModerationScreen extends StatefulWidget {
 class _GroupModerationScreenState extends State<GroupModerationScreen> {
   late Future<List<ContentModerationItem>> itemsFuture;
   final Set<String> busyItemIds = <String>{};
+  List<ContentModerationItem> cachedItems = const <ContentModerationItem>[];
+  bool itemsLoaded = false;
 
   @override
   void initState() {
@@ -158,6 +160,8 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
       final right = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return right.compareTo(left);
     });
+    cachedItems = items;
+    itemsLoaded = true;
     return items;
   }
 
@@ -176,8 +180,12 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
       } else {
         await widget.api.rejectModerationItem(item.id);
       }
-      await refresh();
       if (!mounted) return;
+      setState(() {
+        cachedItems =
+            cachedItems.where((value) => value.id != item.id).toList();
+        itemsLoaded = true;
+      });
       showAppSnack(context, approve ? _approved : _rejected);
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
@@ -216,7 +224,9 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
                   children: [ErrorBanner(message: snapshot.error.toString())],
                 );
               }
-              final items = snapshot.data ?? const <ContentModerationItem>[];
+              final items = itemsLoaded
+                  ? cachedItems
+                  : snapshot.data ?? const <ContentModerationItem>[];
               if (items.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
