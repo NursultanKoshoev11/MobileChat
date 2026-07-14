@@ -8,6 +8,7 @@ import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../services/push_notification_service.dart';
+import '../shared/koom_ui.dart';
 import 'appearance.dart';
 import 'localization.dart';
 import 'theme.dart';
@@ -19,7 +20,8 @@ class MobileChatApp extends StatefulWidget {
   State<MobileChatApp> createState() => _MobileChatAppState();
 }
 
-class _MobileChatAppState extends State<MobileChatApp> with WidgetsBindingObserver {
+class _MobileChatAppState extends State<MobileChatApp>
+    with WidgetsBindingObserver {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://koommy.duckdns.org',
@@ -27,9 +29,12 @@ class _MobileChatAppState extends State<MobileChatApp> with WidgetsBindingObserv
 
   final SessionStore sessionStore = const SessionStore();
   final AppLanguageController languageController = AppLanguageController();
-  final AppAppearanceController appearanceController = AppAppearanceController();
-  late final ApiClient api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
-  late final PushNotificationService pushNotifications = PushNotificationService(api: api);
+  final AppAppearanceController appearanceController =
+      AppAppearanceController();
+  late final ApiClient api =
+      ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
+  late final PushNotificationService pushNotifications =
+      PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
 
   @override
@@ -97,7 +102,8 @@ class _MobileChatAppState extends State<MobileChatApp> with WidgetsBindingObserv
       child: AppAppearanceScope(
         controller: appearanceController,
         child: AnimatedBuilder(
-          animation: Listenable.merge([languageController, appearanceController]),
+          animation:
+              Listenable.merge([languageController, appearanceController]),
           builder: (context, _) {
             final text = languageController.text;
             return MaterialApp(
@@ -110,17 +116,54 @@ class _MobileChatAppState extends State<MobileChatApp> with WidgetsBindingObserv
                 future: bootFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                    return const _KoomSplashScreen();
                   }
                   final session = snapshot.data;
                   if (session == null) {
-                    return PhoneAuthScreen(api: api, onAuthenticated: setSession);
+                    return PhoneAuthScreen(
+                        api: api, onAuthenticated: setSession);
                   }
-                  return GroupsScreen(api: api, session: session, onLogout: logout);
+                  return GroupsScreen(
+                      api: api, session: session, onLogout: logout);
                 },
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _KoomSplashScreen extends StatelessWidget {
+  const _KoomSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: KoomPageBackground(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              KoomLogoMark(size: 84),
+              SizedBox(height: 22),
+              Text(
+                'Koom',
+                style: TextStyle(
+                  fontSize: 31,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.7,
+                ),
+              ),
+              SizedBox(height: 22),
+              SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+            ],
+          ),
         ),
       ),
     );

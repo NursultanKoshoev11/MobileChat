@@ -2,22 +2,130 @@ import 'package:flutter/material.dart';
 
 import '../../app/appearance.dart';
 import '../../data/models.dart';
-import '../../data/moderation.dart';
 import '../../data/public_requests_api.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
-final String _titleOnReview = String.fromCharCodes([1053,1072,32,1087,1088,1086,1074,1077,1088,1082,1077]);
-final String _refreshLabel = String.fromCharCodes([1054,1073,1085,1086,1074,1080,1090,1100]);
-final String _queueEmpty = String.fromCharCodes([1054,1095,1077,1088,1077,1076,1100,32,1087,1091,1089,1090,1072,1103]);
-final String _noItems = String.fromCharCodes([1053,1086,1074,1099,1093,32,1082,1086,1084,1084,1077,1085,1090,1072,1088,1080,1077,1074,32,1080,32,1087,1091,1073,1083,1080,1082,1072,1094,1080,1081,32,1085,1072,32,1087,1088,1086,1074,1077,1088,1082,1077,32,1085,1077,1090,46]);
-final String _approved = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1076,1086,1073,1088,1077,1085,46]);
-final String _rejected = String.fromCharCodes([1052,1072,1090,1077,1088,1080,1072,1083,32,1086,1090,1082,1083,1086,1085,1077,1085,46]);
-final String _author = String.fromCharCodes([1040,1074,1090,1086,1088]);
-final String _reason = String.fromCharCodes([1055,1088,1080,1095,1080,1085,1072]);
-final String _check = String.fromCharCodes([1055,1088,1086,1074,1077,1088,1082,1072]);
-final String _emptyText = String.fromCharCodes([1058,1077,1082,1089,1090,32,1087,1091,1089,1090,1086,1081]);
-final String _reject = String.fromCharCodes([1054,1090,1082,1083,1086,1085,1080,1090,1100]);
-final String _approve = String.fromCharCodes([1054,1076,1086,1073,1088,1080,1090,1100]);
+final String _titleOnReview = String.fromCharCodes(
+    [1053, 1072, 32, 1087, 1088, 1086, 1074, 1077, 1088, 1082, 1077]);
+final String _refreshLabel =
+    String.fromCharCodes([1054, 1073, 1085, 1086, 1074, 1080, 1090, 1100]);
+final String _queueEmpty = String.fromCharCodes([
+  1054,
+  1095,
+  1077,
+  1088,
+  1077,
+  1076,
+  1100,
+  32,
+  1087,
+  1091,
+  1089,
+  1090,
+  1072,
+  1103
+]);
+final String _noItems = String.fromCharCodes([
+  1053,
+  1086,
+  1074,
+  1099,
+  1093,
+  32,
+  1082,
+  1086,
+  1084,
+  1084,
+  1077,
+  1085,
+  1090,
+  1072,
+  1088,
+  1080,
+  1077,
+  1074,
+  32,
+  1080,
+  32,
+  1087,
+  1091,
+  1073,
+  1083,
+  1080,
+  1082,
+  1072,
+  1094,
+  1080,
+  1081,
+  32,
+  1085,
+  1072,
+  32,
+  1087,
+  1088,
+  1086,
+  1074,
+  1077,
+  1088,
+  1082,
+  1077,
+  32,
+  1085,
+  1077,
+  1090,
+  46
+]);
+final String _approved = String.fromCharCodes([
+  1052,
+  1072,
+  1090,
+  1077,
+  1088,
+  1080,
+  1072,
+  1083,
+  32,
+  1086,
+  1076,
+  1086,
+  1073,
+  1088,
+  1077,
+  1085,
+  46
+]);
+final String _rejected = String.fromCharCodes([
+  1052,
+  1072,
+  1090,
+  1077,
+  1088,
+  1080,
+  1072,
+  1083,
+  32,
+  1086,
+  1090,
+  1082,
+  1083,
+  1086,
+  1085,
+  1077,
+  1085,
+  46
+]);
+final String _author = String.fromCharCodes([1040, 1074, 1090, 1086, 1088]);
+final String _reason =
+    String.fromCharCodes([1055, 1088, 1080, 1095, 1080, 1085, 1072]);
+final String _check =
+    String.fromCharCodes([1055, 1088, 1086, 1074, 1077, 1088, 1082, 1072]);
+final String _emptyText = String.fromCharCodes(
+    [1058, 1077, 1082, 1089, 1090, 32, 1087, 1091, 1089, 1090, 1086, 1081]);
+final String _reject = String.fromCharCodes(
+    [1054, 1090, 1082, 1083, 1086, 1085, 1080, 1090, 1100]);
+final String _approve =
+    String.fromCharCodes([1054, 1076, 1086, 1073, 1088, 1080, 1090, 1100]);
 
 class GroupModerationScreen extends StatefulWidget {
   const GroupModerationScreen({
@@ -80,7 +188,6 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(_titleOnReview),
@@ -93,65 +200,56 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
           const AppSettingsButton(),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<List<ContentModerationItem>>(
-          future: itemsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [ErrorBanner(message: snapshot.error.toString())],
-              );
-            }
-            final items = snapshot.data ?? const <ContentModerationItem>[];
-            if (items.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SizedBox(height: 120),
-                  Icon(
-                    Icons.verified_user_outlined,
-                    size: 72,
-                    color: colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _queueEmpty,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _noItems,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              );
-            }
-            return ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return _ModerationItemCard(
-                  item: item,
-                  loading: busyItemIds.contains(item.id),
-                  onApprove: () => reviewItem(item, true),
-                  onReject: () => reviewItem(item, false),
+      body: KoomPageBackground(
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: FutureBuilder<List<ContentModerationItem>>(
+            future: itemsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [ErrorBanner(message: snapshot.error.toString())],
                 );
-              },
-            );
-          },
+              }
+              final items = snapshot.data ?? const <ContentModerationItem>[];
+              if (items.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    KoomCard(
+                      showShadow: false,
+                      child: KoomEmptyState(
+                        icon: Icons.verified_user_outlined,
+                        title: _queueEmpty,
+                        message: _noItems,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _ModerationItemCard(
+                    item: item,
+                    loading: busyItemIds.contains(item.id),
+                    onApprove: () => reviewItem(item, true),
+                    onReject: () => reviewItem(item, false),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -179,7 +277,9 @@ class _ModerationItemCard extends StatelessWidget {
         : '${item.createdAt!.day.toString().padLeft(2, '0')}.${item.createdAt!.month.toString().padLeft(2, '0')}.${item.createdAt!.year} '
             '${item.createdAt!.hour.toString().padLeft(2, '0')}:${item.createdAt!.minute.toString().padLeft(2, '0')}';
 
-    return Card(
+    return KoomCard(
+      padding: EdgeInsets.zero,
+      showShadow: false,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -187,12 +287,10 @@ class _ModerationItemCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-                  child: Icon(
-                    _iconForType(item.contentType),
-                    color: colorScheme.primary,
-                  ),
+                KoomAvatar(
+                  label: item.authorName,
+                  radius: 21,
+                  icon: _iconForType(item.contentType),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

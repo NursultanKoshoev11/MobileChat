@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
+import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import '../groups/group_sheets.dart';
 import '../statistics/group_statistics_screen.dart';
@@ -113,7 +115,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     if (requestId.isEmpty) return;
     final updated = cachedRequests
         .map((request) => request.id == requestId
-            ? request.copyWith(commentCount: request.commentCount + delta < 0 ? 0 : request.commentCount + delta)
+            ? request.copyWith(
+                commentCount: request.commentCount + delta < 0
+                    ? 0
+                    : request.commentCount + delta)
             : request)
         .toList();
     setRequests(updated);
@@ -124,7 +129,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     final status = payload['status'] as String?;
     if (status == null || status.isEmpty) return;
     final updated = cachedRequests
-        .map((request) => request.id == requestId ? request.copyWith(status: status) : request)
+        .map((request) => request.id == requestId
+            ? request.copyWith(status: status)
+            : request)
         .toList();
     setRequests(updated);
   }
@@ -169,7 +176,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<List<PublicRequest>> loadRequests() async {
-    final requests = List<PublicRequest>.from(await requestsApi.listRequests(widget.group.id))
+    final requests = List<PublicRequest>.from(
+        await requestsApi.listRequests(widget.group.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
     unawaited(_markRequestsRead());
@@ -211,7 +219,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> openStatistics() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GroupStatisticsScreen(api: requestsApi, group: widget.group),
+        builder: (_) =>
+            GroupStatisticsScreen(api: requestsApi, group: widget.group),
       ),
     );
     await refresh();
@@ -262,7 +271,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       unawaited(refresh(silent: true).catchError((_) {}));
     } catch (error) {
       setRequests(previous);
-      if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+      if (mounted)
+        showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
 
@@ -278,11 +288,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       unawaited(refresh(silent: true).catchError((_) {}));
       if (mounted) {
         final text = AppLanguageScope.textOf(context);
-        showAppSnack(context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
+        showAppSnack(
+            context, text.isKy ? 'Статус жаңыртылды.' : 'Статус обновлён.');
       }
     } catch (error) {
       setRequests(previous);
-      if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+      if (mounted)
+        showAppSnack(context, localizedMessage(context, error.toString()));
     }
   }
 
@@ -334,7 +346,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         });
         code = formatGroupInviteCode(group.inviteCode ?? '');
       } catch (error) {
-        if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+        if (mounted)
+          showAppSnack(context, localizedMessage(context, error.toString()));
         return;
       }
     }
@@ -353,7 +366,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => GroupAccessSheet(groupTitle: widget.group.title, code: code, qrValue: groupAccessQrValue),
+      builder: (_) => GroupAccessSheet(
+          groupTitle: widget.group.title,
+          code: code,
+          qrValue: groupAccessQrValue),
     );
   }
 
@@ -392,10 +408,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               if (!context.mounted) return;
               Navigator.pop(sheetContext);
-              showAppSnack(context, role == 'admin' ? text.adminAssigned : text.adminRemoved);
+              showAppSnack(context,
+                  role == 'admin' ? text.adminAssigned : text.adminRemoved);
             } catch (error) {
               if (context.mounted) {
-                showAppSnack(context, localizedMessage(context, error.toString()));
+                showAppSnack(
+                    context, localizedMessage(context, error.toString()));
               }
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
@@ -414,7 +432,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               children: [
                 Text(
                   text.manageAdmins,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
                 Text(text.manageAdminsDescription),
@@ -525,7 +546,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               showResult(success: text.mutedDone);
             } catch (error) {
-              showResult(error: localizedMessage(rootContext, error.toString()));
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -540,10 +562,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               successText = null;
             });
             try {
-              await requestsApi.clearCommentMute(groupId: widget.group.id, userId: userId);
+              await requestsApi.clearCommentMute(
+                  groupId: widget.group.id, userId: userId);
               showResult(success: text.unmutedDone);
             } catch (error) {
-              showResult(error: localizedMessage(rootContext, error.toString()));
+              showResult(
+                  error: localizedMessage(rootContext, error.toString()));
             } finally {
               if (context.mounted) setSheetState(() => loading = false);
             }
@@ -562,7 +586,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 children: [
                   Text(
                     text.blockComments,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   Text(text.blockCommentsDescription),
@@ -603,11 +630,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                             .map(
                               (member) => DropdownMenuItem<String>(
                                 value: member.userId,
-                                child: Text('${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
+                                child: Text(
+                                    '${member.displayName} · ${member.phone ?? ''} · ${member.role}'),
                               ),
                             )
                             .toList(),
-                        onChanged: loading ? null : (value) => setSheetState(() => selectedUserId = value),
+                        onChanged: loading
+                            ? null
+                            : (value) =>
+                                setSheetState(() => selectedUserId = value),
                       );
                     },
                   ),
@@ -626,7 +657,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: loading ? null : (value) => setSheetState(() => durationMinutes = value ?? 60),
+                    onChanged: loading
+                        ? null
+                        : (value) =>
+                            setSheetState(() => durationMinutes = value ?? 60),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -662,11 +696,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   FilledButton.icon(
                     onPressed: loading || selectedUserId == null ? null : mute,
                     icon: const Icon(Icons.block_rounded),
-                    label: Text(loading ? text.pleaseWait : text.blockCommentsButton),
+                    label: Text(
+                        loading ? text.pleaseWait : text.blockCommentsButton),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
-                    onPressed: loading || selectedUserId == null ? null : unmute,
+                    onPressed:
+                        loading || selectedUserId == null ? null : unmute,
                     icon: const Icon(Icons.lock_open_rounded),
                     label: Text(text.unblockCommentsButton),
                   ),
@@ -731,7 +767,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             ? (text.isKy
                 ? 'Текшерүүдөгү материалдар ($count)'
                 : 'Материалы на проверке ($count)')
-            : (text.isKy ? 'Текшерүүдөгү материалдар' : 'Материалы на проверке');
+            : (text.isKy
+                ? 'Текшерүүдөгү материалдар'
+                : 'Материалы на проверке');
         return PopupMenuButton<String>(
           tooltip: text.isKy ? 'Меню' : 'Меню',
           icon: const Icon(Icons.more_vert_rounded),
@@ -784,54 +822,337 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
     return Scaffold(
+      key: const ValueKey('public_requests_screen'),
       appBar: AppBar(
-        title: Text(widget.group.title),
+        titleSpacing: 12,
+        title: Row(
+          children: [
+            KoomAvatar(
+              label: widget.group.title,
+              radius: 20,
+              icon: widget.group.visibility == 'public'
+                  ? Icons.groups_2_rounded
+                  : Icons.lock_rounded,
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.group.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    widget.group.memberCount > 0
+                        ? (text.isKy
+                            ? '${widget.group.memberCount} катышуучу'
+                            : '${widget.group.memberCount} участников')
+                        : (widget.group.visibility == 'public'
+                            ? text.publicGroup
+                            : text.privateGroup),
+                    style: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           groupMenuButton(context),
+          const SizedBox(width: 10),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        key: const ValueKey('public_request_create_action'),
         onPressed: createRequest,
         icon: const Icon(Icons.add_rounded),
         label: Text(text.newPost),
       ),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<List<PublicRequest>>(
-          future: requestsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [ErrorBanner(message: snapshot.error.toString())],
-              );
-            }
-            final requests = snapshot.data ?? const <PublicRequest>[];
-            if (requests.isEmpty) return EmptyPostsView(onCreate: createRequest);
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-              itemCount: requests.length,
-              itemBuilder: (_, index) {
-                final request = requests[index];
-                return MediaPublicRequestCard(
-                  request: request,
-                  canModerate: canModerate,
-                  onVote: (voteType) => vote(request, voteType),
-                  onTap: () => openDetails(request),
-                  onStatus: (status) => updateStatus(request, status),
+      body: KoomPageBackground(
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: FutureBuilder<List<PublicRequest>>(
+            future: requestsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  children: const [
+                    SizedBox(height: 180),
+                    Center(child: CircularProgressIndicator()),
+                  ],
                 );
-              },
-            );
-          },
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                  children: [
+                    _CommunityOverview(
+                      group: widget.group,
+                      canInvite: canInvite,
+                      canModerate: canModerate,
+                      moderationCountFuture: moderationCountFuture,
+                      onStatistics: openStatistics,
+                      onAccess: showGroupAccess,
+                      onInvite: inviteByPhone,
+                      onModeration: openModerationQueue,
+                    ),
+                    const SizedBox(height: 16),
+                    ErrorBanner(message: snapshot.error.toString()),
+                  ],
+                );
+              }
+              final requests = snapshot.data ?? const <PublicRequest>[];
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+                itemCount: requests.length + (requests.isEmpty ? 3 : 2),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _CommunityOverview(
+                      group: widget.group,
+                      canInvite: canInvite,
+                      canModerate: canModerate,
+                      moderationCountFuture: moderationCountFuture,
+                      onStatistics: openStatistics,
+                      onAccess: showGroupAccess,
+                      onInvite: inviteByPhone,
+                      onModeration: openModerationQueue,
+                    );
+                  }
+                  if (index == 1) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
+                      child: KoomSectionTitle(
+                        title: text.isKy ? 'Жарыялар' : 'Публикации',
+                        subtitle: requests.isEmpty
+                            ? text.postsDescription
+                            : (text.isKy
+                                ? '${requests.length} жарыя'
+                                : '${requests.length} публикаций'),
+                      ),
+                    );
+                  }
+                  if (requests.isEmpty) {
+                    return EmptyPostsView(onCreate: createRequest);
+                  }
+                  final request = requests[index - 2];
+                  return MediaPublicRequestCard(
+                    request: request,
+                    canModerate: canModerate,
+                    onVote: (voteType) => vote(request, voteType),
+                    onTap: () => openDetails(request),
+                    onStatus: (status) => updateStatus(request, status),
+                  );
+                },
+              );
+            },
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _CommunityOverview extends StatelessWidget {
+  const _CommunityOverview({
+    required this.group,
+    required this.canInvite,
+    required this.canModerate,
+    required this.moderationCountFuture,
+    required this.onStatistics,
+    required this.onAccess,
+    required this.onInvite,
+    required this.onModeration,
+  });
+
+  final ChatGroup group;
+  final bool canInvite;
+  final bool canModerate;
+  final Future<int> moderationCountFuture;
+  final VoidCallback onStatistics;
+  final VoidCallback onAccess;
+  final VoidCallback onInvite;
+  final VoidCallback onModeration;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final description = group.description.trim().isEmpty
+        ? (text.isKy
+            ? 'Коомчулуктун жаңылыктары, сунуштары жана талкуулары'
+            : 'Новости, предложения и обсуждения сообщества')
+        : group.description.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KoomCard(
+          gradient: MobileChatTheme.brandGradient,
+          borderColor: Colors.white.withValues(alpha: 0.14),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  KoomAvatar(
+                    label: group.title,
+                    radius: 29,
+                    background: Colors.white.withValues(alpha: 0.17),
+                    icon: group.visibility == 'public'
+                        ? Icons.groups_2_rounded
+                        : Icons.lock_rounded,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: [
+                            _WhitePill(
+                              icon: group.visibility == 'public'
+                                  ? Icons.public_rounded
+                                  : Icons.lock_outline_rounded,
+                              label: group.visibility == 'public'
+                                  ? text.publicGroup
+                                  : text.privateGroup,
+                            ),
+                            if (group.memberCount > 0)
+                              _WhitePill(
+                                icon: Icons.people_outline_rounded,
+                                label: '${group.memberCount}',
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        KoomCard(
+          showShadow: false,
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: KoomIconTile(
+                  compact: true,
+                  icon: Icons.analytics_outlined,
+                  label: text.statistics,
+                  onTap: onStatistics,
+                ),
+              ),
+              Expanded(
+                child: KoomIconTile(
+                  compact: true,
+                  icon: Icons.qr_code_rounded,
+                  label: text.codeAndQr,
+                  onTap: onAccess,
+                ),
+              ),
+              if (canInvite)
+                Expanded(
+                  child: KoomIconTile(
+                    compact: true,
+                    icon: Icons.person_add_alt_1_rounded,
+                    label: text.inviteByPhone,
+                    onTap: onInvite,
+                  ),
+                ),
+              if (canModerate)
+                Expanded(
+                  child: FutureBuilder<int>(
+                    future: moderationCountFuture,
+                    builder: (context, snapshot) => KoomIconTile(
+                      compact: true,
+                      icon: Icons.fact_check_outlined,
+                      label: text.isKy ? 'Текшерүү' : 'Проверка',
+                      badge: snapshot.data ?? 0,
+                      onTap: onModeration,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WhitePill extends StatelessWidget {
+  const _WhitePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -11,6 +11,7 @@ import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/user_realtime_service.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import '../group_creation/admin_group_creation_requests_screen.dart';
 import '../group_creation/group_creation_requests_screen.dart';
@@ -20,7 +21,11 @@ import '../public_requests/public_requests_screen.dart';
 import 'group_qr_scan_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
-  const GroupsScreen({super.key, required this.api, required this.session, required this.onLogout});
+  const GroupsScreen(
+      {super.key,
+      required this.api,
+      required this.session,
+      required this.onLogout});
   final ApiClient api;
   final AppSession session;
   final Future<void> Function() onLogout;
@@ -49,8 +54,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
     invitationsCountFuture = loadInvitationsCount();
     userRealtime = UserRealtimeService(api: widget.api);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
-    _foregroundPushSubscription = PushNotificationService.foregroundDataStream.listen(_handleForegroundPushData);
-    _openedPushSubscription = PushNotificationService.openedDataStream.listen(_handleOpenedPushData);
+    _foregroundPushSubscription = PushNotificationService.foregroundDataStream
+        .listen(_handleForegroundPushData);
+    _openedPushSubscription =
+        PushNotificationService.openedDataStream.listen(_handleOpenedPushData);
   }
 
   @override
@@ -84,7 +91,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (!mounted) return;
     switch (data['type']) {
       case 'public_request.created':
-        incrementUnreadPublicRequests(data['group_id'] ?? '', data['request_id'] ?? '');
+        incrementUnreadPublicRequests(
+            data['group_id'] ?? '', data['request_id'] ?? '');
         break;
       case 'invite.created':
       case 'invite.reviewed':
@@ -119,7 +127,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (requestId.isNotEmpty && !seenPublicRequestEvents.add(requestId)) return;
     final updated = currentGroups
         .map((group) => group.id == groupId
-            ? group.copyWith(unreadPublicRequestCount: group.unreadPublicRequestCount + 1)
+            ? group.copyWith(
+                unreadPublicRequestCount: group.unreadPublicRequestCount + 1)
             : group)
         .toList();
     setGroups(updated);
@@ -128,7 +137,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void setUnreadPublicRequests(String groupId, int count) {
     if (groupId.isEmpty) return;
     final updated = currentGroups
-        .map((group) => group.id == groupId ? group.copyWith(unreadPublicRequestCount: count) : group)
+        .map((group) => group.id == groupId
+            ? group.copyWith(unreadPublicRequestCount: count)
+            : group)
         .toList();
     setGroups(updated);
   }
@@ -154,11 +165,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   Future<int> loadAdminRequestsCount() async {
     if (!isAdmin) return 0;
-    try { return (await widget.api.fetchAdminGroupCreationRequests(status: 'pending')).length; } catch (_) { return 0; }
+    try {
+      return (await widget.api
+              .fetchAdminGroupCreationRequests(status: 'pending'))
+          .length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<int> loadInvitationsCount() async {
-    try { return (await widget.api.fetchInvitations()).length; } catch (_) { return 0; }
+    try {
+      return (await widget.api.fetchInvitations()).length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<void> refresh({bool silent = false}) async {
@@ -189,7 +210,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> createGroup() async {
-    if (!isAdmin) { await openGroupRequests(); return; }
+    if (!isAdmin) {
+      await openGroupRequests();
+      return;
+    }
     final group = await showModalBottomSheet<ChatGroup>(
       context: context,
       isScrollControlled: true,
@@ -197,21 +221,28 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => CreateGroupSheet(api: widget.api),
     );
-    if (group != null) { await refresh(); if (mounted) await openGroup(group); }
+    if (group != null) {
+      await refresh();
+      if (mounted) await openGroup(group);
+    }
   }
 
   Future<void> openGroupRequests() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GroupCreationRequestsScreen(api: widget.api, user: widget.session.user)));
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => GroupCreationRequestsScreen(
+            api: widget.api, user: widget.session.user)));
     await refresh();
   }
 
   Future<void> openAdminRequests() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api)));
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api)));
     await refresh();
   }
 
   Future<void> openProfile() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.session.user)));
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ProfileScreen(user: widget.session.user)));
   }
 
   Future<void> joinByCode() async {
@@ -222,14 +253,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => JoinByCodeSheet(api: widget.api),
     );
-    if (group != null) { await refresh(); if (mounted) await openGroup(group); }
+    if (group != null) {
+      await refresh();
+      if (mounted) await openGroup(group);
+    }
   }
 
   Future<void> scanGroupQr() async {
-    final inviteCode = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
+    final inviteCode = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => const GroupQrScanScreen()));
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
     try {
-      final group = await widget.api.joinByInviteCode(inviteCode.startsWith('I' + 'NV1.') ? inviteCode : formatGroupInviteCode(inviteCode));
+      final group = await widget.api.joinByInviteCode(
+          inviteCode.startsWith('I' + 'NV1.')
+              ? inviteCode
+              : formatGroupInviteCode(inviteCode));
       await refresh();
       if (mounted) await openGroup(group);
     } catch (error) {
@@ -238,7 +276,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> openInvitations() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)));
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)));
     await refresh();
   }
 
@@ -249,39 +288,57 @@ class _GroupsScreenState extends State<GroupsScreen> {
         setUnreadPublicRequests(group.id, 0);
       } catch (_) {}
     }
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PublicRequestsScreen(api: widget.api, user: widget.session.user, group: group)));
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PublicRequestsScreen(
+            api: widget.api, user: widget.session.user, group: group)));
     if (mounted) await refresh();
   }
 
   Future<void> leaveGroup(ChatGroup group) async {
     final text = AppLanguageScope.textOf(context);
     if (group.myRole == 'owner') {
-      showAppSnack(context, text.isKy ? 'Ээси топтон чыга албайт.' : 'Владелец группы не может выйти из группы.');
+      showAppSnack(
+          context,
+          text.isKy
+              ? 'Ээси топтон чыга албайт.'
+              : 'Владелец группы не может выйти из группы.');
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы'),
-        content: Text(text.isKy ? 'Бул топтон чыгууну каалайсызбы?' : 'Вы действительно хотите выйти из этой группы?'),
+        content: Text(text.isKy
+            ? 'Бул топтон чыгууну каалайсызбы?'
+            : 'Вы действительно хотите выйти из этой группы?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(text.isKy ? 'Жок' : 'Отмена')),
-          FilledButton.tonal(onPressed: () => Navigator.pop(dialogContext, true), child: Text(text.isKy ? 'Чыгуу' : 'Выйти')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(text.isKy ? 'Жок' : 'Отмена')),
+          FilledButton.tonal(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(text.isKy ? 'Чыгуу' : 'Выйти')),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      await PublicRequestsApi(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore).leaveGroup(group.id);
+      await PublicRequestsApi(
+              baseUrl: widget.api.baseUrl,
+              sessionStore: widget.api.sessionStore)
+          .leaveGroup(group.id);
       await refresh();
-      if (mounted) showAppSnack(context, text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.');
+      if (mounted)
+        showAppSnack(context,
+            text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.');
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
     }
   }
 
   Future<void> showMainMenu() async {
-    final counts = await Future.wait([adminRequestsCountFuture, invitationsCountFuture]);
+    final counts =
+        await Future.wait([adminRequestsCountFuture, invitationsCountFuture]);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -308,54 +365,284 @@ class _GroupsScreenState extends State<GroupsScreen> {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(text.groups),
+        title: const KoomBrandTitle(compact: true),
         actions: [
           const AppSettingsButton(),
-          IconButton(onPressed: showMainMenu, icon: const Icon(Icons.more_vert_rounded), tooltip: text.isKy ? 'Меню' : 'Меню'),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: showMainMenu,
+            icon: const Icon(Icons.more_horiz_rounded),
+            tooltip: text.isKy ? 'Меню' : 'Меню',
+          ),
+          const SizedBox(width: 12),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        key: const ValueKey('groups_create_action'),
         onPressed: createGroup,
         icon: Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined),
         label: Text(isAdmin ? text.newGroup : text.requestGroup),
       ),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<List<ChatGroup>>(
-          future: groupsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-            if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(24), children: [ErrorBanner(message: snapshot.error.toString())]);
-            final groups = snapshot.data ?? const [];
-            if (groups.isEmpty) return _EmptyGroups(isAdmin: isAdmin, onCreate: createGroup);
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-              itemCount: groups.length,
-              itemBuilder: (_, index) => GroupTile(group: groups[index], onTap: () => openGroup(groups[index]), onLeave: () => leaveGroup(groups[index])),
-            );
-          },
+      body: KoomPageBackground(
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: FutureBuilder<List<ChatGroup>>(
+            future: groupsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  children: const [
+                    SizedBox(height: 180),
+                    Center(child: CircularProgressIndicator()),
+                  ],
+                );
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    _GroupsOverview(
+                      userName: widget.session.user.displayName,
+                      groupCount: currentGroups.length,
+                      isAdmin: isAdmin,
+                      adminRequestsCountFuture: adminRequestsCountFuture,
+                      invitationsCountFuture: invitationsCountFuture,
+                      onJoinByCode: joinByCode,
+                      onScanQr: scanGroupQr,
+                      onInvitations: openInvitations,
+                      onRequests:
+                          isAdmin ? openAdminRequests : openGroupRequests,
+                    ),
+                    const SizedBox(height: 16),
+                    ErrorBanner(message: snapshot.error.toString()),
+                  ],
+                );
+              }
+              final groups = snapshot.data ?? const <ChatGroup>[];
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+                itemCount: groups.length + (groups.isEmpty ? 3 : 2),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _GroupsOverview(
+                      userName: widget.session.user.displayName,
+                      groupCount: groups.length,
+                      isAdmin: isAdmin,
+                      adminRequestsCountFuture: adminRequestsCountFuture,
+                      invitationsCountFuture: invitationsCountFuture,
+                      onJoinByCode: joinByCode,
+                      onScanQr: scanGroupQr,
+                      onInvitations: openInvitations,
+                      onRequests:
+                          isAdmin ? openAdminRequests : openGroupRequests,
+                    );
+                  }
+                  if (index == 1) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
+                      child: KoomSectionTitle(
+                        title: text.groups,
+                        subtitle: groups.isEmpty
+                            ? (text.isKy
+                                ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
+                                : 'Ваши сообщества появятся здесь')
+                            : (text.isKy
+                                ? '${groups.length} коомчулук'
+                                : '${groups.length} сообществ'),
+                      ),
+                    );
+                  }
+                  if (groups.isEmpty) {
+                    return _EmptyGroups(
+                        isAdmin: isAdmin, onCreate: createGroup);
+                  }
+                  final group = groups[index - 2];
+                  return GroupTile(
+                    group: group,
+                    onTap: () => openGroup(group),
+                    onLeave: () => leaveGroup(group),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
   }
 }
 
+class _GroupsOverview extends StatelessWidget {
+  const _GroupsOverview({
+    required this.userName,
+    required this.groupCount,
+    required this.isAdmin,
+    required this.adminRequestsCountFuture,
+    required this.invitationsCountFuture,
+    required this.onJoinByCode,
+    required this.onScanQr,
+    required this.onInvitations,
+    required this.onRequests,
+  });
 
-String _groupRoleLabel(String role) {
-  switch (role) {
-    case 'owner':
-      return 'owner';
-    case 'admin':
-      return 'admin';
-    case 'member':
-      return 'member';
-    default:
-      return role;
+  final String userName;
+  final int groupCount;
+  final bool isAdmin;
+  final Future<int> adminRequestsCountFuture;
+  final Future<int> invitationsCountFuture;
+  final VoidCallback onJoinByCode;
+  final VoidCallback onScanQr;
+  final VoidCallback onInvitations;
+  final VoidCallback onRequests;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    final safeName = userName.trim().isEmpty
+        ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
+        : userName.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KoomCard(
+          gradient: MobileChatTheme.brandGradient,
+          borderColor: Colors.white.withValues(alpha: 0.14),
+          padding: const EdgeInsets.fromLTRB(20, 20, 18, 20),
+          child: Row(
+            children: [
+              KoomAvatar(
+                label: safeName,
+                radius: 28,
+                background: Colors.white.withValues(alpha: 0.18),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text.isKy ? 'Кош келиңиз' : 'Добро пожаловать',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      safeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      text.isKy
+                          ? '$groupCount коомчулукка кошулдуңуз'
+                          : 'Вы состоите в $groupCount сообществах',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.86),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.groups_2_rounded, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        KoomCard(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          showShadow: false,
+          child: Row(
+            children: [
+              Expanded(
+                child: KoomIconTile(
+                  compact: true,
+                  icon: Icons.key_rounded,
+                  label: text.joinByCode,
+                  onTap: onJoinByCode,
+                ),
+              ),
+              Expanded(
+                child: KoomIconTile(
+                  compact: true,
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: text.scanQr,
+                  onTap: onScanQr,
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<int>(
+                  future: invitationsCountFuture,
+                  builder: (context, snapshot) => KoomIconTile(
+                    compact: true,
+                    icon: Icons.mark_email_unread_outlined,
+                    label: text.invitations,
+                    badge: snapshot.data ?? 0,
+                    onTap: onInvitations,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<int>(
+                  future: adminRequestsCountFuture,
+                  builder: (context, snapshot) => KoomIconTile(
+                    compact: true,
+                    icon: isAdmin
+                        ? Icons.fact_check_outlined
+                        : Icons.verified_user_outlined,
+                    label: isAdmin ? text.adminRequests : text.myRequests,
+                    badge: isAdmin ? snapshot.data ?? 0 : null,
+                    onTap: onRequests,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Divider(color: colors.border.withValues(alpha: 0)),
+      ],
+    );
   }
 }
 
 class MainGroupsMenuSheet extends StatelessWidget {
-  const MainGroupsMenuSheet({super.key, required this.isAdmin, required this.adminRequestsCount, required this.invitationsCount, required this.onProfile, required this.onJoinByCode, required this.onScanQr, required this.onInvitations, required this.onMyRequests, required this.onAdminRequests, required this.onLogout});
+  const MainGroupsMenuSheet({
+    super.key,
+    required this.isAdmin,
+    required this.adminRequestsCount,
+    required this.invitationsCount,
+    required this.onProfile,
+    required this.onJoinByCode,
+    required this.onScanQr,
+    required this.onInvitations,
+    required this.onMyRequests,
+    required this.onAdminRequests,
+    required this.onLogout,
+  });
+
   final bool isAdmin;
   final int adminRequestsCount;
   final int invitationsCount;
@@ -370,63 +657,147 @@ class MainGroupsMenuSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (isAdmin) _MenuItem(icon: Icons.admin_panel_settings_outlined, title: text.adminRequests, count: adminRequestsCount, onTap: onAdminRequests),
-        _MenuItem(icon: Icons.verified_user_outlined, title: text.groupRequests, onTap: onMyRequests),
-        _MenuItem(icon: Icons.mark_email_unread_outlined, title: text.invitations, count: invitationsCount, onTap: onInvitations),
-        _MenuItem(icon: Icons.qr_code_rounded, title: text.joinByCode, onTap: onJoinByCode),
-        _MenuItem(icon: Icons.qr_code_scanner_rounded, title: text.scanQr, onTap: onScanQr),
-        const Divider(),
-        _MenuItem(icon: Icons.person_outline_rounded, title: text.profile, onTap: onProfile),
-        _MenuItem(icon: Icons.logout_rounded, title: text.logout, onTap: onLogout),
-      ]),
+    return KoomSheetFrame(
+      title: text.isKy ? 'Koom менюсу' : 'Меню Koom',
+      child: Column(
+        children: [
+          if (isAdmin)
+            _MenuItem(
+              icon: Icons.admin_panel_settings_outlined,
+              title: text.adminRequests,
+              count: adminRequestsCount,
+              onTap: onAdminRequests,
+            ),
+          _MenuItem(
+            icon: Icons.verified_user_outlined,
+            title: text.groupRequests,
+            onTap: onMyRequests,
+          ),
+          _MenuItem(
+            icon: Icons.mark_email_unread_outlined,
+            title: text.invitations,
+            count: invitationsCount,
+            onTap: onInvitations,
+          ),
+          _MenuItem(
+            icon: Icons.qr_code_rounded,
+            title: text.joinByCode,
+            onTap: onJoinByCode,
+          ),
+          _MenuItem(
+            icon: Icons.qr_code_scanner_rounded,
+            title: text.scanQr,
+            onTap: onScanQr,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(),
+          ),
+          _MenuItem(
+            icon: Icons.person_outline_rounded,
+            title: text.profile,
+            onTap: onProfile,
+          ),
+          _MenuItem(
+            icon: Icons.logout_rounded,
+            title: text.logout,
+            destructive: true,
+            onTap: onLogout,
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _MenuItem extends StatelessWidget {
-  const _MenuItem({required this.icon, required this.title, required this.onTap, this.count});
+  const _MenuItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.count,
+    this.destructive = false,
+  });
+
   final IconData icon;
   final String title;
   final VoidCallback onTap;
   final int? count;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: count != null && count! > 0 ? Badge(label: Text('$count')) : null,
-      onTap: () { Navigator.pop(context); onTap(); },
+    final colors = context.appColors;
+    final foreground =
+        destructive ? Theme.of(context).colorScheme.error : colors.textStrong;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Material(
+        color: destructive
+            ? Theme.of(context).colorScheme.error.withValues(alpha: 0.07)
+            : colors.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: foreground.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: foreground, size: 21),
+          ),
+          title: Text(title, style: TextStyle(color: foreground)),
+          trailing: count != null && count! > 0
+              ? Badge(label: Text('$count'))
+              : Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+          onTap: () {
+            Navigator.pop(context);
+            onTap();
+          },
+        ),
+      ),
     );
   }
 }
 
 class _EmptyGroups extends StatelessWidget {
   const _EmptyGroups({required this.isAdmin, required this.onCreate});
+
   final bool isAdmin;
   final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      const SizedBox(height: 48),
-      Icon(Icons.groups_2_outlined, size: 72, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(height: 18),
-      Text(text.noGroups, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      Text(text.isKy ? 'Топко кошулуңуз же жаңы топ түзүү сурамын жөнөтүңүз.' : 'Присоединитесь к группе или отправьте заявку на создание новой.', textAlign: TextAlign.center),
-      const SizedBox(height: 18),
-      FilledButton.icon(onPressed: onCreate, icon: Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined), label: Text(isAdmin ? text.newGroup : text.requestGroup)),
-    ]);
+    return KoomCard(
+      showShadow: false,
+      child: KoomEmptyState(
+        icon: Icons.groups_2_outlined,
+        title: text.noGroups,
+        message: text.isKy
+            ? 'Топко кошулуңуз же жаңы топ түзүү сурамын жөнөтүңүз.'
+            : 'Присоединитесь к группе или отправьте заявку на создание новой.',
+        action: FilledButton.icon(
+          key: const ValueKey('groups_empty_create_action'),
+          onPressed: onCreate,
+          icon:
+              Icon(isAdmin ? Icons.add_rounded : Icons.verified_user_outlined),
+          label: Text(isAdmin ? text.newGroup : text.requestGroup),
+        ),
+      ),
+    );
   }
 }
 
 class GroupTile extends StatelessWidget {
-  const GroupTile({super.key, required this.group, required this.onTap, required this.onLeave});
+  const GroupTile({
+    super.key,
+    required this.group,
+    required this.onTap,
+    required this.onLeave,
+  });
+
   final ChatGroup group;
   final VoidCallback onTap;
   final VoidCallback onLeave;
@@ -436,58 +807,141 @@ class GroupTile extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
     final inviteCode = group.inviteCode ?? '';
-    return Card(
+    final role = switch (group.myRole) {
+      'owner' => text.isKy ? 'Ээси' : 'Владелец',
+      'admin' => text.isKy ? 'Админ' : 'Администратор',
+      'member' => text.isKy ? 'Катышуучу' : 'Участник',
+      final String value => value,
+      _ => '',
+    };
+
+    return KoomCard(
+      key: ValueKey('group_tile_${group.id}'),
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shadowColor: colors.shadow,
-      color: colors.surface,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: colors.border),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CircleAvatar(radius: 24, backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12), child: Icon(group.visibility == 'public' ? Icons.public_rounded : Icons.lock_outline_rounded, color: Theme.of(context).colorScheme.primary)),
-            const SizedBox(width: 14),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                [
-                  group.visibility == 'public' ? text.publicGroup : text.privateGroup,
-                  if (group.memberCount > 0) '${group.memberCount}',
-                  if (group.myRole != null) _groupRoleLabel(group.myRole!),
-                ].join(' · '),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colors.textMuted, fontWeight: FontWeight.w800),
+      padding: EdgeInsets.zero,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(15, 15, 8, 15),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            KoomAvatar(
+              label: group.title,
+              radius: 25,
+              icon: group.visibility == 'public'
+                  ? Icons.groups_2_rounded
+                  : Icons.lock_rounded,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      if (group.unreadPublicRequestCount > 0)
+                        Badge(
+                          label: Text('${group.unreadPublicRequestCount}'),
+                        ),
+                    ],
+                  ),
+                  if (group.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      group.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 9),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      KoomStatusPill(
+                        label: group.visibility == 'public'
+                            ? text.publicGroup
+                            : text.privateGroup,
+                        icon: group.visibility == 'public'
+                            ? Icons.public_rounded
+                            : Icons.lock_outline_rounded,
+                      ),
+                      if (group.memberCount > 0)
+                        KoomStatusPill(
+                          label: '${group.memberCount}',
+                          icon: Icons.people_outline_rounded,
+                          color: colors.textMuted,
+                        ),
+                      if (role.isNotEmpty)
+                        KoomStatusPill(
+                          label: role,
+                          icon: Icons.verified_user_outlined,
+                          color: colors.textMuted,
+                        ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(group.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-              if (group.description.isNotEmpty) ...[const SizedBox(height: 4), Text(group.description, maxLines: 2, overflow: TextOverflow.ellipsis)],
-            ])),
-            if (group.unreadPublicRequestCount > 0) ...[
-              Badge(
-                label: Text('${group.unreadPublicRequestCount}'),
-                child: const Icon(Icons.article_outlined),
-              ),
-              const SizedBox(width: 8),
-            ],
+            ),
             PopupMenuButton<String>(
+              tooltip: text.isKy ? 'Аракеттер' : 'Действия',
+              icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) async {
                 if (value == 'copy') {
                   await Clipboard.setData(ClipboardData(text: inviteCode));
-                  if (context.mounted) showAppSnack(context, text.inviteCodeCopied);
+                  if (context.mounted) {
+                    showAppSnack(context, text.inviteCodeCopied);
+                  }
                 }
                 if (value == 'leave') onLeave();
               },
               itemBuilder: (_) => [
-                if (inviteCode.isNotEmpty) PopupMenuItem(value: 'copy', child: Text(text.copyInviteCode)),
-                PopupMenuItem(value: 'leave', child: Text(text.isKy ? 'Топтон чыгуу' : 'Выйти из группы')),
+                if (inviteCode.isNotEmpty)
+                  PopupMenuItem(
+                    value: 'copy',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.copy_rounded, size: 19),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(text.copyInviteCode)),
+                      ],
+                    ),
+                  ),
+                PopupMenuItem(
+                  value: 'leave',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.logout_rounded,
+                        size: 19,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        text.isKy ? 'Топтон чыгуу' : 'Выйти из группы',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ]),
+          ],
         ),
       ),
     );

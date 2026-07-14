@@ -6,11 +6,15 @@ import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
-  const PhoneAuthScreen(
-      {super.key, required this.api, required this.onAuthenticated});
+  const PhoneAuthScreen({
+    super.key,
+    required this.api,
+    required this.onAuthenticated,
+  });
 
   final ApiClient api;
   final Future<void> Function(AppSession session) onAuthenticated;
@@ -40,13 +44,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
-  String get _mobileDigits => mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
+  String get _mobileDigits =>
+      mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
   String get _fullMobileNumber => '$_kgPhonePrefix$_mobileDigits';
 
   Future<void> requestCode() async {
     final text = AppLanguageScope.textOf(context);
     if (_mobileDigits.length != 9) {
-      setState(() => error = text.isKy ? '996 кодунан кийин 9 цифра жазыңыз' : 'Введите 9 цифр после 996');
+      setState(() {
+        error = text.isKy
+            ? '996 кодунан кийин 9 цифра жазыңыз'
+            : 'Введите 9 цифр после 996';
+      });
       return;
     }
     setState(() {
@@ -62,9 +71,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         codeWasSent = true;
         accountExists = result.accountExists;
         devCode = result.devCode;
-        if (result.accountExists) {
-          displayNameController.clear();
-        }
+        if (result.accountExists) displayNameController.clear();
       });
     } catch (e) {
       if (!mounted) return;
@@ -82,8 +89,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       return;
     }
     if (code.length != 6) {
-      setState(() => error =
-          text.isKy ? 'Код 6 цифрадан турушу керек' : 'Введите 6 цифр кода');
+      setState(() {
+        error =
+            text.isKy ? 'Код 6 цифрадан турушу керек' : 'Введите 6 цифр кода';
+      });
       return;
     }
     if (!accountExists && displayNameController.text.trim().length < 2) {
@@ -109,171 +118,258 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     }
   }
 
+  void changePhone() {
+    setState(() {
+      codeWasSent = false;
+      accountExists = false;
+      codeController.clear();
+      devCode = null;
+      error = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 390;
+
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Container(
-                padding: const EdgeInsets.all(26),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: [
-                    BoxShadow(
-                        color: colors.shadow,
-                        blurRadius: 28,
-                        offset: const Offset(0, 16))
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: KoomPageBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                child: Row(
                   children: [
-                    const Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [ThemeModeButton(), LanguageMenuButton()]),
-                    ),
-                    const SizedBox(height: 10),
-                    const CircleAvatar(
-                      radius: 42,
-                      backgroundColor: MobileChatTheme.primary,
-                      child: Icon(Icons.sms_rounded,
-                          color: Colors.white, size: 40),
-                    ),
-                    const SizedBox(height: 22),
-                    Text(
-                      text.appTitle,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _phoneNumberIntro(text),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colors.textMuted),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      key: const ValueKey('auth_mobile_field'),
-                      controller: mobileController,
-                      enabled: !loading && !codeWasSent,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(9),
-                      ],
-                      onChanged: (_) {
-                        if (mounted && error != null) setState(() => error = null);
-                      },
-                      decoration: InputDecoration(
-                        labelText: text.mobileNumber,
-                        hintText: '700123456',
-                        prefixIcon: const Icon(Icons.phone_iphone_rounded),
-                        prefixText: '$_kgPhonePrefix ',
-                      ),
-                    ),
-                    if (codeWasSent) ...[
-                      const SizedBox(height: 12),
-                      InfoBanner(
-                          message: accountExists
-                              ? text.existingAccountHint
-                              : text.newAccountHint),
-                      const SizedBox(height: 12),
-                      TextField(
-                        key: const ValueKey('auth_code_field'),
-                        controller: codeController,
-                        enabled: !loading,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        onChanged: (_) {
-                          if (mounted) setState(() => error = null);
-                        },
-                        decoration: InputDecoration(
-                          labelText: text.code,
-                          hintText: devCode,
-                          prefixIcon: const Icon(Icons.password_rounded),
-                        ),
-                      ),
-                      if (!accountExists) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          key: const ValueKey('auth_display_name_field'),
-                          controller: displayNameController,
-                          enabled: !loading,
-                          decoration: InputDecoration(
-                            labelText: text.displayNameNewOnly,
-                            prefixIcon:
-                                const Icon(Icons.person_outline_rounded),
-                          ),
-                        ),
-                      ],
-                    ],
-                    if (devCode != null) ...[
-                      const SizedBox(height: 12),
-                      InfoBanner(
-                          message: devCode == 'any_non_empty_code'
-                              ? text.devSmsAnyCode
-                              : text.devSmsCode(devCode!)),
-                    ],
-                    if (error != null) ...[
-                      const SizedBox(height: 12),
-                      ErrorBanner(message: error!),
-                    ],
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      key: const ValueKey('auth_submit_button'),
-                      onPressed: loading ||
-                              (codeWasSent &&
-                                  codeController.text.trim().length != 6)
-                          ? null
-                          : (codeWasSent ? verifyCode : requestCode),
-                      icon: loading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Icon(codeWasSent
-                              ? Icons.verified_rounded
-                              : Icons.sms_rounded),
-                      label: Text(loading
-                          ? text.pleaseWait
-                          : (codeWasSent
-                              ? text.verifyAndContinue
-                              : text.continueText)),
-                    ),
-                    if (codeWasSent)
-                      TextButton(
-                        onPressed: loading
-                            ? null
-                            : () => setState(() {
-                                  codeWasSent = false;
-                                  accountExists = false;
-                                  codeController.clear();
-                                  devCode = null;
-                                  error = null;
-                                }),
-                        child: Text(text.changeMobileNumber),
-                      ),
+                    const KoomBrandTitle(compact: true),
+                    const Spacer(),
+                    const ThemeModeButton(),
+                    const SizedBox(width: 6),
+                    const LanguageMenuButton(),
                   ],
                 ),
               ),
-            ),
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 16 : 22,
+                      22,
+                      compact ? 16 : 22,
+                      30,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Center(child: KoomLogoMark(size: 86)),
+                          const SizedBox(height: 22),
+                          Text(
+                            'Koom',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineLarge
+                                ?.copyWith(fontSize: compact ? 34 : 39),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            text.isKy
+                                ? 'Коомчулуктар үчүн байланыш'
+                                : 'Общение для сообществ',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colors.textStrong,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            text.isKy
+                                ? 'Биригиңиз, баарлашыңыз жана чечимдерди чогуу кабыл алыңыз'
+                                : 'Объединяйтесь, общайтесь и принимайте решения вместе',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              height: 1.42,
+                            ),
+                          ),
+                          const SizedBox(height: 26),
+                          KoomCard(
+                            padding: EdgeInsets.all(compact ? 18 : 23),
+                            radius: 28,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  codeWasSent
+                                      ? (text.isKy
+                                          ? 'Кодду киргизиңиз'
+                                          : 'Введите код')
+                                      : (text.isKy
+                                          ? 'Koomго кирүү'
+                                          : 'Вход в Koom'),
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontSize: 22),
+                                ),
+                                const SizedBox(height: 7),
+                                Text(
+                                  codeWasSent
+                                      ? (text.isKy
+                                          ? 'SMS менен келген алты орундуу кодду жазыңыз'
+                                          : 'Введите шестизначный код из SMS')
+                                      : _phoneNumberIntro(text),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 240),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  child: codeWasSent
+                                      ? _CodeFields(
+                                          key: const ValueKey('code_fields'),
+                                          codeController: codeController,
+                                          displayNameController:
+                                              displayNameController,
+                                          accountExists: accountExists,
+                                          loading: loading,
+                                          devCode: devCode,
+                                          onChanged: () {
+                                            if (mounted) {
+                                              setState(() => error = null);
+                                            }
+                                          },
+                                        )
+                                      : TextField(
+                                          key: const ValueKey(
+                                              'auth_mobile_field'),
+                                          controller: mobileController,
+                                          enabled: !loading,
+                                          keyboardType: TextInputType.phone,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(9),
+                                          ],
+                                          onChanged: (_) {
+                                            if (mounted && error != null) {
+                                              setState(() => error = null);
+                                            }
+                                          },
+                                          decoration: InputDecoration(
+                                            labelText: text.mobileNumber,
+                                            hintText: '700 123 456',
+                                            prefixIcon: const Icon(
+                                              Icons.phone_iphone_rounded,
+                                            ),
+                                            prefixText: '$_kgPhonePrefix  ',
+                                          ),
+                                        ),
+                                ),
+                                if (devCode != null) ...[
+                                  const SizedBox(height: 12),
+                                  InfoBanner(
+                                    message: devCode == 'any_non_empty_code'
+                                        ? text.devSmsAnyCode
+                                        : text.devSmsCode(devCode!),
+                                  ),
+                                ],
+                                if (error != null) ...[
+                                  const SizedBox(height: 12),
+                                  ErrorBanner(message: error!),
+                                ],
+                                const SizedBox(height: 18),
+                                FilledButton.icon(
+                                  key: const ValueKey('auth_submit_button'),
+                                  onPressed: loading ||
+                                          (codeWasSent &&
+                                              codeController.text
+                                                      .trim()
+                                                      .length !=
+                                                  6)
+                                      ? null
+                                      : (codeWasSent
+                                          ? verifyCode
+                                          : requestCode),
+                                  icon: loading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Icon(
+                                          codeWasSent
+                                              ? Icons.verified_rounded
+                                              : Icons.arrow_forward_rounded,
+                                        ),
+                                  label: Text(
+                                    loading
+                                        ? text.pleaseWait
+                                        : (codeWasSent
+                                            ? text.verifyAndContinue
+                                            : text.continueText),
+                                  ),
+                                ),
+                                if (codeWasSent) ...[
+                                  const SizedBox(height: 4),
+                                  TextButton.icon(
+                                    onPressed: loading ? null : changePhone,
+                                    icon: const Icon(Icons.edit_outlined,
+                                        size: 18),
+                                    label: Text(text.changeMobileNumber),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.lock_outline_rounded,
+                                size: 16,
+                                color: colors.textMuted,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Text(
+                                  text.isKy
+                                      ? 'Ырастоо коду көрсөтүлгөн номерге жөнөтүлөт'
+                                      : 'Код подтверждения будет отправлен на указанный номер',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -281,70 +377,76 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 }
 
+class _CodeFields extends StatelessWidget {
+  const _CodeFields({
+    super.key,
+    required this.codeController,
+    required this.displayNameController,
+    required this.accountExists,
+    required this.loading,
+    required this.devCode,
+    required this.onChanged,
+  });
 
-String _phoneLengthError(AppText text) {
-  if (text.isKy) {
-    return String.fromCharCodes([57, 57, 54, 32, 1082, 1086, 1076, 1091, 1085, 1072, 1085, 32, 1082, 1080, 1081, 1080, 1085, 32, 57, 32, 1094, 1080, 1092, 1088, 1072, 32, 1078, 1072, 1079, 1099, 1187, 1099, 1079]);
+  final TextEditingController codeController;
+  final TextEditingController displayNameController;
+  final bool accountExists;
+  final bool loading;
+  final String? devCode;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InfoBanner(
+          message:
+              accountExists ? text.existingAccountHint : text.newAccountHint,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('auth_code_field'),
+          controller: codeController,
+          enabled: !loading,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 7,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
+          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(
+            labelText: text.code,
+            hintText: devCode,
+            prefixIcon: const Icon(Icons.password_rounded),
+          ),
+        ),
+        if (!accountExists) ...[
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('auth_display_name_field'),
+            controller: displayNameController,
+            enabled: !loading,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: text.displayNameNewOnly,
+              prefixIcon: const Icon(Icons.person_outline_rounded),
+            ),
+          ),
+        ],
+      ],
+    );
   }
-  return String.fromCharCodes([1042, 1074, 1077, 1076, 1080, 1090, 1077, 32, 57, 32, 1094, 1080, 1092, 1088, 32, 1087, 1086, 1089, 1083, 1077, 32, 57, 57, 54]);
 }
 
 String _phoneNumberIntro(AppText text) {
-  if (text.isKy) {
-    return String.fromCharCodes([
-      1058,
-      1077,
-      1083,
-      1077,
-      1092,
-      1086,
-      1085,
-      32,
-      1085,
-      1086,
-      1084,
-      1077,
-      1088,
-      1080,
-      1187,
-      1080,
-      1079,
-      1076,
-      1080,
-      32,
-      1078,
-      1072,
-      1079,
-      1099,
-      1187,
-      1099,
-      1079,
-      46,
-    ]);
-  }
-  return String.fromCharCodes([
-    1042,
-    1074,
-    1077,
-    1076,
-    1080,
-    1090,
-    1077,
-    32,
-    1085,
-    1086,
-    1084,
-    1077,
-    1088,
-    32,
-    1090,
-    1077,
-    1083,
-    1077,
-    1092,
-    1086,
-    1085,
-    1072,
-    46,
-  ]);
+  if (text.isKy) return 'Кирүү же катталуу үчүн телефон номериңизди жазыңыз';
+  return 'Введите номер телефона для входа или регистрации';
 }

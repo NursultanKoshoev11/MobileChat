@@ -4,6 +4,7 @@ import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/group_invitation.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class InvitationsScreen extends StatefulWidget {
@@ -26,9 +27,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
 
   Future<void> refresh() async {
     final nextFuture = widget.api.fetchInvitations();
-    setState(() {
-      invitationsFuture = nextFuture;
-    });
+    setState(() => invitationsFuture = nextFuture);
     await nextFuture;
   }
 
@@ -38,7 +37,10 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
       await widget.api.acceptInvitation(invitation.id);
       await refresh();
       if (!mounted) return;
-      showAppSnack(context, text.isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.');
+      showAppSnack(
+        context,
+        text.isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.',
+      );
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());
@@ -51,7 +53,10 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
       await widget.api.declineInvitation(invitation.id);
       await refresh();
       if (!mounted) return;
-      showAppSnack(context, text.isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.');
+      showAppSnack(
+        context,
+        text.isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.',
+      );
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString());
@@ -62,95 +67,161 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
-      appBar: AppBar(title: Text(text.invitations), actions: const [LanguageMenuButton()]),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<List<GroupInvitation>>(
-          future: invitationsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [ErrorBanner(message: snapshot.error.toString())],
-              );
-            }
-            final invitations = snapshot.data ?? const [];
-            if (invitations.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SizedBox(height: 120),
-                  const Icon(Icons.mark_email_unread_outlined, size: 72, color: MobileChatTheme.primary),
-                  const SizedBox(height: 16),
-                  Text(text.isKy ? 'Чакыруулар жок' : 'Приглашений нет', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-                  const SizedBox(height: 8),
-                  Text(text.isKy ? 'Топко чакыруулар ушул жерде чыгат.' : 'Ожидающие приглашения в группы будут здесь.', textAlign: TextAlign.center, style: const TextStyle(color: MobileChatTheme.textMuted)),
-                ],
-              );
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: invitations.length,
-              itemBuilder: (context, index) {
-                final invitation = invitations[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: MobileChatTheme.primary,
-                                child: Text(avatarText(invitation.groupTitle), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(invitation.groupTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                    Text('${text.isKy ? 'Чакырган' : 'Пригласил'}: ${invitation.senderName}', style: const TextStyle(color: MobileChatTheme.textMuted)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => decline(invitation),
-                                  child: Text(text.isKy ? 'Баш тартуу' : 'Отклонить'),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => accept(invitation),
-                                  child: Text(text.isKy ? 'Кабыл алуу' : 'Принять'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+      appBar: AppBar(
+        title: Text(text.invitations),
+        actions: const [LanguageMenuButton(), SizedBox(width: 8)],
+      ),
+      body: KoomPageBackground(
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: FutureBuilder<List<GroupInvitation>>(
+            future: invitationsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 210),
+                    Center(child: CircularProgressIndicator()),
+                  ],
+                );
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [ErrorBanner(message: snapshot.error.toString())],
+                );
+              }
+              final invitations = snapshot.data ?? const <GroupInvitation>[];
+              if (invitations.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    KoomCard(
+                      showShadow: false,
+                      child: KoomEmptyState(
+                        icon: Icons.mark_email_unread_outlined,
+                        title: text.isKy ? 'Чакыруулар жок' : 'Приглашений нет',
+                        message: text.isKy
+                            ? 'Топко чакыруулар ушул жерде чыгат.'
+                            : 'Ожидающие приглашения в группы появятся здесь.',
                       ),
                     ),
-                  ),
+                  ],
                 );
-              },
-            );
-          },
+              }
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                itemCount: invitations.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 4, 2, 14),
+                      child: KoomSectionTitle(
+                        title: text.invitations,
+                        subtitle: text.isKy
+                            ? '${invitations.length} жаңы чакыруу'
+                            : '${invitations.length} новых приглашений',
+                      ),
+                    );
+                  }
+                  final invitation = invitations[index - 1];
+                  return _InvitationCard(
+                    invitation: invitation,
+                    onAccept: () => accept(invitation),
+                    onDecline: () => decline(invitation),
+                  );
+                },
+              );
+            },
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _InvitationCard extends StatelessWidget {
+  const _InvitationCard({
+    required this.invitation,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final GroupInvitation invitation;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    return KoomCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              KoomAvatar(
+                label: invitation.groupTitle,
+                radius: 25,
+                icon: Icons.groups_2_rounded,
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invitation.groupTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${text.isKy ? 'Чакырган' : 'Пригласил'}: ${invitation.senderName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              KoomStatusPill(
+                label: text.isKy ? 'Жаңы' : 'Новое',
+                icon: Icons.mail_outline_rounded,
+              ),
+            ],
+          ),
+          const SizedBox(height: 17),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onDecline,
+                  child: Text(text.isKy ? 'Баш тартуу' : 'Отклонить'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onAccept,
+                  icon: const Icon(Icons.check_rounded),
+                  label: Text(text.isKy ? 'Кабыл алуу' : 'Принять'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

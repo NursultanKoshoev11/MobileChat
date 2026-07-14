@@ -6,10 +6,12 @@ import '../../app/theme.dart';
 import '../../data/group_statistics.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class GroupStatisticsScreen extends StatefulWidget {
-  const GroupStatisticsScreen({super.key, required this.api, required this.group});
+  const GroupStatisticsScreen(
+      {super.key, required this.api, required this.group});
 
   final PublicRequestsApi api;
   final ChatGroup group;
@@ -29,7 +31,8 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
     future = load();
   }
 
-  Future<GroupStatistics> load() => widget.api.fetchStatistics(widget.group.id, period: period, granularity: granularity);
+  Future<GroupStatistics> load() => widget.api.fetchStatistics(widget.group.id,
+      period: period, granularity: granularity);
 
   Future<void> refresh() async {
     final next = load();
@@ -40,7 +43,11 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
   void changePeriod(String nextPeriod) {
     setState(() {
       period = nextPeriod;
-      granularity = nextPeriod == 'year' ? 'month' : nextPeriod == 'all' ? 'month' : 'day';
+      granularity = nextPeriod == 'year'
+          ? 'month'
+          : nextPeriod == 'all'
+              ? 'month'
+              : 'day';
       future = load();
     });
   }
@@ -54,39 +61,105 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
         title: Text(text.isKy ? 'Статистика' : 'Статистика'),
         actions: const [AppSettingsButton()],
       ),
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: FutureBuilder<GroupStatistics>(
-          future: future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-            if (snapshot.hasError) return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: snapshot.error.toString())]);
-            final stats = snapshot.data!;
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-              children: [
-                Text(widget.group.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 6),
-                Text(text.isKy ? 'Топ боюнча арыздар, сунуштар жана даттануулар.' : 'Заявки, предложения и жалобы по этой группе.', style: TextStyle(color: context.appColors.textMuted)),
-                const SizedBox(height: 14),
-                _PeriodSelector(period: period, onChanged: changePeriod),
-                const SizedBox(height: 16),
-                _SummaryGrid(stats: stats),
-                const SizedBox(height: 16),
-                _RatesCard(stats: stats),
-                const SizedBox(height: 16),
-                _TimelineCard(stats: stats),
-                const SizedBox(height: 16),
-                _BreakdownCard(title: text.isKy ? 'Типтер боюнча' : 'По типам', items: stats.byType, labeler: requestTypeLabel),
-                const SizedBox(height: 16),
-                _BreakdownCard(title: text.isKy ? 'Статус боюнча' : 'По статусам', items: stats.byStatus, labeler: statusLabel),
-                const SizedBox(height: 16),
-                _BreakdownCard(title: text.isKy ? 'Формат боюнча' : 'По формату', items: stats.byInteractionMode, labeler: interactionLabel),
-                const SizedBox(height: 16),
-                _OpenRequestsCard(stats: stats),
-              ],
-            );
-          },
+      body: KoomPageBackground(
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: FutureBuilder<GroupStatistics>(
+            future: future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 210),
+                    Center(child: CircularProgressIndicator()),
+                  ],
+                );
+              }
+              if (snapshot.hasError) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [ErrorBanner(message: snapshot.error.toString())],
+                );
+              }
+              final stats = snapshot.data!;
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                children: [
+                  KoomCard(
+                    gradient: MobileChatTheme.brandGradient,
+                    borderColor: Colors.white.withValues(alpha: 0.14),
+                    child: Row(
+                      children: [
+                        KoomAvatar(
+                          label: widget.group.title,
+                          radius: 27,
+                          background: Colors.white.withValues(alpha: 0.16),
+                          icon: Icons.analytics_rounded,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.group.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                text.isKy
+                                    ? 'Коомчулуктун активдүүлүгү жана жыйынтыктары'
+                                    : 'Активность и результаты сообщества',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _PeriodSelector(period: period, onChanged: changePeriod),
+                  const SizedBox(height: 16),
+                  _SummaryGrid(stats: stats),
+                  const SizedBox(height: 16),
+                  _RatesCard(stats: stats),
+                  const SizedBox(height: 16),
+                  _TimelineCard(stats: stats),
+                  const SizedBox(height: 16),
+                  _BreakdownCard(
+                      title: text.isKy ? 'Типтер боюнча' : 'По типам',
+                      items: stats.byType,
+                      labeler: requestTypeLabel),
+                  const SizedBox(height: 16),
+                  _BreakdownCard(
+                      title: text.isKy ? 'Статус боюнча' : 'По статусам',
+                      items: stats.byStatus,
+                      labeler: statusLabel),
+                  const SizedBox(height: 16),
+                  _BreakdownCard(
+                      title: text.isKy ? 'Формат боюнча' : 'По формату',
+                      items: stats.byInteractionMode,
+                      labeler: interactionLabel),
+                  const SizedBox(height: 16),
+                  _OpenRequestsCard(stats: stats),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -95,56 +168,108 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
   String requestTypeLabel(BuildContext context, String key) {
     final text = AppLanguageScope.textOf(context);
     switch (key) {
-      case 'announcement': return text.announcement;
-      case 'suggestion': return text.suggestion;
-      case 'complaint': return text.complaint;
-      case 'requirement': return text.requirement;
-      case 'problem': return text.problem;
-      case 'idea': return text.idea;
-      default: return key;
+      case 'announcement':
+        return text.announcement;
+      case 'suggestion':
+        return text.suggestion;
+      case 'complaint':
+        return text.complaint;
+      case 'requirement':
+        return text.requirement;
+      case 'problem':
+        return text.problem;
+      case 'idea':
+        return text.idea;
+      default:
+        return key;
     }
   }
 
   String statusLabel(BuildContext context, String key) {
     final isKy = AppLanguageScope.textOf(context).isKy;
     switch (key) {
-      case 'new': return isKy ? 'Жаңы' : 'Новые';
-      case 'under_review': return isKy ? 'Каралууда' : 'На рассмотрении';
-      case 'accepted': return isKy ? 'Кабыл алынган' : 'Принятые';
-      case 'resolved': return isKy ? 'Чечилген' : 'Решённые';
-      case 'rejected': return isKy ? 'Четке кагылган' : 'Отклонённые';
-      default: return key;
+      case 'new':
+        return isKy ? 'Жаңы' : 'Новые';
+      case 'under_review':
+        return isKy ? 'Каралууда' : 'На рассмотрении';
+      case 'accepted':
+        return isKy ? 'Кабыл алынган' : 'Принятые';
+      case 'resolved':
+        return isKy ? 'Чечилген' : 'Решённые';
+      case 'rejected':
+        return isKy ? 'Четке кагылган' : 'Отклонённые';
+      default:
+        return key;
     }
   }
 
   String interactionLabel(BuildContext context, String key) {
     final text = AppLanguageScope.textOf(context);
     switch (key) {
-      case 'read_only': return text.textOnly;
-      case 'vote_only': return text.votingOnly;
-      case 'discussion': return text.discussionWithComments;
-      default: return key;
+      case 'read_only':
+        return text.textOnly;
+      case 'vote_only':
+        return text.votingOnly;
+      case 'discussion':
+        return text.discussionWithComments;
+      default:
+        return key;
     }
   }
 }
 
 class _PeriodSelector extends StatelessWidget {
   const _PeriodSelector({required this.period, required this.onChanged});
+
   final String period;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
-    return SegmentedButton<String>(
-      selected: {period},
-      onSelectionChanged: (value) => onChanged(value.first),
-      segments: [
-        ButtonSegment(value: 'week', label: Text(isKy ? 'Апта' : 'Неделя')),
-        ButtonSegment(value: 'month', label: Text(isKy ? 'Ай' : 'Месяц')),
-        ButtonSegment(value: 'year', label: Text(isKy ? 'Жыл' : 'Год')),
-        ButtonSegment(value: 'all', label: Text(isKy ? 'Баары' : 'Все')),
-      ],
+    final items = <(String, String)>[
+      ('week', isKy ? 'Апта' : 'Неделя'),
+      ('month', isKy ? 'Ай' : 'Месяц'),
+      ('year', isKy ? 'Жыл' : 'Год'),
+      ('all', isKy ? 'Баары' : 'Все'),
+    ];
+    return KoomCard(
+      showShadow: false,
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        children: items.map((item) {
+          final selected = item.$1 == period;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Material(
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(13),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: () => onChanged(item.$1),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    child: Text(
+                      item.$2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: selected
+                            ? Colors.white
+                            : context.appColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -157,18 +282,30 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
     final items = [
-      _Metric(isKy ? 'Бардык заявкалар' : 'Всего заявок', stats.totalRequests.toString(), Icons.assignment_rounded),
-      _Metric(isKy ? 'Даттануулар' : 'Жалобы', stats.totalComplaints.toString(), Icons.report_problem_rounded),
-      _Metric(isKy ? 'Ачык' : 'Нерешённые', stats.openRequests.toString(), Icons.hourglass_top_rounded),
-      _Metric(isKy ? 'Жабылган' : 'Закрытые', stats.closedRequests.toString(), Icons.task_alt_rounded),
-      _Metric(isKy ? 'Комментарий' : 'Комментарии', stats.totalComments.toString(), Icons.forum_rounded),
-      _Metric(isKy ? 'Добуштар' : 'Голоса', '${stats.supportVotes + stats.opposeVotes}', Icons.how_to_vote_rounded),
+      _Metric(isKy ? 'Бардык заявкалар' : 'Всего заявок',
+          stats.totalRequests.toString(), Icons.assignment_rounded),
+      _Metric(isKy ? 'Даттануулар' : 'Жалобы', stats.totalComplaints.toString(),
+          Icons.report_problem_rounded),
+      _Metric(isKy ? 'Ачык' : 'Нерешённые', stats.openRequests.toString(),
+          Icons.hourglass_top_rounded),
+      _Metric(isKy ? 'Жабылган' : 'Закрытые', stats.closedRequests.toString(),
+          Icons.task_alt_rounded),
+      _Metric(isKy ? 'Комментарий' : 'Комментарии',
+          stats.totalComments.toString(), Icons.forum_rounded),
+      _Metric(
+          isKy ? 'Добуштар' : 'Голоса',
+          '${stats.supportVotes + stats.opposeVotes}',
+          Icons.how_to_vote_rounded),
     ];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.55, crossAxisSpacing: 10, mainAxisSpacing: 10),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 1.55,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10),
       itemBuilder: (_, index) => _MetricCard(metric: items[index]),
     );
   }
@@ -188,14 +325,38 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
+    return KoomCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: colors.border)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Icon(metric.icon, color: MobileChatTheme.primary),
-        Text(metric.value, style: TextStyle(color: colors.textStrong, fontSize: 24, fontWeight: FontWeight.w900)),
-        Text(metric.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700)),
-      ]),
+      showShadow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(metric.icon,
+                color: Theme.of(context).colorScheme.primary, size: 19),
+          ),
+          Text(metric.value,
+              style: TextStyle(
+                  color: colors.textStrong,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900)),
+          Text(metric.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: colors.textMuted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12)),
+        ],
+      ),
     );
   }
 }
@@ -207,11 +368,15 @@ class _RatesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
-    return _Panel(title: isKy ? 'Прогресс' : 'Прогресс', child: Column(children: [
-      _ProgressLine(title: isKy ? 'Закрыто' : 'Закрыто', percent: stats.closeRate),
-      const SizedBox(height: 12),
-      _ProgressLine(title: isKy ? 'Решено' : 'Решено', percent: stats.resolveRate),
-    ]));
+    return _Panel(
+        title: isKy ? 'Прогресс' : 'Прогресс',
+        child: Column(children: [
+          _ProgressLine(
+              title: isKy ? 'Закрыто' : 'Закрыто', percent: stats.closeRate),
+          const SizedBox(height: 12),
+          _ProgressLine(
+              title: isKy ? 'Решено' : 'Решено', percent: stats.resolveRate),
+        ]));
   }
 }
 
@@ -225,10 +390,16 @@ class _ProgressLine extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        Text('${percent.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.w900, color: MobileChatTheme.primaryDark)),
+        Text('${percent.toStringAsFixed(1)}%',
+            style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: MobileChatTheme.primaryDark)),
       ]),
       const SizedBox(height: 8),
-      ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: (percent / 100).clamp(0, 1), minHeight: 10)),
+      ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+              value: (percent / 100).clamp(0, 1), minHeight: 10)),
     ]);
   }
 }
@@ -240,28 +411,50 @@ class _TimelineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
-    final maxValue = stats.timeline.fold<int>(1, (max, item) => item.total > max ? item.total : max);
-    return _Panel(title: isKy ? 'Динамика' : 'Динамика', child: stats.timeline.isEmpty
-        ? Text(isKy ? 'Маалымат жок' : 'Нет данных', style: TextStyle(color: context.appColors.textMuted))
-        : Column(children: stats.timeline.map((item) {
-            final value = item.total / maxValue;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(item.bucket, style: const TextStyle(fontWeight: FontWeight.w800)), Text('${item.total}')]),
-                const SizedBox(height: 6),
-                ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value.clamp(0, 1), minHeight: 9)),
-                const SizedBox(height: 3),
-                Text('${isKy ? 'Ачык' : 'Открыто'}: ${item.open} · ${isKy ? 'Жабык' : 'Закрыто'}: ${item.closed} · ${isKy ? 'Даттануу' : 'Жалобы'}: ${item.complaints}', style: TextStyle(fontSize: 12, color: context.appColors.textMuted)),
-              ]),
-            );
-          }).toList()),
+    final maxValue = stats.timeline
+        .fold<int>(1, (max, item) => item.total > max ? item.total : max);
+    return _Panel(
+      title: isKy ? 'Динамика' : 'Динамика',
+      child: stats.timeline.isEmpty
+          ? Text(isKy ? 'Маалымат жок' : 'Нет данных',
+              style: TextStyle(color: context.appColors.textMuted))
+          : Column(
+              children: stats.timeline.map((item) {
+              final value = item.total / maxValue;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(item.bucket,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800)),
+                            Text('${item.total}')
+                          ]),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                              value: value.clamp(0, 1), minHeight: 9)),
+                      const SizedBox(height: 3),
+                      Text(
+                          '${isKy ? 'Ачык' : 'Открыто'}: ${item.open} · ${isKy ? 'Жабык' : 'Закрыто'}: ${item.closed} · ${isKy ? 'Даттануу' : 'Жалобы'}: ${item.complaints}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: context.appColors.textMuted)),
+                    ]),
+              );
+            }).toList()),
     );
   }
 }
 
 class _BreakdownCard extends StatelessWidget {
-  const _BreakdownCard({required this.title, required this.items, required this.labeler});
+  const _BreakdownCard(
+      {required this.title, required this.items, required this.labeler});
   final String title;
   final List<StatisticsBreakdownItem> items;
   final String Function(BuildContext, String) labeler;
@@ -269,12 +462,21 @@ class _BreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
-    return _Panel(title: title, child: items.isEmpty
-        ? Text(isKy ? 'Маалымат жок' : 'Нет данных', style: TextStyle(color: context.appColors.textMuted))
-        : Column(children: items.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ProgressLine(title: '${labeler(context, item.key)} · ${item.count}', percent: item.percent),
-            )).toList()),
+    return _Panel(
+      title: title,
+      child: items.isEmpty
+          ? Text(isKy ? 'Маалымат жок' : 'Нет данных',
+              style: TextStyle(color: context.appColors.textMuted))
+          : Column(
+              children: items
+                  .map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _ProgressLine(
+                            title:
+                                '${labeler(context, item.key)} · ${item.count}',
+                            percent: item.percent),
+                      ))
+                  .toList()),
     );
   }
 }
@@ -286,14 +488,24 @@ class _OpenRequestsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
-    return _Panel(title: isKy ? 'Акыркы чечилбегендер' : 'Последние нерешённые', child: stats.recentOpenRequests.isEmpty
-        ? Text(isKy ? 'Чечилбеген заявкалар жок' : 'Нет нерешённых заявок', style: TextStyle(color: context.appColors.textMuted))
-        : Column(children: stats.recentOpenRequests.map((request) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(request.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(request.status),
-              trailing: Text('${request.commentCount} 💬'),
-            )).toList()),
+    return _Panel(
+      title: isKy ? 'Акыркы чечилбегендер' : 'Последние нерешённые',
+      child: stats.recentOpenRequests.isEmpty
+          ? Text(isKy ? 'Чечилбеген заявкалар жок' : 'Нет нерешённых заявок',
+              style: TextStyle(color: context.appColors.textMuted))
+          : Column(
+              children: stats.recentOpenRequests
+                  .map((request) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(request.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800)),
+                        subtitle: Text(request.status),
+                        trailing: Text('${request.commentCount} 💬'),
+                      ))
+                  .toList()),
     );
   }
 }
@@ -306,14 +518,21 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
+    return KoomCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: colors.border)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: TextStyle(color: colors.textStrong, fontWeight: FontWeight.w900, fontSize: 18)),
-        const SizedBox(height: 14),
-        child,
-      ]),
+      showShadow: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  color: colors.textStrong,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18)),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
     );
   }
 }

@@ -7,10 +7,12 @@ import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../data/moderation.dart';
 import '../../data/realtime_client.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.api, required this.user, required this.group});
+  const ChatScreen(
+      {super.key, required this.api, required this.user, required this.group});
 
   final ApiClient api;
   final UserProfile user;
@@ -32,7 +34,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool hasMoreOlder = true;
   String? error;
 
-  bool get canPublishAnnouncement => widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
+  bool get canPublishAnnouncement =>
+      widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
 
   @override
   void initState() {
@@ -54,7 +57,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void handleScroll() {
-    if (!scrollController.hasClients || loadingOlder || !hasMoreOlder || messages.isEmpty) return;
+    if (!scrollController.hasClients ||
+        loadingOlder ||
+        !hasMoreOlder ||
+        messages.isEmpty) return;
     final position = scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 160) {
       loadOlderMessages();
@@ -89,10 +95,13 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => loadingOlder = true);
     try {
       final oldest = messages.first.createdAt;
-      final older = await widget.api.fetchMessages(widget.group.id, limit: 50, before: oldest);
+      final older = await widget.api
+          .fetchMessages(widget.group.id, limit: 50, before: oldest);
       if (!mounted) return;
       setState(() {
-        final newItems = older.reversed.where((message) => !messages.any((item) => item.id == message.id)).toList();
+        final newItems = older.reversed
+            .where((message) => !messages.any((item) => item.id == message.id))
+            .toList();
         messages.insertAll(0, newItems);
         hasMoreOlder = older.length == 50;
       });
@@ -107,7 +116,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> connectRealtime() async {
     realtimeSubscription = realtime.events.listen((event) {
       final message = event.message;
-      if (event.groupId != widget.group.id || message == null || !mounted) return;
+      if (event.groupId != widget.group.id || message == null || !mounted)
+        return;
       switch (event.type) {
         case 'message.created':
           final exists = messages.any((item) => item.id == message.id);
@@ -138,7 +148,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || sending || !canPublishAnnouncement) return;
     setState(() => sending = true);
     try {
-      final message = await widget.api.sendMessage(groupId: widget.group.id, text: text);
+      final message =
+          await widget.api.sendMessage(groupId: widget.group.id, text: text);
       messageController.clear();
       if (!messages.any((item) => item.id == message.id)) {
         setState(() => messages.add(message));
@@ -160,12 +171,13 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       builder: (_) => const InviteByIdSheet(),
     );
     if (userId == null || userId.trim().isEmpty) return;
     try {
-      await widget.api.inviteUserById(groupId: widget.group.id, targetUserId: userId.trim());
+      await widget.api.inviteUserById(
+          groupId: widget.group.id, targetUserId: userId.trim());
       if (!mounted) return;
       showAppSnack(context, 'Invitation sent.');
     } catch (e) {
@@ -177,14 +189,18 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final inviteCode = widget.group.inviteCode ?? '';
+    final colors = context.appColors;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: widget.group.isPublic ? MobileChatTheme.primary : MobileChatTheme.primaryDark,
-              child: Text(avatarText(widget.group.title), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            KoomAvatar(
+              label: widget.group.title,
+              radius: 20,
+              icon: widget.group.isPublic
+                  ? Icons.groups_2_rounded
+                  : Icons.lock_rounded,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -192,10 +208,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(widget.group.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(widget.group.title,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
                     '${widget.group.isPublic ? 'Public' : 'Invite only'} · announcements',
-                    style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 12),
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
                   ),
                 ],
               ),
@@ -209,43 +226,75 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (!widget.group.isPublic && inviteCode.isNotEmpty)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+      body: KoomPageBackground(
+        showDecorations: false,
+        child: Column(
+          children: [
+            if (!widget.group.isPublic && inviteCode.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.key_rounded, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 10),
+                    Expanded(child: SelectableText('Invite code: $inviteCode')),
+                  ],
+                ),
               ),
-              child: SelectableText('Invite code: $inviteCode'),
-            ),
-          if (!canPublishAnnouncement)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+            if (!canPublishAnnouncement)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.20),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Only administrators can publish official announcements. Use Public requests to share ideas, complaints, problems, or requirements.',
+                        style:
+                            TextStyle(color: colors.textStrong, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: const Text(
-                'Only administrators can publish official announcements. Use Public requests to share ideas, complaints, problems, or requirements.',
-                style: TextStyle(color: MobileChatTheme.textStrong),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: refresh,
+                child: buildMessages(),
               ),
             ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: refresh,
-              child: buildMessages(),
-            ),
-          ),
-          if (canPublishAnnouncement) buildAnnouncementComposer(),
-        ],
+            if (canPublishAnnouncement) buildAnnouncementComposer(),
+          ],
+        ),
       ),
     );
   }
@@ -255,9 +304,15 @@ class _ChatScreenState extends State<ChatScreen> {
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Color(0x0D000000), blurRadius: 18, offset: Offset(0, -8))],
+        decoration: BoxDecoration(
+          color: context.appColors.surface,
+          border: Border(top: BorderSide(color: context.appColors.border)),
+          boxShadow: [
+            BoxShadow(
+                color: context.appColors.shadow,
+                blurRadius: 18,
+                offset: const Offset(0, -8))
+          ],
         ),
         child: Row(
           children: [
@@ -267,14 +322,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 minLines: 1,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(hintText: 'Official announcement'),
+                decoration:
+                    const InputDecoration(hintText: 'Official announcement'),
               ),
             ),
             const SizedBox(width: 8),
             IconButton.filled(
               onPressed: sending ? null : send,
               icon: sending
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.campaign_rounded),
             ),
           ],
@@ -285,17 +345,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget buildMessages() {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null) return ListView(padding: const EdgeInsets.all(16), children: [ErrorBanner(message: error!)]);
+    if (error != null)
+      return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [ErrorBanner(message: error!)]);
     if (messages.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         children: const [
-          SizedBox(height: 120),
-          Icon(Icons.campaign_outlined, size: 72, color: MobileChatTheme.primary),
-          SizedBox(height: 16),
-          Text('No announcements yet', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
-          SizedBox(height: 8),
-          Text('Official announcements from administrators will appear here.', textAlign: TextAlign.center, style: TextStyle(color: MobileChatTheme.textMuted)),
+          KoomEmptyState(
+            icon: Icons.campaign_outlined,
+            title: 'No announcements yet',
+            message:
+                'Official announcements from administrators will appear here.',
+          ),
         ],
       );
     }
@@ -308,11 +371,16 @@ class _ChatScreenState extends State<ChatScreen> {
         if (loadingOlder && index == messages.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            child: Center(
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
           );
         }
         final message = messages[messages.length - 1 - index];
-        return MessageBubble(message: message, mine: message.senderId == widget.user.id);
+        return MessageBubble(
+            message: message, mine: message.senderId == widget.user.id);
       },
     );
   }
@@ -326,16 +394,27 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: mine ? MobileChatTheme.mineBubble : Colors.white,
+          color: mine
+              ? (dark ? const Color(0xFF123A63) : MobileChatTheme.mineBubble)
+              : colors.surface,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 6))],
+          border: Border.all(color: colors.border),
+          boxShadow: [
+            BoxShadow(
+                color: colors.shadow,
+                blurRadius: 12,
+                offset: const Offset(0, 6))
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,13 +422,18 @@ class MessageBubble extends StatelessWidget {
             if (!mine)
               Padding(
                 padding: const EdgeInsets.only(bottom: 3),
-                child: Text('${message.senderName} · official', style: const TextStyle(color: MobileChatTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12)),
+                child: Text('${message.senderName} · official',
+                    style: const TextStyle(
+                        color: MobileChatTheme.primaryDark,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12)),
               ),
-            Text(message.text, style: const TextStyle(color: MobileChatTheme.textStrong)),
+            Text(message.text, style: TextStyle(color: colors.textStrong)),
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,
-              child: Text(compactTime(message.createdAt.toLocal()), style: const TextStyle(color: MobileChatTheme.textMuted, fontSize: 11)),
+              child: Text(compactTime(message.createdAt.toLocal()),
+                  style: TextStyle(color: colors.textMuted, fontSize: 11)),
             ),
           ],
         ),
@@ -376,17 +460,24 @@ class _InviteByIdSheetState extends State<InviteByIdSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+    return KoomSheetFrame(
+      title: 'Invite by ID',
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Invite by ID', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'User ID',
+              prefixIcon: Icon(Icons.person_search_outlined),
+            ),
+          ),
           const SizedBox(height: 16),
-          TextField(controller: controller, decoration: const InputDecoration(labelText: 'User ID')),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('Invite')),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            label: const Text('Invite'),
+          ),
         ],
       ),
     );

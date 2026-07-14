@@ -14,39 +14,40 @@ import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class EmptyPostsView extends StatelessWidget {
   const EmptyPostsView({super.key, required this.onCreate});
+
   final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      const SizedBox(height: 120),
-      const Icon(Icons.feed_outlined, size: 72, color: MobileChatTheme.primary),
-      const SizedBox(height: 16),
-      Text(text.noPostsYet,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      Text(text.postsDescription,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: context.appColors.textMuted)),
-      const SizedBox(height: 18),
-      Center(
-          child: FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(text.newPost))),
-    ]);
+    return KoomCard(
+      showShadow: false,
+      child: KoomEmptyState(
+        icon: Icons.feed_outlined,
+        title: text.noPostsYet,
+        message: text.postsDescription,
+        action: FilledButton.icon(
+          onPressed: onCreate,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(text.newPost),
+        ),
+      ),
+    );
   }
 }
 
 class GroupAccessSheet extends StatelessWidget {
   const GroupAccessSheet(
-      {super.key, required this.groupTitle, required this.code, String? qrValue}) : qrValue = qrValue ?? code;
+      {super.key,
+      required this.groupTitle,
+      required this.code,
+      String? qrValue})
+      : qrValue = qrValue ?? code;
   final String groupTitle;
   final String code;
   final String qrValue;
@@ -196,7 +197,6 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     );
   }
 }
-
 
 Uint8List? _decodePostPhoto(String value) {
   final raw = value.trim();
@@ -561,7 +561,8 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
           groupId: widget.group.id,
           type: type,
           interactionMode: interactionMode,
-          title: titleController.text.trim(), body: payload);
+          title: titleController.text.trim(),
+          body: payload);
       if (mounted) Navigator.of(context).pop(true);
     } on ModerationPendingException catch (e) {
       titleController.clear();
@@ -620,6 +621,7 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
                           setState(() => type = value ?? 'announcement')),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                  key: const ValueKey('post_mode_dropdown'),
                   value: interactionMode,
                   decoration: InputDecoration(labelText: text.interactionMode),
                   items: [
@@ -629,7 +631,10 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
                         value: 'vote_only', child: Text(text.votingOnly)),
                     DropdownMenuItem(
                         value: 'discussion',
-                        child: Text(text.discussionWithComments))
+                        child: Text(
+                          text.discussionWithComments,
+                          key: const ValueKey('post_mode_discussion'),
+                        ))
                   ],
                   onChanged: loading
                       ? null
@@ -637,10 +642,12 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
                           () => interactionMode = value ?? 'read_only')),
               const SizedBox(height: 12),
               TextField(
+                  key: const ValueKey('post_title_field'),
                   controller: titleController,
                   decoration: InputDecoration(labelText: text.title)),
               const SizedBox(height: 12),
               TextField(
+                  key: const ValueKey('post_body_field'),
                   controller: bodyController,
                   minLines: 4,
                   maxLines: 8,
@@ -684,6 +691,7 @@ class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
               ],
               const SizedBox(height: 16),
               FilledButton(
+                  key: const ValueKey('post_submit_button'),
                   onPressed: loading ? null : submit,
                   child: Text(loading ? text.publishing : text.publish)),
             ]),
@@ -730,7 +738,8 @@ class _PublicRequestDetailsScreenState
     request = widget.request;
     commentsFuture = loadComments();
     realtime = GroupRealtimeService(
-      api: ApiClient(baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
+      api: ApiClient(
+          baseUrl: widget.api.baseUrl, sessionStore: widget.api.sessionStore),
       groupId: request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
@@ -766,7 +775,8 @@ class _PublicRequestDetailsScreenState
     if (event.type == 'connection.ready') {
       realtimeRefreshDebounce?.cancel();
       realtimeRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
-        if (mounted) unawaited(refreshComments(silent: true).catchError((_) {}));
+        if (mounted)
+          unawaited(refreshComments(silent: true).catchError((_) {}));
       });
       return;
     }
@@ -776,25 +786,29 @@ class _PublicRequestDetailsScreenState
         final payload = event.payload;
         if (payload is Map<String, dynamic>) {
           final commentPayload = payload['comment'];
-          if (commentPayload is Map<String, dynamic>) addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+          if (commentPayload is Map<String, dynamic>)
+            addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
         }
         break;
       case 'public_request.comment_deleted':
         final payload = event.payload;
-        if (payload is Map<String, dynamic>) removeRealtimeComment(payload['comment_id'] as String? ?? '');
+        if (payload is Map<String, dynamic>)
+          removeRealtimeComment(payload['comment_id'] as String? ?? '');
         break;
     }
   }
 
   void addRealtimeComment(PublicRequestComment comment) {
     if (cachedComments.any((item) => item.id == comment.id)) return;
-    final updated = [...cachedComments, comment]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final updated = [...cachedComments, comment]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     setComments(updated);
   }
 
   void removeRealtimeComment(String commentId) {
     if (commentId.isEmpty) return;
-    final updated = cachedComments.where((comment) => comment.id != commentId).toList();
+    final updated =
+        cachedComments.where((comment) => comment.id != commentId).toList();
     setComments(updated);
   }
 
@@ -825,24 +839,26 @@ class _PublicRequestDetailsScreenState
       }
     } catch (e) {
       setRequest(previous);
-      if (mounted) showAppSnack(context, localizedMessage(context, e.toString()));
+      if (mounted)
+        showAppSnack(context, localizedMessage(context, e.toString()));
     }
   }
 
   Future<void> submitComment() async {
     final body = commentController.text.trim();
-    if (body.isEmpty ||
-        sending ||
-        request.interactionMode != 'discussion') return;
+    if (body.isEmpty || sending || request.interactionMode != 'discussion')
+      return;
     setState(() {
       sending = true;
       error = null;
     });
     try {
-      final comment = await widget.api.addComment(requestId: request.id, body: body);
+      final comment =
+          await widget.api.addComment(requestId: request.id, body: body);
       commentController.clear();
       addRealtimeComment(comment);
-      setRequest(request.copyWith(commentCount: request.commentCount + 1, updatedAt: DateTime.now()));
+      setRequest(request.copyWith(
+          commentCount: request.commentCount + 1, updatedAt: DateTime.now()));
     } on ModerationPendingException catch (e) {
       commentController.clear();
       if (mounted) {
@@ -871,7 +887,8 @@ class _PublicRequestDetailsScreenState
     } catch (e) {
       setComments(previousComments);
       setRequest(previousRequest);
-      if (mounted) showAppSnack(context, localizedMessage(context, e.toString()));
+      if (mounted)
+        showAppSnack(context, localizedMessage(context, e.toString()));
     }
   }
 
@@ -882,92 +899,98 @@ class _PublicRequestDetailsScreenState
     return Scaffold(
       appBar: AppBar(
           title: Text(text.readPost), actions: const [AppSettingsButton()]),
-      body: RefreshIndicator(
-        onRefresh: refreshComments,
-        child: FutureBuilder<List<PublicRequestComment>>(
-          future: commentsFuture,
-          builder: (context, snapshot) {
-            final comments = cachedComments.isNotEmpty
-                ? cachedComments
-                : snapshot.data ?? const <PublicRequestComment>[];
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                PublicRequestCard(
-                  request: request,
-                  onTap: () {},
-                  onVote: vote,
-                  canModerate: widget.canModerate,
-                  onStatus: widget.onStatusChanged == null
-                      ? null
-                      : (status) {
-                          setRequest(request.copyWith(status: status, updatedAt: DateTime.now()));
-                          widget.onStatusChanged!(status);
-                        },
-                ),
-                const SizedBox(height: 12),
-                if (request.displayBody.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Text(request.displayBody,
-                        style:
-                            TextStyle(color: colors.textStrong, height: 1.35)),
+      body: KoomPageBackground(
+        showDecorations: false,
+        child: RefreshIndicator(
+          onRefresh: refreshComments,
+          child: FutureBuilder<List<PublicRequestComment>>(
+            future: commentsFuture,
+            builder: (context, snapshot) {
+              final comments = cachedComments.isNotEmpty
+                  ? cachedComments
+                  : snapshot.data ?? const <PublicRequestComment>[];
+              return ListView(
+                key: const ValueKey('request_details_comments_list'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  PublicRequestCard(
+                    request: request,
+                    onTap: () {},
+                    onVote: vote,
+                    canModerate: widget.canModerate,
+                    onStatus: widget.onStatusChanged == null
+                        ? null
+                        : (status) {
+                            setRequest(request.copyWith(
+                                status: status, updatedAt: DateTime.now()));
+                            widget.onStatusChanged!(status);
+                          },
                   ),
-                if (request.content.photos.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _PostPhotoPreview(
-                    photos: request.content.photos,
-                    compact: false,
-                  ),
-                ],
-                const SizedBox(height: 18),
-                Text(text.comments,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
-                if (error != null) ...[
-                  ErrorBanner(message: error!),
-                  const SizedBox(height: 10),
-                ],
-                if (snapshot.connectionState == ConnectionState.waiting && cachedComments.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 28),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (snapshot.hasError)
-                  ErrorBanner(message: snapshot.error.toString())
-                else if (comments.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: colors.border),
+                  if (request.displayBody.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Text(request.displayBody,
+                          style: TextStyle(
+                              color: colors.textStrong, height: 1.35)),
                     ),
-                    child: Text(
-                        text.isKy
-                            ? 'Комментарий азырынча жок.'
-                            : 'Комментариев пока нет.',
-                        style: TextStyle(color: colors.textMuted)),
-                  )
-                else
-                  ...comments.map((comment) => _CommentTile(
-                        comment: comment,
-                        canDelete: widget.canModerate ||
-                            comment.authorId == widget.currentUserId,
-                        onDelete: () => deleteComment(comment),
-                      )),
-              ],
-            );
-          },
+                  if (request.content.photos.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _PostPhotoPreview(
+                      photos: request.content.photos,
+                      compact: false,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Text(text.comments,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 10),
+                  if (error != null) ...[
+                    ErrorBanner(message: error!),
+                    const SizedBox(height: 10),
+                  ],
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      cachedComments.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (snapshot.hasError)
+                    ErrorBanner(message: snapshot.error.toString())
+                  else if (comments.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Text(
+                          text.isKy
+                              ? 'Комментарий азырынча жок.'
+                              : 'Комментариев пока нет.',
+                          style: TextStyle(color: colors.textMuted)),
+                    )
+                  else
+                    ...comments.map((comment) => _CommentTile(
+                          comment: comment,
+                          canDelete: widget.canModerate ||
+                              comment.authorId == widget.currentUserId,
+                          onDelete: () => deleteComment(comment),
+                        )),
+                ],
+              );
+            },
+          ),
         ),
       ),
       bottomNavigationBar: request.interactionMode == 'discussion'
@@ -986,6 +1009,7 @@ class _PublicRequestDetailsScreenState
                 child: Row(children: [
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('comment_field'),
                       controller: commentController,
                       minLines: 1,
                       maxLines: 4,

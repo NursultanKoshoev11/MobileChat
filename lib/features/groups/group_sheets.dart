@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../app/localization.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class CreateGroupSheet extends StatefulWidget {
@@ -50,27 +51,76 @@ class _CreateGroupSheetState extends State<CreateGroupSheet> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.createGroup, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        TextField(controller: titleController, decoration: InputDecoration(labelText: text.isKy ? 'Топтун аты' : 'Название группы')),
-        const SizedBox(height: 12),
-        TextField(controller: descriptionController, decoration: InputDecoration(labelText: text.description)),
-        const SizedBox(height: 12),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(value: 'public', label: Text(text.isKy ? 'Ачык' : 'Открытая')),
-            ButtonSegment(value: 'private', label: Text(text.isKy ? 'Чакыруу менен' : 'По приглашению')),
+    return KoomSheetFrame(
+      title: text.createGroup,
+      subtitle: text.isKy
+          ? 'Коомчулуктун аталышын жана кирүү режимин тандаңыз'
+          : 'Укажите название сообщества и режим доступа',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: titleController,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: text.isKy ? 'Топтун аты' : 'Название группы',
+              prefixIcon: const Icon(Icons.groups_2_outlined),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descriptionController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: InputDecoration(
+              labelText: text.description,
+              prefixIcon: const Icon(Icons.notes_rounded),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'public',
+                icon: const Icon(Icons.public_rounded),
+                label: Text(text.isKy ? 'Ачык' : 'Открытая'),
+              ),
+              ButtonSegment(
+                value: 'private',
+                icon: const Icon(Icons.lock_outline_rounded),
+                label: Text(text.isKy ? 'Чакыруу менен' : 'По приглашению'),
+              ),
+            ],
+            selected: {visibility},
+            onSelectionChanged: (value) {
+              setState(() => visibility = value.first);
+            },
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: error!),
           ],
-          selected: {visibility},
-          onSelectionChanged: (value) => setState(() => visibility = value.first),
-        ),
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Түзүлүп жатат...' : 'Создаётся...') : text.createGroup)),
-      ]),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: loading ? null : submit,
+            icon: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.add_rounded),
+            label: Text(
+              loading
+                  ? (text.isKy ? 'Түзүлүп жатат...' : 'Создаётся...')
+                  : text.createGroup,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -100,7 +150,8 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
       error = null;
     });
     try {
-      final group = await widget.api.joinByInviteCode(formatGroupInviteCode(codeController.text));
+      final group = await widget.api
+          .joinByInviteCode(formatGroupInviteCode(codeController.text));
       if (mounted) Navigator.of(context).pop(group);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -112,21 +163,46 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(text.joinByCode, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        TextField(
-          controller: codeController,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [GroupInviteCodeFormatter()],
-          decoration: InputDecoration(labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения', hintText: 'AAA-666'),
-        ),
-        if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-        const SizedBox(height: 16),
-        FilledButton(onPressed: loading ? null : submit, child: Text(loading ? (text.isKy ? 'Кирүүдө...' : 'Входим...') : text.joinByCode)),
-      ]),
+    return KoomSheetFrame(
+      title: text.joinByCode,
+      subtitle: text.isKy
+          ? 'Коомчулуктун чакыруу кодун жазыңыз'
+          : 'Введите код приглашения сообщества',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: codeController,
+            textCapitalization: TextCapitalization.characters,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 3,
+            ),
+            inputFormatters: [GroupInviteCodeFormatter()],
+            decoration: InputDecoration(
+              labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
+              hintText: 'AAA-666',
+              prefixIcon: const Icon(Icons.key_rounded),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: error!),
+          ],
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: loading ? null : submit,
+            icon: const Icon(Icons.login_rounded),
+            label: Text(
+              loading
+                  ? (text.isKy ? 'Кирүүдө...' : 'Входим...')
+                  : text.joinByCode,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -134,14 +210,18 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
 String formatGroupInviteCode(String input) {
   final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   final shortened = compact.length > 6 ? compact.substring(0, 6) : compact;
-  if (shortened.length > 3) return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
+  if (shortened.length > 3)
+    return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
   return shortened;
 }
 
 class GroupInviteCodeFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     final formatted = formatGroupInviteCode(newValue.text);
-    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+    return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
