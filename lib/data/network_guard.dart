@@ -51,5 +51,5 @@ class NetworkGuard {
   }
 
   bool isRetryableStatus(int statusCode) =>
-      statusCode == 408 || statusCode == 429 || statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504;
+      statusCode == 408 || statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504;
 }

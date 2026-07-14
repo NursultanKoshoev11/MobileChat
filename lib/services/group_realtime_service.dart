@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 
 import '../data/api_client.dart';
 import 'realtime_error.dart';
@@ -37,7 +37,7 @@ class GroupRealtimeService {
   final ApiClient api;
   final String groupId;
 
-  WebSocketChannel? _channel;
+  IOWebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
   Timer? _heartbeatTimer;
@@ -56,14 +56,38 @@ class GroupRealtimeService {
     _authRefreshTimer?.cancel();
     _authRefreshTimer = null;
 
-    final token = await api.issueWebSocketToken();
+    String token;
+    try {
+      token = await api.issueWebSocketToken();
+    } catch (error) {
+      onError?.call(error);
+      _scheduleReconnect(onEvent: onEvent, onError: onError);
+      return;
+    }
     if (token.isEmpty) {
       _scheduleReconnect(onEvent: onEvent, onError: onError);
       return;
     }
 
     final uri = _webSocketUri();
-    final channel = WebSocketChannel.connect(uri, protocols: ['koom-ws', token]);
+    final channel = IOWebSocketChannel.connect(
+      uri,
+      protocols: ['koom-ws', token],
+      pingInterval: const Duration(seconds: 25),
+      connectTimeout: const Duration(seconds: 12),
+    );
+    try {
+      await channel.ready;
+    } catch (error) {
+      onError?.call(error);
+      await channel.sink.close();
+      _scheduleReconnect(onEvent: onEvent, onError: onError);
+      return;
+    }
+    if (_closed) {
+      await channel.sink.close(1000, 'client closed');
+      return;
+    }
     _channel = channel;
     _reconnectAttempts = 0;
     _startHeartbeat();

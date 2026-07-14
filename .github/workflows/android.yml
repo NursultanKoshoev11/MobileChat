@@ -146,6 +146,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Run network error regression test
+        run: flutter test test/network_guard_test.dart
+
       - name: Resolve API base URL
         run: |
           API_BASE_URL="${{ github.event.inputs.api_base_url }}"
