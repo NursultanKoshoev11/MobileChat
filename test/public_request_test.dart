@@ -48,6 +48,27 @@ void main() {
     expect(request.opposedByMe, isFalse);
   });
 
+  test('PublicRequestVoteUpdate supports exact and legacy payloads', () {
+    final exact = PublicRequestVoteUpdate.fromJson({
+      'request_id': 'REQ-1',
+      'support_count': 8,
+      'oppose_count': 2,
+      'voter_id': 'U-1',
+      'vote_type': 'support',
+    });
+    final legacy = PublicRequestVoteUpdate.fromJson({
+      'request_id': 'REQ-1',
+      'vote_type': 'support',
+    });
+
+    expect(exact.hasCounts, isTrue);
+    expect(exact.supportCount, 8);
+    expect(exact.opposeCount, 2);
+    expect(exact.voterId, 'U-1');
+    expect(exact.voteType, 'support');
+    expect(legacy.hasCounts, isFalse);
+  });
+
   test('PublicRequest defaults to discussion for old payloads', () {
     final request = PublicRequest.fromJson({
       'id': 'REQ-2',

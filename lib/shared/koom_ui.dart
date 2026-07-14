@@ -1,85 +1,20 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../app/theme.dart';
 import 'ui_helpers.dart';
 
 class KoomPageBackground extends StatelessWidget {
-  const KoomPageBackground({
-    super.key,
-    required this.child,
-    this.showDecorations = true,
-  });
+  const KoomPageBackground({super.key, required this.child});
 
   final Widget child;
-  final bool showDecorations;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return ColoredBox(
-      color: colors.page,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (showDecorations) ...[
-            Positioned(
-              top: -90,
-              right: -70,
-              child: _SoftCircle(
-                size: 230,
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: dark ? 0.11 : 0.075),
-              ),
-            ),
-            Positioned(
-              top: 210,
-              left: -82,
-              child: _SoftCircle(
-                size: 170,
-                color: MobileChatTheme.accent
-                    .withValues(alpha: dark ? 0.06 : 0.045),
-              ),
-            ),
-            Positioned(
-              bottom: -110,
-              right: -55,
-              child: _SoftCircle(
-                size: 250,
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: dark ? 0.07 : 0.045),
-              ),
-            ),
-          ],
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _SoftCircle extends StatelessWidget {
-  const _SoftCircle({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          border: Border.all(color: color.withValues(alpha: 0.75)),
-        ),
-      ),
+      color: context.appColors.page,
+      child: child,
     );
   }
 }
@@ -327,12 +262,14 @@ class KoomAvatar extends StatelessWidget {
     this.radius = 24,
     this.icon,
     this.background,
+    this.imageBytes,
   });
 
   final String label;
   final double radius;
   final IconData? icon;
   final Color? background;
+  final Uint8List? imageBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -352,16 +289,27 @@ class KoomAvatar extends StatelessWidget {
         ],
       ),
       alignment: Alignment.center,
-      child: icon != null
-          ? Icon(icon, color: Colors.white, size: radius)
-          : Text(
-              avatarText(label),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: radius * 0.82,
-                fontWeight: FontWeight.w900,
+      child: imageBytes != null && imageBytes!.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(radius * 0.72),
+              child: Image.memory(
+                imageBytes!,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
               ),
-            ),
+            )
+          : icon != null
+              ? Icon(icon, color: Colors.white, size: radius)
+              : Text(
+                  avatarText(label),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: radius * 0.82,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
     );
   }
 }

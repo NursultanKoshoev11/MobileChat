@@ -45,6 +45,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Timer? _markReadDebounce;
   String? ensuredInviteCode;
   String? ensuredQrPass;
+  final Set<String> _votesInFlight = <String>{};
 
   bool get canModerate =>
       widget.group.myRole == 'owner' || widget.group.myRole == 'admin';
@@ -94,6 +95,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         break;
       case 'public_request.voted':
       case 'public_request.vote_cleared':
+        applyVoteUpdatePayload(event.payload);
+        break;
       case 'content_moderation.reviewed':
       case 'content_moderation.pending_review':
         _scheduleRealtimeRefresh();
@@ -133,6 +136,28 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             ? request.copyWith(status: status)
             : request)
         .toList();
+    setRequests(updated);
+  }
+
+  void applyVoteUpdatePayload(dynamic payload) {
+    if (payload is! Map<String, dynamic>) return;
+    applyVoteUpdate(PublicRequestVoteUpdate.fromJson(payload));
+  }
+
+  void applyVoteUpdate(PublicRequestVoteUpdate update) {
+    if (update.requestId.isEmpty || !update.hasCounts) return;
+    final updated = cachedRequests.map((request) {
+      if (request.id != update.requestId) return request;
+      var next = request.copyWith(
+        supportCount: update.supportCount!,
+        opposeCount: update.opposeCount!,
+        updatedAt: DateTime.now(),
+      );
+      if (update.voterId == widget.user.id) {
+        next = next.copyWith(myVote: update.voteType);
+      }
+      return next;
+    }).toList();
     setRequests(updated);
   }
 
@@ -256,23 +281,27 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> vote(PublicRequest request, String voteType) async {
     final current = currentRequest(request);
-    if (current.interactionMode == 'read_only') return;
+    if (current.interactionMode == 'read_only' ||
+        _votesInFlight.contains(current.id)) return;
+    _votesInFlight.add(current.id);
     final previous = cachedRequests;
-    final next = optimisticPublicRequestVote(current, voteType);
-    replaceRequest(next);
+    replaceRequest(optimisticPublicRequestVote(current, voteType));
     try {
+      final PublicRequestVoteUpdate update;
       if (current.myVote == voteType) {
-        await requestsApi.clearVote(current.id);
+        update = await requestsApi.clearVote(current.id);
       } else if (voteType == 'support') {
-        await requestsApi.support(current.id);
+        update = await requestsApi.support(current.id);
       } else {
-        await requestsApi.oppose(current.id);
+        update = await requestsApi.oppose(current.id);
       }
-      unawaited(refresh(silent: true).catchError((_) {}));
+      if (mounted) applyVoteUpdate(update);
     } catch (error) {
       setRequests(previous);
       if (mounted)
         showAppSnack(context, localizedMessage(context, error.toString()));
+    } finally {
+      _votesInFlight.remove(current.id);
     }
   }
 

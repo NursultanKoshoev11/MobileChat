@@ -262,16 +262,19 @@ class PublicRequestsApi {
     return GroupStatistics.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<void> support(String requestId) async {
-    await _send('POST', '/api/requests/$requestId/support');
+  Future<PublicRequestVoteUpdate> support(String requestId) async {
+    final response = await _send('POST', '/api/requests/$requestId/support');
+    return PublicRequestVoteUpdate.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<void> oppose(String requestId) async {
-    await _send('POST', '/api/requests/$requestId/oppose');
+  Future<PublicRequestVoteUpdate> oppose(String requestId) async {
+    final response = await _send('POST', '/api/requests/$requestId/oppose');
+    return PublicRequestVoteUpdate.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<void> clearVote(String requestId) async {
-    await _send('DELETE', '/api/requests/$requestId/vote');
+  Future<PublicRequestVoteUpdate> clearVote(String requestId) async {
+    final response = await _send('DELETE', '/api/requests/$requestId/vote');
+    return PublicRequestVoteUpdate.fromJson(response as Map<String, dynamic>);
   }
 
   Future<List<PublicRequestComment>> listComments(String requestId) async {

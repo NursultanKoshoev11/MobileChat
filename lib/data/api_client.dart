@@ -104,6 +104,20 @@ class ApiClient {
     throw const ApiException('Server returned an invalid WebSocket token response.');
   }
 
+  Future<UserProfile> fetchMe() async {
+    final response = await _get('/api/me');
+    return UserProfile.fromJson(response as Map<String, dynamic>);
+  }
+
+  Future<UserProfile> updateMyAvatar(String avatarData) async {
+    final response = await _request(
+      'PUT',
+      '/api/me/avatar',
+      body: {'avatar_data': avatarData},
+    );
+    return UserProfile.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<void> registerPushToken({required String token, required String platform}) async {
     await _post('/api/push/register', {'token': token, 'platform': platform});
   }

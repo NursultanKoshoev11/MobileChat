@@ -730,6 +730,7 @@ class _PublicRequestDetailsScreenState
   List<PublicRequestComment> cachedComments = const <PublicRequestComment>[];
   Timer? realtimeRefreshDebounce;
   bool sending = false;
+  bool voteInFlight = false;
   String? error;
 
   @override
@@ -795,6 +796,12 @@ class _PublicRequestDetailsScreenState
         if (payload is Map<String, dynamic>)
           removeRealtimeComment(payload['comment_id'] as String? ?? '');
         break;
+      case 'public_request.voted':
+      case 'public_request.vote_cleared':
+        final payload = event.payload;
+        if (payload is Map<String, dynamic>)
+          applyVoteUpdate(PublicRequestVoteUpdate.fromJson(payload));
+        break;
     }
   }
 
@@ -824,23 +831,40 @@ class _PublicRequestDetailsScreenState
     widget.onRequestChanged?.call(next);
   }
 
-  Future<void> vote(String voteType) async {
-    if (request.interactionMode == 'read_only') return;
-    final previous = request;
-    final next = optimisticPublicRequestVote(request, voteType);
+  void applyVoteUpdate(PublicRequestVoteUpdate update) {
+    if (update.requestId != request.id || !update.hasCounts) return;
+    var next = request.copyWith(
+      supportCount: update.supportCount!,
+      opposeCount: update.opposeCount!,
+      updatedAt: DateTime.now(),
+    );
+    if (update.voterId == widget.currentUserId) {
+      next = next.copyWith(myVote: update.voteType);
+    }
     setRequest(next);
+  }
+
+  Future<void> vote(String voteType) async {
+    if (request.interactionMode == 'read_only' || voteInFlight) return;
+    voteInFlight = true;
+    final previous = request;
+    setRequest(optimisticPublicRequestVote(request, voteType));
     try {
+      final PublicRequestVoteUpdate update;
       if (previous.myVote == voteType) {
-        await widget.api.clearVote(previous.id);
+        update = await widget.api.clearVote(previous.id);
       } else if (voteType == 'support') {
-        await widget.api.support(previous.id);
+        update = await widget.api.support(previous.id);
       } else {
-        await widget.api.oppose(previous.id);
+        update = await widget.api.oppose(previous.id);
       }
+      if (mounted) applyVoteUpdate(update);
     } catch (e) {
       setRequest(previous);
       if (mounted)
         showAppSnack(context, localizedMessage(context, e.toString()));
+    } finally {
+      voteInFlight = false;
     }
   }
 
@@ -900,7 +924,6 @@ class _PublicRequestDetailsScreenState
       appBar: AppBar(
           title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: KoomPageBackground(
-        showDecorations: false,
         child: RefreshIndicator(
           onRefresh: refreshComments,
           child: FutureBuilder<List<PublicRequestComment>>(

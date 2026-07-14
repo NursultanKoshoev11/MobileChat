@@ -227,7 +227,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       body: KoomPageBackground(
-        showDecorations: false,
         child: Column(
           children: [
             if (!widget.group.isPublic && inviteCode.isNotEmpty)

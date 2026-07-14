@@ -5,6 +5,7 @@ class UserProfile {
     required this.createdAt,
     required this.role,
     this.mobile,
+    this.avatarData = '',
   });
 
   final String id;
@@ -12,6 +13,7 @@ class UserProfile {
   final DateTime? createdAt;
   final String? mobile;
   final String role;
+  final String avatarData;
 
   bool get isPlatformAdmin => role == 'platform_admin' || role == 'super_admin';
   bool get isSuperAdmin => role == 'super_admin';
@@ -22,7 +24,25 @@ class UserProfile {
       displayName: json['display_name'] as String,
       mobile: json['mobile'] as String? ?? json['phone'] as String?,
       role: json['role'] as String? ?? 'user',
+      avatarData: json['avatar_data'] as String? ?? '',
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    );
+  }
+
+
+  UserProfile copyWith({
+    String? displayName,
+    String? mobile,
+    String? role,
+    String? avatarData,
+  }) {
+    return UserProfile(
+      id: id,
+      displayName: displayName ?? this.displayName,
+      createdAt: createdAt,
+      role: role ?? this.role,
+      mobile: mobile ?? this.mobile,
+      avatarData: avatarData ?? this.avatarData,
     );
   }
 
@@ -32,6 +52,7 @@ class UserProfile {
       'display_name': displayName,
       'mobile': mobile,
       'role': role,
+      'avatar_data': avatarData,
       'created_at': createdAt?.toIso8601String(),
     };
   }
@@ -47,6 +68,14 @@ class AppSession {
   final String accessToken;
   final String refreshToken;
   final UserProfile user;
+
+  AppSession copyWith({UserProfile? user}) {
+    return AppSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: user ?? this.user,
+    );
+  }
 
   factory AppSession.fromJson(Map<String, dynamic> json) {
     return AppSession(

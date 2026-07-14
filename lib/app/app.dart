@@ -61,8 +61,12 @@ class _MobileChatAppState extends State<MobileChatApp>
 
   Future<AppSession?> _boot() async {
     await api.handleAppResumed();
-    final session = await sessionStore.read();
+    var session = await sessionStore.read();
     if (session != null) {
+      try {
+        session = session.copyWith(user: await api.fetchMe());
+        await sessionStore.save(session);
+      } catch (_) {}
       await pushNotifications.registerDevice();
     }
     return session;
@@ -79,10 +83,15 @@ class _MobileChatAppState extends State<MobileChatApp>
 
   Future<void> setSession(AppSession session) async {
     await sessionStore.save(session);
+    var effectiveSession = session;
+    try {
+      effectiveSession = session.copyWith(user: await api.fetchMe());
+      await sessionStore.save(effectiveSession);
+    } catch (_) {}
     await pushNotifications.registerDevice();
     if (!mounted) return;
     setState(() {
-      bootFuture = Future.value(session);
+      bootFuture = Future.value(effectiveSession);
     });
   }
 
@@ -124,7 +133,11 @@ class _MobileChatAppState extends State<MobileChatApp>
                         api: api, onAuthenticated: setSession);
                   }
                   return GroupsScreen(
-                      api: api, session: session, onLogout: logout);
+                    api: api,
+                    session: session,
+                    onSessionChanged: setSession,
+                    onLogout: logout,
+                  );
                 },
               ),
             );

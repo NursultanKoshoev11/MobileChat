@@ -56,6 +56,25 @@ void main() {
     expect(session.toJson()['refresh_token'], 'refresh');
   });
 
+  test('UserProfile and AppSession preserve avatar data', () {
+    final user = UserProfile.fromJson({
+      'id': 'U-AVATAR',
+      'display_name': 'Avatar User',
+      'avatar_data': 'data:image/jpeg;base64,YWJj',
+    });
+    final changed = user.copyWith(avatarData: 'data:image/jpeg;base64,ZGVm');
+    final session = AppSession(
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      user: user,
+    ).copyWith(user: changed);
+
+    expect(user.avatarData, 'data:image/jpeg;base64,YWJj');
+    expect(user.toJson()['avatar_data'], user.avatarData);
+    expect(changed.avatarData, 'data:image/jpeg;base64,ZGVm');
+    expect(session.user.avatarData, changed.avatarData);
+  });
+
   test('ChatGroup canInvite works for admin and owner', () {
     final admin = ChatGroup.fromJson({
       'id': 'G-1',

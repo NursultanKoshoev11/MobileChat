@@ -100,6 +100,34 @@ class PublicRequest {
 
 }
 
+class PublicRequestVoteUpdate {
+  const PublicRequestVoteUpdate({
+    required this.requestId,
+    required this.supportCount,
+    required this.opposeCount,
+    required this.voterId,
+    required this.voteType,
+  });
+
+  final String requestId;
+  final int? supportCount;
+  final int? opposeCount;
+  final String voterId;
+  final String? voteType;
+
+  bool get hasCounts => supportCount != null && opposeCount != null;
+
+  factory PublicRequestVoteUpdate.fromJson(Map<String, dynamic> json) {
+    return PublicRequestVoteUpdate(
+      requestId: json['request_id'] as String? ?? '',
+      supportCount: json['support_count'] as int?,
+      opposeCount: json['oppose_count'] as int?,
+      voterId: json['voter_id'] as String? ?? '',
+      voteType: json['vote_type'] as String?,
+    );
+  }
+}
+
 PublicRequest optimisticPublicRequestVote(PublicRequest request, String voteType) {
   final current = request.myVote;
   var support = request.supportCount;

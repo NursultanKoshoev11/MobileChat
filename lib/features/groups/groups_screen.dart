@@ -25,9 +25,11 @@ class GroupsScreen extends StatefulWidget {
       {super.key,
       required this.api,
       required this.session,
+      required this.onSessionChanged,
       required this.onLogout});
   final ApiClient api;
   final AppSession session;
+  final Future<void> Function(AppSession session) onSessionChanged;
   final Future<void> Function() onLogout;
 
   @override
@@ -241,8 +243,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> openProfile() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ProfileScreen(user: widget.session.user)));
+    final updatedUser = await Navigator.of(context).push<UserProfile>(
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(
+          api: widget.api,
+          user: widget.session.user,
+        ),
+      ),
+    );
+    if (updatedUser != null) {
+      await widget.onSessionChanged(widget.session.copyWith(user: updatedUser));
+    }
   }
 
   Future<void> joinByCode() async {
