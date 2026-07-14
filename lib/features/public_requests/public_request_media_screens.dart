@@ -9,9 +9,6 @@ import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import 'public_request_media_widgets.dart';
 
-Color _surface(BuildContext context) => Theme.of(context).cardColor;
-Color _border(BuildContext context) => Theme.of(context).dividerColor;
-Color _strong(BuildContext context) => Theme.of(context).colorScheme.onSurface;
 
 String _requestTypeLabel(AppText text, String value) {
   switch (value) {
@@ -70,6 +67,8 @@ class MediaPublicRequestCard extends StatelessWidget {
     required this.onVote,
     this.canModerate = false,
     this.onStatus,
+    this.compact = true,
+    this.showOpenAction = true,
   });
 
   final PublicRequest request;
@@ -77,6 +76,8 @@ class MediaPublicRequestCard extends StatelessWidget {
   final ValueChanged<String> onVote;
   final bool canModerate;
   final ValueChanged<String>? onStatus;
+  final bool compact;
+  final bool showOpenAction;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +90,7 @@ class MediaPublicRequestCard extends StatelessWidget {
     return KoomCard(
       margin: const EdgeInsets.only(bottom: 13),
       padding: EdgeInsets.zero,
-      onTap: canOpen ? onTap : null,
+      onTap: canOpen && showOpenAction ? onTap : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 13),
         child: Column(
@@ -192,8 +193,8 @@ class MediaPublicRequestCard extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 request.displayBody,
-                maxLines: content.hasMedia ? 3 : 5,
-                overflow: TextOverflow.ellipsis,
+                maxLines: compact ? (content.hasMedia ? 3 : 5) : null,
+                overflow: compact ? TextOverflow.ellipsis : TextOverflow.visible,
                 style: TextStyle(
                   color: colors.textStrong,
                   height: 1.42,
@@ -203,7 +204,7 @@ class MediaPublicRequestCard extends StatelessWidget {
             ],
             if (content.hasMedia) ...[
               const SizedBox(height: 12),
-              PublicRequestMediaView(content: content),
+              PublicRequestMediaView(content: content, compact: compact),
             ],
             const SizedBox(height: 13),
             Divider(color: colors.border),
@@ -238,7 +239,7 @@ class MediaPublicRequestCard extends StatelessWidget {
                       onTap: () => onVote('oppose'),
                     ),
                   ),
-                if (request.interactionMode == 'discussion')
+                if (request.interactionMode == 'discussion' && showOpenAction)
                   Expanded(
                     child: _RequestActionButton(
                       key: ValueKey('public_request_read_${request.id}'),
@@ -377,7 +378,6 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final content = request.content;
     return Scaffold(
       appBar: AppBar(
           title: Text(text.readPost), actions: const [AppSettingsButton()]),
@@ -390,24 +390,9 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
             onVote: (_) {},
             canModerate: canModerate,
             onStatus: onStatusChanged,
+            compact: false,
+            showOpenAction: false,
           ),
-          if (request.displayBody.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _surface(context),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _border(context)),
-              ),
-              child: Text(request.displayBody,
-                  style: TextStyle(color: _strong(context), height: 1.35)),
-            ),
-          ],
-          if (content.hasMedia) ...[
-            const SizedBox(height: 12),
-            PublicRequestMediaView(content: content, compact: false),
-          ],
         ],
       ),
     );

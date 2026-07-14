@@ -41,6 +41,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   late Future<List<PublicRequest>> requestsFuture;
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
+  bool _requestsLoaded = false;
   Timer? _refreshDebounce;
   Timer? _markReadDebounce;
   String? ensuredInviteCode;
@@ -164,7 +165,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void setRequests(List<PublicRequest> requests) {
     if (!mounted) return;
     cachedRequests = requests;
-    setState(() => requestsFuture = Future.value(requests));
+    _requestsLoaded = true;
+    setState(() {});
   }
 
   PublicRequest currentRequest(PublicRequest fallback) {
@@ -205,6 +207,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         await requestsApi.listRequests(widget.group.id))
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     cachedRequests = requests;
+    _requestsLoaded = true;
     unawaited(_markRequestsRead());
     return requests;
   }
@@ -222,11 +225,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     final next = loadRequests();
     final nextModerationCount = loadModerationCount();
     if (silent) {
-      final requests = await next;
+      await next;
       final moderationCount = await nextModerationCount;
       if (mounted) {
         setState(() {
-          requestsFuture = Future.value(requests);
           moderationCountFuture = Future.value(moderationCount);
         });
       }
@@ -333,7 +335,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       MaterialPageRoute(
         builder: (_) => PublicRequestDetailsScreen(
           api: requestsApi,
-          request: request,
+          request: currentRequest(request),
           canModerate: canModerate,
           currentUserId: widget.user.id,
           onStatusChanged:
@@ -342,7 +344,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         ),
       ),
     );
-    unawaited(refresh(silent: true).catchError((_) {}));
   }
 
   Future<void> openModerationQueue() async {
@@ -915,7 +916,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           child: FutureBuilder<List<PublicRequest>>(
             future: requestsFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !_requestsLoaded) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(24),
@@ -925,43 +927,27 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   ],
                 );
               }
-              if (snapshot.hasError) {
+              if (snapshot.hasError && !_requestsLoaded) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
-                    _CommunityOverview(
-                      group: widget.group,
-                      canInvite: canInvite,
-                      canModerate: canModerate,
-                      moderationCountFuture: moderationCountFuture,
-                      onStatistics: openStatistics,
-                      onAccess: showGroupAccess,
-                      onInvite: inviteByPhone,
-                      onModeration: openModerationQueue,
-                    ),
+                    _CommunityOverview(group: widget.group),
                     const SizedBox(height: 16),
                     ErrorBanner(message: snapshot.error.toString()),
                   ],
                 );
               }
-              final requests = snapshot.data ?? const <PublicRequest>[];
+              final requests = _requestsLoaded
+                  ? cachedRequests
+                  : snapshot.data ?? const <PublicRequest>[];
               return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
                 itemCount: requests.length + (requests.isEmpty ? 3 : 2),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return _CommunityOverview(
-                      group: widget.group,
-                      canInvite: canInvite,
-                      canModerate: canModerate,
-                      moderationCountFuture: moderationCountFuture,
-                      onStatistics: openStatistics,
-                      onAccess: showGroupAccess,
-                      onInvite: inviteByPhone,
-                      onModeration: openModerationQueue,
-                    );
+                    return _CommunityOverview(group: widget.group);
                   }
                   if (index == 1) {
                     return Padding(
@@ -998,25 +984,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 }
 
 class _CommunityOverview extends StatelessWidget {
-  const _CommunityOverview({
-    required this.group,
-    required this.canInvite,
-    required this.canModerate,
-    required this.moderationCountFuture,
-    required this.onStatistics,
-    required this.onAccess,
-    required this.onInvite,
-    required this.onModeration,
-  });
+  const _CommunityOverview({required this.group});
 
   final ChatGroup group;
-  final bool canInvite;
-  final bool canModerate;
-  final Future<int> moderationCountFuture;
-  final VoidCallback onStatistics;
-  final VoidCallback onAccess;
-  final VoidCallback onInvite;
-  final VoidCallback onModeration;
 
   @override
   Widget build(BuildContext context) {
@@ -1098,49 +1068,6 @@ class _CommunityOverview extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        KoomCard(
-          showShadow: false,
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-          child: KoomAdaptiveTileGrid(
-            minItemWidth: 112,
-            maxColumns: 4,
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              KoomIconTile(
-                compact: true,
-                icon: Icons.analytics_outlined,
-                label: text.statistics,
-                onTap: onStatistics,
-              ),
-              KoomIconTile(
-                compact: true,
-                icon: Icons.qr_code_rounded,
-                label: text.codeAndQr,
-                onTap: onAccess,
-              ),
-              if (canInvite)
-                KoomIconTile(
-                  compact: true,
-                  icon: Icons.person_add_alt_1_rounded,
-                  label: text.inviteByPhone,
-                  onTap: onInvite,
-                ),
-              if (canModerate)
-                FutureBuilder<int>(
-                  future: moderationCountFuture,
-                  builder: (context, snapshot) => KoomIconTile(
-                    compact: true,
-                    icon: Icons.fact_check_outlined,
-                    label: text.isKy ? 'Текшерүү' : 'Проверка',
-                    badge: snapshot.data ?? 0,
-                    onTap: onModeration,
-                  ),
-                ),
             ],
           ),
         ),

@@ -16,6 +16,7 @@ import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
+import 'public_request_media_screens.dart';
 
 class EmptyPostsView extends StatelessWidget {
   const EmptyPostsView({super.key, required this.onCreate});
@@ -941,7 +942,7 @@ class _PublicRequestDetailsScreenState
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  PublicRequestCard(
+                  MediaPublicRequestCard(
                     request: request,
                     onTap: () {},
                     onVote: vote,
@@ -953,27 +954,9 @@ class _PublicRequestDetailsScreenState
                                 status: status, updatedAt: DateTime.now()));
                             widget.onStatusChanged!(status);
                           },
+                    compact: false,
+                    showOpenAction: false,
                   ),
-                  const SizedBox(height: 12),
-                  if (request.displayBody.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colors.border),
-                      ),
-                      child: Text(request.displayBody,
-                          style: TextStyle(
-                              color: colors.textStrong, height: 1.35)),
-                    ),
-                  if (request.content.photos.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    _PostPhotoPreview(
-                      photos: request.content.photos,
-                      compact: false,
-                    ),
-                  ],
                   const SizedBox(height: 18),
                   Text(text.comments,
                       style: Theme.of(context)

@@ -89,7 +89,13 @@ class PublicRequestMediaView extends StatelessWidget {
               final size = compact ? 92.0 : 116.0;
               return Stack(children: [
                 GestureDetector(
-                  onTap: bytes == null ? null : () => openPublicRequestPhoto(context, bytes),
+                  onTap: () {
+                    if (remoteUrl.isNotEmpty) {
+                      openPublicRequestRemotePhoto(context, remoteUrl);
+                    } else if (bytes != null) {
+                      openPublicRequestPhoto(context, bytes);
+                    }
+                  },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: remoteUrl.isNotEmpty
@@ -158,21 +164,140 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
 }
 
 void openPublicRequestPhoto(BuildContext context, Uint8List bytes) {
+  _showPublicRequestPhotoViewer(context, bytes: bytes);
+}
+
+void openPublicRequestRemotePhoto(BuildContext context, String url) {
+  _showPublicRequestPhotoViewer(context, url: url);
+}
+
+void _showPublicRequestPhotoViewer(
+  BuildContext context, {
+  Uint8List? bytes,
+  String? url,
+}) {
   showDialog<void>(
     context: context,
+    useSafeArea: false,
+    barrierColor: Colors.black,
     builder: (_) => Dialog.fullscreen(
       backgroundColor: Colors.black,
-      child: Stack(children: [
-        InteractiveViewer(minScale: 0.7, maxScale: 4, child: Center(child: Image.memory(bytes, fit: BoxFit.contain))),
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topRight,
-            child: IconButton.filledTonal(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close_rounded)),
-          ),
-        ),
-      ]),
+      child: _PublicRequestPhotoViewer(bytes: bytes, url: url),
     ),
   );
+}
+
+class _PublicRequestPhotoViewer extends StatelessWidget {
+  const _PublicRequestPhotoViewer({this.bytes, this.url});
+
+  final Uint8List? bytes;
+  final String? url;
+
+  Widget _fullImage(
+    BuildContext context,
+    BoxConstraints constraints,
+    Map<String, String>? headers,
+  ) {
+    final image = bytes != null
+        ? Image.memory(
+            bytes!,
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+          )
+        : Image.network(
+            url!,
+            headers: headers,
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            loadingBuilder: (context, child, progress) => progress == null
+                ? child
+                : const Center(child: CircularProgressIndicator()),
+            errorBuilder: (_, __, ___) => Center(
+              child: Text(
+                AppLanguageScope.textOf(context).isKy
+                    ? 'Сүрөт ачылган жок'
+                    : 'Не удалось открыть изображение',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          );
+
+    return InteractiveViewer(
+      minScale: 1,
+      maxScale: 5,
+      panEnabled: true,
+      scaleEnabled: true,
+      clipBehavior: Clip.none,
+      child: SizedBox(
+        width: constraints.maxWidth,
+        height: constraints.maxHeight,
+        child: image,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remoteUrl = (url ?? '').trim();
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (bytes != null) {
+                    return _fullImage(context, constraints, null);
+                  }
+                  if (remoteUrl.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return FutureBuilder<Map<String, String>?>(
+                    future: _imageAuthHeaders(remoteUrl),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          snapshot.data == null) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      return _fullImage(
+                        context,
+                        constraints,
+                        snapshot.data,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black54,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class PublicRequestVideoTile extends StatelessWidget {
@@ -251,30 +376,94 @@ class _VideoViewerState extends State<_VideoViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      Center(
-        child: FutureBuilder<void>(
-          future: setupFuture,
-          builder: (context, snapshot) {
-            final current = controller;
-            if (snapshot.connectionState != ConnectionState.done) return const CircularProgressIndicator();
-            if (snapshot.hasError || current == null || !current.value.isInitialized) {
-              return Padding(padding: const EdgeInsets.all(24), child: Text(snapshot.error?.toString() ?? 'Видео не открывается', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)));
-            }
-            return GestureDetector(
-              onTap: () {
-                current.value.isPlaying ? current.pause() : current.play();
-                setState(() {});
-              },
-              child: AspectRatio(aspectRatio: current.value.aspectRatio, child: VideoPlayer(current)),
-            );
-          },
-        ),
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: FutureBuilder<void>(
+                future: setupFuture,
+                builder: (context, snapshot) {
+                  final current = controller;
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError ||
+                      current == null ||
+                      !current.value.isInitialized) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          snapshot.error?.toString() ?? 'Видео не открывается',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }
+                  final videoSize = current.value.size;
+                  final videoWidth = videoSize.width > 0 ? videoSize.width : 16.0;
+                  final videoHeight =
+                      videoSize.height > 0 ? videoSize.height : 9.0;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      current.value.isPlaying
+                          ? current.pause()
+                          : current.play();
+                      setState(() {});
+                    },
+                    child: SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: SizedBox(
+                          width: videoWidth,
+                          height: videoHeight,
+                          child: VideoPlayer(current),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black54,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+          ),
+          if (controller != null && controller!.value.isInitialized)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                  child: VideoProgressIndicator(
+                    controller!,
+                    allowScrubbing: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-      SafeArea(child: Align(alignment: Alignment.topRight, child: IconButton.filledTonal(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close_rounded)))),
-      if (controller != null && controller!.value.isInitialized)
-        SafeArea(child: Align(alignment: Alignment.bottomCenter, child: Padding(padding: const EdgeInsets.all(16), child: VideoProgressIndicator(controller!, allowScrubbing: true)))),
-    ]);
+    );
   }
 }
 
