@@ -233,13 +233,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
     await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => GroupCreationRequestsScreen(
             api: widget.api, user: widget.session.user)));
-    await refresh();
   }
 
   Future<void> openAdminRequests() async {
     await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api)));
-    await refresh();
   }
 
   Future<void> openProfile() async {
@@ -289,7 +287,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Future<void> openInvitations() async {
     await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)));
-    await refresh();
   }
 
   Future<void> openGroup(ChatGroup group) async {
@@ -302,7 +299,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
     await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => PublicRequestsScreen(
             api: widget.api, user: widget.session.user, group: group)));
-    if (mounted) await refresh();
   }
 
   Future<void> leaveGroup(ChatGroup group) async {
@@ -368,7 +364,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
         onLogout: widget.onLogout,
       ),
     );
-    await refresh();
   }
 
   @override

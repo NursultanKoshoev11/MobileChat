@@ -95,6 +95,14 @@ class _MobileChatAppState extends State<MobileChatApp>
     });
   }
 
+  Future<void> updateSessionLocally(AppSession session) async {
+    await sessionStore.save(session);
+    if (!mounted) return;
+    setState(() {
+      bootFuture = Future.value(session);
+    });
+  }
+
   Future<void> logout() async {
     await pushNotifications.unregisterDevice();
     await api.logout();
@@ -135,7 +143,7 @@ class _MobileChatAppState extends State<MobileChatApp>
                   return GroupsScreen(
                     api: api,
                     session: session,
-                    onSessionChanged: setSession,
+                    onSessionChanged: updateSessionLocally,
                     onLogout: logout,
                   );
                 },

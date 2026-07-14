@@ -18,15 +18,30 @@ class InvitationsScreen extends StatefulWidget {
 
 class _InvitationsScreenState extends State<InvitationsScreen> {
   late Future<List<GroupInvitation>> invitationsFuture;
+  List<GroupInvitation> cachedInvitations = const <GroupInvitation>[];
+  bool invitationsLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    invitationsFuture = widget.api.fetchInvitations();
+    invitationsFuture = loadInvitations();
+  }
+
+  Future<List<GroupInvitation>> loadInvitations() async {
+    final invitations = await widget.api.fetchInvitations();
+    cachedInvitations = invitations;
+    invitationsLoaded = true;
+    return invitations;
+  }
+
+  void removeInvitation(String invitationId) {
+    cachedInvitations = cachedInvitations.where((invitation) => invitation.id != invitationId).toList();
+    invitationsLoaded = true;
+    if (mounted) setState(() {});
   }
 
   Future<void> refresh() async {
-    final nextFuture = widget.api.fetchInvitations();
+    final nextFuture = loadInvitations();
     setState(() => invitationsFuture = nextFuture);
     await nextFuture;
   }
@@ -35,7 +50,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
     final text = AppLanguageScope.textOf(context);
     try {
       await widget.api.acceptInvitation(invitation.id);
-      await refresh();
+      removeInvitation(invitation.id);
       if (!mounted) return;
       showAppSnack(
         context,
@@ -51,7 +66,7 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
     final text = AppLanguageScope.textOf(context);
     try {
       await widget.api.declineInvitation(invitation.id);
-      await refresh();
+      removeInvitation(invitation.id);
       if (!mounted) return;
       showAppSnack(
         context,
@@ -77,7 +92,8 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
           child: FutureBuilder<List<GroupInvitation>>(
             future: invitationsFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !invitationsLoaded) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: const [
@@ -93,7 +109,9 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
                   children: [ErrorBanner(message: snapshot.error.toString())],
                 );
               }
-              final invitations = snapshot.data ?? const <GroupInvitation>[];
+              final invitations = invitationsLoaded
+                  ? cachedInvitations
+                  : snapshot.data ?? const <GroupInvitation>[];
               if (invitations.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
