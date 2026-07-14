@@ -87,7 +87,7 @@ void main() {
     final first = tester.getRect(find.byKey(const ValueKey('first_action')));
     final second = tester.getRect(find.byKey(const ValueKey('second_action')));
     expect(second.left, greaterThan(first.right));
-    expect(second.top, first.top);
+    expect((second.center.dy - first.center.dy).abs(), lessThan(0.1));
     expect(tester.takeException(), isNull);
   });
 
