@@ -831,6 +831,7 @@ class PublicRequestDetailsScreen extends StatefulWidget {
 class _PublicRequestDetailsScreenState
     extends State<PublicRequestDetailsScreen> {
   final commentController = TextEditingController();
+  final commentsScrollController = ScrollController();
   late PublicRequest request;
   late Future<List<PublicRequestComment>> commentsFuture;
   late final GroupRealtimeService realtime;
@@ -859,6 +860,7 @@ class _PublicRequestDetailsScreenState
   void dispose() {
     realtime.close();
     commentController.dispose();
+    commentsScrollController.dispose();
     super.dispose();
   }
 
@@ -929,6 +931,17 @@ class _PublicRequestDetailsScreenState
     setState(() {});
   }
 
+  Future<void> scrollToLatestComment() async {
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !commentsScrollController.hasClients) return;
+    await commentsScrollController.animateTo(
+      commentsScrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   void setRequest(PublicRequest next) {
     if (!mounted) return;
     setState(() => request = next);
@@ -993,6 +1006,7 @@ class _PublicRequestDetailsScreenState
           updatedAt: DateTime.now(),
         ),
       );
+      await scrollToLatestComment();
     } on ModerationPendingException catch (e) {
       commentController.clear();
       if (mounted) {
@@ -1049,6 +1063,7 @@ class _PublicRequestDetailsScreenState
                   : snapshot.data ?? const <PublicRequestComment>[];
               return ListView(
                 key: const ValueKey('request_details_comments_list'),
+                controller: commentsScrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
@@ -1197,20 +1212,10 @@ class _CommentTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
+          KoomAvatar(
+            label: comment.authorName,
             radius: 18,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: 0.12),
-            child: Text(
-              comment.authorName.isEmpty
-                  ? '?'
-                  : comment.authorName.substring(0, 1).toUpperCase(),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+            imageBytes: comment.authorAvatarBytes,
           ),
           const SizedBox(width: 10),
           Expanded(

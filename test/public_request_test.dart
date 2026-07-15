@@ -223,6 +223,7 @@ void main() {
       'request_id': 'REQ-1',
       'author_id': 'U-2',
       'author_name': 'User',
+      'author_avatar_data': 'data:image/png;base64,AQID',
       'body': 'I support this.',
       'created_at': '2026-05-14T00:00:00Z',
     });
@@ -230,6 +231,8 @@ void main() {
     expect(comment.id, 'COM-1');
     expect(comment.requestId, 'REQ-1');
     expect(comment.body, 'I support this.');
+    expect(comment.authorAvatarData, 'data:image/png;base64,AQID');
+    expect(comment.authorAvatarBytes, [1, 2, 3]);
   });
 
   test('PublicRequestComment defaults missing author name', () {

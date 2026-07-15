@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 const Object _publicRequestUnset = Object();
 
@@ -293,6 +294,7 @@ class PublicRequestComment {
     required this.authorName,
     required this.body,
     required this.createdAt,
+    this.authorAvatarData = '',
   });
 
   final String id;
@@ -301,6 +303,19 @@ class PublicRequestComment {
   final String authorName;
   final String body;
   final DateTime createdAt;
+  final String authorAvatarData;
+
+  Uint8List? get authorAvatarBytes {
+    final value = authorAvatarData.trim();
+    if (value.isEmpty) return null;
+    try {
+      final separator = value.indexOf(',');
+      final payload = separator >= 0 ? value.substring(separator + 1) : value;
+      return base64Decode(payload);
+    } catch (_) {
+      return null;
+    }
+  }
 
   factory PublicRequestComment.fromJson(Map<String, dynamic> json) {
     return PublicRequestComment(
@@ -310,6 +325,10 @@ class PublicRequestComment {
       authorName: json['author_name'] as String? ?? 'User',
       body: json['body'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
+      authorAvatarData:
+          json['author_avatar_data'] as String? ??
+          json['avatar_data'] as String? ??
+          '',
     );
   }
 }

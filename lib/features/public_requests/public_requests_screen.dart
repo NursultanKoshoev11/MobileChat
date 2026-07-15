@@ -848,14 +848,33 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }) {
     return PopupMenuItem<String>(
       value: value,
+      height: 56,
       child: Row(
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  List<PopupMenuEntry<String>> withGroupMenuSeparators(
+    List<PopupMenuItem<String>> items,
+  ) {
+    final entries = <PopupMenuEntry<String>>[];
+    for (var index = 0; index < items.length; index++) {
+      entries.add(items[index]);
+      if (index < items.length - 1) {
+        entries.add(const PopupMenuDivider(height: 1));
+      }
+    }
+    return entries;
   }
 
   Future<void> handleGroupMenuAction(String value) async {
@@ -919,7 +938,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           onSelected: (value) {
             handleGroupMenuAction(value);
           },
-          itemBuilder: (_) => [
+          itemBuilder: (_) => withGroupMenuSeparators([
             groupMenuItem(
               value: 'statistics',
               icon: Icons.analytics_outlined,
@@ -969,7 +988,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               icon: Icons.settings_rounded,
               label: text.settings,
             ),
-          ],
+          ]),
         );
       },
     );

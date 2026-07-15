@@ -294,15 +294,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> openProfile() async {
-    final updatedUser = await Navigator.of(context).push<UserProfile>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) =>
-            ProfileScreen(api: widget.api, user: widget.session.user),
+        builder: (_) => ProfileScreen(
+          api: widget.api,
+          user: widget.session.user,
+          onUserChanged: (updatedUser) => widget.onSessionChanged(
+            widget.session.copyWith(user: updatedUser),
+          ),
+        ),
       ),
     );
-    if (updatedUser != null) {
-      await widget.onSessionChanged(widget.session.copyWith(user: updatedUser));
-    }
   }
 
   Future<void> joinByCode() async {

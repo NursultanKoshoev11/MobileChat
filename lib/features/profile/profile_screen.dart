@@ -13,10 +13,16 @@ import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.api, required this.user});
+  const ProfileScreen({
+    super.key,
+    required this.api,
+    required this.user,
+    this.onUserChanged,
+  });
 
   final ApiClient api;
   final UserProfile user;
+  final Future<void> Function(UserProfile user)? onUserChanged;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -89,11 +95,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         user = updated;
         updatingPhoto = false;
       });
+      await widget.onUserChanged?.call(updated);
+      if (!mounted) return;
       showAppSnack(
         context,
         text.isKy ? 'Профиль сүрөтү жаңыртылды.' : 'Фото профиля обновлено.',
       );
-      Navigator.of(context).pop(updated);
     } catch (error) {
       if (!mounted) return;
       setState(() => updatingPhoto = false);
