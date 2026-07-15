@@ -273,8 +273,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                                 .digitsOnly,
                                             LengthLimitingTextInputFormatter(9),
                                           ],
+                                          maxLength: 9,
                                           onChanged: (_) {
-                                            if (mounted && error != null) {
+                                            if (mounted) {
                                               setState(() => error = null);
                                             }
                                           },
@@ -285,6 +286,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                               Icons.phone_iphone_rounded,
                                             ),
                                             prefixText: '$_kgPhonePrefix  ',
+                                            counterText: '',
                                           ),
                                         ),
                                 ),
@@ -304,11 +306,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                 FilledButton.icon(
                                   key: const ValueKey('auth_submit_button'),
                                   onPressed: loading ||
-                                          (codeWasSent &&
-                                              codeController.text
-                                                      .trim()
-                                                      .length !=
-                                                  6)
+                                          (codeWasSent
+                                              ? codeController.text
+                                                        .trim()
+                                                        .length !=
+                                                    6
+                                              : _mobileDigits.length != 9)
                                       ? null
                                       : (codeWasSent
                                           ? verifyCode

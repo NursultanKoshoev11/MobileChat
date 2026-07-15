@@ -38,6 +38,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/koom_app_icon.png
+    - assets/images/koom_login_icon.png
 
 flutter_launcher_icons:
   android: true

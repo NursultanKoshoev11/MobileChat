@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -886,6 +887,19 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     }
   }
 
+  void openGroupPhoto() {
+    final imageBytes = currentGroup.avatarBytes;
+    if (imageBytes == null || imageBytes.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _GroupPhotoScreen(
+          title: currentGroup.title,
+          imageBytes: imageBytes,
+        ),
+      ),
+    );
+  }
+
   Widget groupMenuButton(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     return FutureBuilder<int>(
@@ -971,13 +985,22 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         titleSpacing: 12,
         title: Row(
           children: [
-            KoomAvatar(
-              label: currentGroup.title,
-              radius: 20,
-              icon: currentGroup.visibility == 'public'
-                  ? Icons.groups_2_rounded
-                  : Icons.lock_rounded,
-              imageBytes: currentGroup.avatarBytes,
+            Tooltip(
+              message: currentGroup.avatarBytes == null
+                  ? currentGroup.title
+                  : (text.isKy ? 'Сүрөттү ачуу' : 'Открыть фото'),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: currentGroup.avatarBytes == null ? null : openGroupPhoto,
+                child: KoomAvatar(
+                  label: currentGroup.title,
+                  radius: 20,
+                  icon: currentGroup.visibility == 'public'
+                      ? Icons.groups_2_rounded
+                      : Icons.lock_rounded,
+                  imageBytes: currentGroup.avatarBytes,
+                ),
+              ),
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -992,9 +1015,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   ),
                   if (currentGroup.memberCount > 0)
                     Text(
-                      text.isKy
-                          ? '${currentGroup.memberCount} ?????????'
-                          : '${currentGroup.memberCount} ??????????',
+                      _memberCountLabel(text, currentGroup.memberCount),
                       style: TextStyle(
                         color: colors.textMuted,
                         fontSize: 11,
@@ -1151,6 +1172,55 @@ class _RequestFilterChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onTap(),
       showCheckmark: false,
+    );
+  }
+}
+
+String _memberCountLabel(AppText text, int count) {
+  if (text.isKy) return '$count катышуучу';
+  final mod10 = count % 10;
+  final mod100 = count % 100;
+  final suffix = mod10 == 1 && mod100 != 11
+      ? 'участник'
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+          ? 'участника'
+          : 'участников';
+  return '$count $suffix';
+}
+
+class _GroupPhotoScreen extends StatelessWidget {
+  const _GroupPhotoScreen({required this.title, required this.imageBytes});
+
+  final String title;
+  final Uint8List imageBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 5,
+            child: Image.memory(
+              imageBytes,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white70,
+                size: 72,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

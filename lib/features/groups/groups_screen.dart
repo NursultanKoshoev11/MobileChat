@@ -837,6 +837,88 @@ class _MenuItem extends StatelessWidget {
   }
 }
 
+
+class _GroupVisibilityBadge extends StatelessWidget {
+  const _GroupVisibilityBadge({required this.isPublic});
+
+  final bool isPublic;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final color = context.appColors.textMuted;
+    final shortLabel = isPublic
+        ? (text.isKy ? 'Ачык' : 'Открытая')
+        : (text.isKy ? 'Жабык' : 'Закрытая');
+    return Tooltip(
+      message: isPublic
+          ? (text.isKy ? 'Ачык топ' : 'Открытая группа')
+          : (text.isKy ? 'Жабык топ' : 'Закрытая группа'),
+      child: Container(
+        margin: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
+              size: 11,
+              color: color,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              shortLabel,
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupMetaPill extends StatelessWidget {
+  const _GroupMetaPill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.appColors.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyGroups extends StatelessWidget {
   const _EmptyGroups({required this.isAdmin, required this.onCreate});
 
@@ -925,8 +1007,11 @@ class GroupTile extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      if (group.unreadPublicRequestCount > 0)
+                      _GroupVisibilityBadge(isPublic: group.isPublic),
+                      if (group.unreadPublicRequestCount > 0) ...[
+                        const SizedBox(width: 6),
                         Badge(label: Text('${group.unreadPublicRequestCount}')),
+                      ],
                     ],
                   ),
                   if (group.description.isNotEmpty) ...[
@@ -947,25 +1032,15 @@ class GroupTile extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      KoomStatusPill(
-                        label: group.visibility == 'public'
-                            ? text.publicGroup
-                            : text.privateGroup,
-                        icon: group.visibility == 'public'
-                            ? Icons.public_rounded
-                            : Icons.lock_outline_rounded,
-                      ),
                       if (group.memberCount > 0)
-                        KoomStatusPill(
+                        _GroupMetaPill(
                           label: '${group.memberCount}',
                           icon: Icons.people_outline_rounded,
-                          color: colors.textMuted,
                         ),
                       if (role.isNotEmpty)
-                        KoomStatusPill(
+                        _GroupMetaPill(
                           label: role,
                           icon: Icons.verified_user_outlined,
-                          color: colors.textMuted,
                         ),
                     ],
                   ),

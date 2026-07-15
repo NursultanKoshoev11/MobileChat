@@ -60,7 +60,7 @@ class _MobileChatAppState extends State<MobileChatApp>
   }
 
   Future<AppSession?> _boot() async {
-    await api.handleAppResumed();
+    await api.handleAppResumed(forceRefresh: true);
     var session = await sessionStore.read();
     if (session != null) {
       try {

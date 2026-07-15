@@ -41,7 +41,7 @@ class KoomLogoMark extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.asset(
-        'assets/images/koom_app_icon.png',
+        'assets/images/koom_login_icon.png',
         width: size,
         height: size,
         fit: BoxFit.cover,

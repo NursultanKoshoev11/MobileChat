@@ -75,7 +75,7 @@ class ApiClient {
     }
   }
 
-  Future<void> handleAppResumed() async {
+  Future<void> handleAppResumed({bool forceRefresh = false}) async {
     _proactiveRefreshTimer?.cancel();
     _proactiveRefreshTimer = null;
 
@@ -85,7 +85,8 @@ class ApiClient {
       return;
     }
 
-    if (!soonX(session.accessToken, _resumeRefreshBeforeExpiry)) {
+    if (!forceRefresh &&
+        !soonX(session.accessToken, _resumeRefreshBeforeExpiry)) {
       _proactiveRefreshRetryAttempt = 0;
       await _scheduleProactiveRefresh();
       return;
