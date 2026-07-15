@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'preferences_store.dart';
 import 'theme.dart';
 
 enum AppLanguage { ru, ky }
@@ -10,14 +13,41 @@ extension AppLanguageMeta on AppLanguage {
 }
 
 class AppLanguageController extends ChangeNotifier {
+  AppLanguageController({
+    AppPreferencesStore store = const AppPreferencesStore(),
+  }) : _store = store;
+
+  final AppPreferencesStore _store;
   AppLanguage _language = AppLanguage.ru;
+
   AppLanguage get language => _language;
   AppText get text => AppText(_language);
+
+  Future<void> restore() async {
+    try {
+      final stored = await _store.readLanguage();
+      final restored = AppLanguage.values.where((value) => value.name == stored);
+      if (restored.isEmpty || restored.first == _language) return;
+      _language = restored.first;
+      notifyListeners();
+    } catch (_) {
+      // Keep the default language when local storage is unavailable.
+    }
+  }
 
   void setLanguage(AppLanguage value) {
     if (_language == value) return;
     _language = value;
     notifyListeners();
+    unawaited(_persistLanguage(value));
+  }
+
+  Future<void> _persistLanguage(AppLanguage value) async {
+    try {
+      await _store.writeLanguage(value.name);
+    } catch (_) {
+      // The in-memory choice remains active even if persistence fails.
+    }
   }
 }
 

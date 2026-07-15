@@ -70,6 +70,12 @@ void main() {
       'description must be at most 500',
       'text is required',
       'body is required',
+      'body text must be between 5 and 5000 characters',
+      'reason must be between 5 and 2000 characters',
+      'comment must be between 1 and 1000 characters',
+      'file is too large',
+      'code must contain 6 digits',
+      'too many code requests; try again later',
       'not found',
       'already done',
     ];
@@ -91,7 +97,19 @@ void main() {
     expect(result, 'custom backend text');
   });
 
-  testWidgets('showAppSnack localizes and displays a floating snack bar',
+
+  testWidgets('localizedMessage hides unknown English error details',
+      (tester) async {
+    final result = await localized(
+      tester,
+      AppLanguage.ru,
+      'unexpected transport failure',
+    );
+
+    expect(result, 'Не удалось выполнить действие. Попробуйте ещё раз.');
+  });
+
+  testWidgets('showAppSnack displays a localized notice at the top',
       (tester) async {
     final controller = AppLanguageController();
 
@@ -103,7 +121,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
-                onPressed: () => showAppSnack(context, 'network error'),
+                onPressed: () => showAppSnack(context, 'request sent'),
                 child: const Text('show'),
               ),
             ),
@@ -113,10 +131,17 @@ void main() {
     );
 
     await tester.tap(find.text('show'));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.text('network error'), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('request sent'), findsNothing);
+    expect(find.text('Заявка отправлена.'), findsOneWidget);
+    final noticeIcon = find.byIcon(Icons.notifications_active_rounded);
+    expect(noticeIcon, findsOneWidget);
+    expect(tester.getTopLeft(noticeIcon).dy, lessThan(120));
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(noticeIcon, findsNothing);
   });
 
   testWidgets('ErrorBanner and InfoBanner render themed messages',

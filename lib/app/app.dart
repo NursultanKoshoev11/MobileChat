@@ -11,6 +11,7 @@ import '../services/push_notification_service.dart';
 import '../shared/koom_ui.dart';
 import 'appearance.dart';
 import 'localization.dart';
+import 'preferences_store.dart';
 import 'theme.dart';
 
 class MobileChatApp extends StatefulWidget {
@@ -28,9 +29,11 @@ class _MobileChatAppState extends State<MobileChatApp>
   );
 
   final SessionStore sessionStore = const SessionStore();
-  final AppLanguageController languageController = AppLanguageController();
-  final AppAppearanceController appearanceController =
-      AppAppearanceController();
+  final AppPreferencesStore preferencesStore = const AppPreferencesStore();
+  late final AppLanguageController languageController =
+      AppLanguageController(store: preferencesStore);
+  late final AppAppearanceController appearanceController =
+      AppAppearanceController(store: preferencesStore);
   late final ApiClient api =
       ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
   late final PushNotificationService pushNotifications =
@@ -60,6 +63,10 @@ class _MobileChatAppState extends State<MobileChatApp>
   }
 
   Future<AppSession?> _boot() async {
+    await Future.wait([
+      languageController.restore(),
+      appearanceController.restore(),
+    ]);
     await api.handleAppResumed(forceRefresh: true);
     var session = await sessionStore.read();
     if (session != null) {

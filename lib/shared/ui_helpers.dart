@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -234,12 +235,288 @@ String _normalizeMojibakeMessage(String message) {
   return normalized;
 }
 
+
+String _fieldLabel(AppText text, String rawField) {
+  final field = rawField.trim().replaceAll(' ', '_');
+  final labels = <String, List<String>>{
+    'applicant_name': ['Имя заявителя', 'Өтүнмө ээсинин аты'],
+    'position': ['Должность', 'Кызмат орду'],
+    'organization_name': ['Название организации', 'Уюмдун аталышы'],
+    'organization_type': ['Тип организации', 'Уюмдун түрү'],
+    'region': ['Регион', 'Аймак'],
+    'official_phone': ['Официальный телефон', 'Расмий телефон'],
+    'official_email': ['Официальная почта', 'Расмий электрондук почта'],
+    'group_title': ['Название группы', 'Топтун аталышы'],
+    'group_description': ['Описание группы', 'Топтун сүрөттөмөсү'],
+    'display_name': ['Имя', 'Аты-жөнү'],
+    'title': ['Название', 'Аталыш'],
+    'description': ['Описание', 'Сүрөттөмө'],
+    'reason': ['Причина', 'Себеп'],
+    'documents': ['Документы', 'Документтер'],
+    'text': ['Текст', 'Текст'],
+    'body': ['Текст публикации', 'Жарыянын тексти'],
+    'body_text': ['Текст публикации', 'Жарыянын тексти'],
+    'comment': ['Комментарий', 'Комментарий'],
+    'query': ['Поисковый запрос', 'Издөө суроосу'],
+    'password': ['Пароль', 'Сырсөз'],
+    'phone': ['Телефон', 'Телефон'],
+    'mobile': ['Номер телефона', 'Телефон номери'],
+    'code': ['Код', 'Код'],
+    'file': ['Файл', 'Файл'],
+    'token': ['Токен', 'Токен'],
+  };
+  final pair = labels[field];
+  if (pair == null) return text.isKy ? 'Маалымат' : 'Поле';
+  return text.isKy ? pair[1] : pair[0];
+}
+
+String? _localizedValidationMessage(AppText text, String message) {
+  final normalized = message
+      .trim()
+      .replaceFirst(RegExp(r'^(api)?exception:\s*', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^formatException:\s*', caseSensitive: false), '')
+      .toLowerCase();
+
+  RegExpMatch? match;
+
+  match = RegExp(r'^([a-z_ ]+) must be between (\d+) and (\d+) characters').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    final min = match.group(2)!;
+    final max = match.group(3)!;
+    return text.isKy
+        ? '$field $min–$max белгиден турушу керек.'
+        : '$field: от $min до $max символов.';
+  }
+
+  match = RegExp(r'^([a-z_ ]+) must be at least (\d+) characters').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    final min = match.group(2)!;
+    return text.isKy
+        ? '$field кеминде $min белгиден турушу керек.'
+        : '$field: минимум $min символов.';
+  }
+
+  match = RegExp(r'^([a-z_ ]+) must be at most (\d+) characters').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    final max = match.group(2)!;
+    return text.isKy
+        ? '$field $max белгиден узун болбошу керек.'
+        : '$field: не более $max символов.';
+  }
+
+  match = RegExp(r'^([a-z_ ]+) must be less than (\d+) characters').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    final max = match.group(2)!;
+    return text.isKy
+        ? '$field $max белгиден кыска болушу керек.'
+        : '$field: меньше $max символов.';
+  }
+
+  match = RegExp(r'^([a-z_ ]+) is required and must be at most (\d+) characters').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    final max = match.group(2)!;
+    return text.isKy
+        ? '$field толтурулушу жана $max белгиден узун болбошу керек.'
+        : '$field обязательно. Максимум $max символов.';
+  }
+
+  match = RegExp(r'^([a-z_ ]+) is required').firstMatch(normalized);
+  if (match != null) {
+    final field = _fieldLabel(text, match.group(1)!);
+    return text.isKy ? '$field толтурулушу керек.' : '$field обязательно.';
+  }
+
+  match = RegExp(r'only (\d+) photos are allowed').firstMatch(normalized);
+  if (match != null) {
+    final count = match.group(1)!;
+    return text.isKy
+        ? '$count сүрөткө чейин гана кошууга болот.'
+        : 'Можно добавить не более $count фотографий.';
+  }
+  match = RegExp(r'only (\d+) video is allowed').firstMatch(normalized);
+  if (match != null) {
+    return text.isKy
+        ? 'Бир гана видео кошууга болот.'
+        : 'Можно добавить только одно видео.';
+  }
+
+  if (normalized.contains('body text, photo or video is required')) {
+    return text.isKy
+        ? 'Текст, сүрөт же видео кошуңуз.'
+        : 'Добавьте текст, фотографию или видео.';
+  }
+  if (normalized.contains('code must contain 6 digits')) {
+    return text.isKy ? 'Код 6 сандан турушу керек.' : 'Код должен содержать 6 цифр.';
+  }
+  if (normalized.contains('mobile must be in international format')) {
+    return text.isKy
+        ? 'Номерди эл аралык форматта жазыңыз: +996700123456.'
+        : 'Введите номер в международном формате: +996700123456.';
+  }
+  if (normalized.contains('too many code requests')) {
+    return text.isKy
+        ? 'Код өтө көп жолу суралды. Бир аздан кийин аракет кылыңыз.'
+        : 'Слишком много запросов кода. Попробуйте позже.';
+  }
+  if (normalized.contains('please wait before requesting another code')) {
+    return text.isKy
+        ? 'Жаңы код сураардан мурун бир аз күтүңүз.'
+        : 'Подождите перед повторным запросом кода.';
+  }
+  if (normalized.contains('rate limit exceeded')) {
+    return text.isKy
+        ? 'Өтө көп аракет жасалды. Бир аздан кийин кайталаңыз.'
+        : 'Слишком много действий. Попробуйте немного позже.';
+  }
+  if (normalized.contains('too many websocket connection attempts')) {
+    return text.isKy
+        ? 'Туташуу аракеттери өтө көп. Бир аздан кийин кайталаңыз.'
+        : 'Слишком много попыток подключения. Попробуйте позже.';
+  }
+
+  if (normalized.contains('avatar must be a jpeg') ||
+      normalized.contains('group avatar must be a jpeg')) {
+    return text.isKy
+        ? 'JPEG, PNG же WebP форматындагы сүрөттү тандаңыз.'
+        : 'Выберите изображение в формате JPEG, PNG или WebP.';
+  }
+  if (normalized.contains('avatar data is invalid') ||
+      normalized.contains('group avatar data is invalid') ||
+      normalized.contains('photo data is invalid') ||
+      normalized.contains('video data is invalid') ||
+      normalized.contains('invalid file type')) {
+    return text.isKy ? 'Файлдын форматы туура эмес.' : 'Неверный формат файла.';
+  }
+  if (normalized.contains('avatar image must be at most 512 kb') ||
+      normalized.contains('group avatar image must be at most 512 kb')) {
+    return text.isKy
+        ? 'Сүрөттүн көлөмү 512 КБдан ашпашы керек.'
+        : 'Размер изображения не должен превышать 512 КБ.';
+  }
+  if (normalized.contains('file is too large') ||
+      normalized.contains('must be less than') && normalized.contains('bytes')) {
+    return text.isKy
+        ? 'Файл өтө чоң. Кичирээк файлды тандаңыз.'
+        : 'Файл слишком большой. Выберите файл меньшего размера.';
+  }
+  if (normalized.contains('photo data is required') ||
+      normalized.contains('video data is required') ||
+      normalized.contains('file is required')) {
+    return text.isKy ? 'Файлды тандаңыз.' : 'Выберите файл.';
+  }
+  if (normalized.contains('photo file_id is invalid') ||
+      normalized.contains('photo url is invalid')) {
+    return text.isKy
+        ? 'Сүрөттү ачуу мүмкүн болгон жок.'
+        : 'Не удалось обработать фотографию.';
+  }
+  if (normalized.startsWith('upload failed')) {
+    return text.isKy
+        ? 'Файлды жүктөө мүмкүн болгон жок.'
+        : 'Не удалось загрузить файл.';
+  }
+
+  if (normalized.contains('request_type is invalid')) {
+    return text.isKy ? 'Жарыянын түрү туура эмес.' : 'Неверный тип публикации.';
+  }
+  if (normalized.contains('interaction_mode is invalid')) {
+    return text.isKy ? 'Иштөө режими туура эмес.' : 'Неверный режим взаимодействия.';
+  }
+  if (normalized.contains('vote_type must be support or oppose')) {
+    return text.isKy ? 'Добуштун түрү туура эмес.' : 'Неверный вариант голосования.';
+  }
+  if (normalized.contains('visibility must be private or public')) {
+    return text.isKy ? 'Топтун көрүнүү түрү туура эмес.' : 'Неверный тип доступа к группе.';
+  }
+  if (normalized.contains('role must be admin or member')) {
+    return text.isKy ? 'Колдонуучунун ролу туура эмес.' : 'Неверная роль пользователя.';
+  }
+  if (normalized.contains('status is invalid') ||
+      normalized.contains('statistics period is invalid') ||
+      normalized.contains('content_type is invalid')) {
+    return text.isKy ? 'Тандалган маани туура эмес.' : 'Выбрано недопустимое значение.';
+  }
+
+  if (normalized.contains('moderation item is already reviewed')) {
+    return text.isKy
+        ? 'Бул материал мурда эле текшерилген.'
+        : 'Этот материал уже проверен.';
+  }
+  if (normalized.contains('content is not allowed')) {
+    return text.isKy
+        ? 'Материал модерациядан өткөн жок. Текстти өзгөртүңүз.'
+        : 'Материал не прошёл модерацию. Измените текст.';
+  }
+  if (normalized.contains('custom statistics period requires from and to')) {
+    return text.isKy
+        ? 'Статистика үчүн башталыш жана аяктоо даталарын тандаңыз.'
+        : 'Выберите начальную и конечную даты периода.';
+  }
+  if (normalized.contains('from must be before to')) {
+    return text.isKy
+        ? 'Башталыш датасы аяктоо датасынан мурда болушу керек.'
+        : 'Начальная дата должна быть раньше конечной.';
+  }
+  if (normalized.contains('custom statistics period cannot be longer than 370 days')) {
+    return text.isKy
+        ? 'Статистика мезгили 370 күндөн ашпашы керек.'
+        : 'Период статистики не может превышать 370 дней.';
+  }
+
+  if (normalized.contains('invalid json body') ||
+      normalized.contains('invalid multipart form') ||
+      normalized.contains('server returned an invalid response') ||
+      normalized.contains('server returned an invalid websocket token response')) {
+    return text.isKy
+        ? 'Сервер туура эмес жооп берди. Кайра аракет кылыңыз.'
+        : 'Сервер вернул некорректный ответ. Попробуйте ещё раз.';
+  }
+  if (normalized.contains('internal server error') ||
+      normalized.contains('database connection interrupted') ||
+      normalized.contains('server error')) {
+    return text.isKy
+        ? 'Серверде ката кетти. Бир аздан кийин кайталаңыз.'
+        : 'Ошибка сервера. Попробуйте немного позже.';
+  }
+  if (normalized.contains('sms sender is disabled') ||
+      normalized.contains('sms sender is not configured')) {
+    return text.isKy
+        ? 'SMS кызматы убактылуу жеткиликсиз.'
+        : 'Сервис SMS временно недоступен.';
+  }
+  if (normalized.contains('missing bearer token') ||
+      normalized.contains('refresh_token is required')) {
+    return text.isKy
+        ? 'Сессия бүттү. Кайра кириңиз.'
+        : 'Сессия истекла. Войдите снова.';
+  }
+  if (normalized.contains('valid email is required')) {
+    return text.isKy
+        ? 'Туура электрондук почта дарегин жазыңыз.'
+        : 'Введите корректный адрес электронной почты.';
+  }
+  if (normalized.contains('email and password are required')) {
+    return text.isKy
+        ? 'Электрондук почтаны жана сырсөздү жазыңыз.'
+        : 'Введите электронную почту и пароль.';
+  }
+
+  return null;
+}
+
 String localizedMessage(BuildContext context, String message) {
   final repairedMessage = _normalizeMojibakeMessage(
     _repairMojibake(message),
   );
   final text = AppLanguageScope.textOf(context);
   final lower = repairedMessage.toLowerCase();
+  final validationMessage = _localizedValidationMessage(text, repairedMessage);
+  if (validationMessage != null) return validationMessage;
 
   if (lower.contains('comments are blocked until')) {
     final raw = repairedMessage
@@ -414,21 +691,162 @@ String localizedMessage(BuildContext context, String message) {
     return text.isKy ? 'Бул аракет мурун эле жасалган.' : 'Это уже выполнено.';
   }
 
+  final looksLikeEnglishError = RegExp(
+    r'\b(error|invalid|failed|failure|required|must|forbidden|unauthorized|not found|too many|too large|cannot|unable|missing|expired|unavailable|interrupted|unsupported|denied|blocked|exceeded)\b',
+    caseSensitive: false,
+  ).hasMatch(repairedMessage);
+  if (looksLikeEnglishError) {
+    return text.isKy
+        ? 'Аракетти аткаруу мүмкүн болгон жок. Кайра аракет кылыңыз.'
+        : 'Не удалось выполнить действие. Попробуйте ещё раз.';
+  }
   return repairedMessage;
 }
 
+OverlayEntry? _activeNoticeEntry;
+Timer? _activeNoticeTimer;
+
+void _removeActiveNotice() {
+  _activeNoticeTimer?.cancel();
+  _activeNoticeTimer = null;
+  final entry = _activeNoticeEntry;
+  _activeNoticeEntry = null;
+  if (entry != null && entry.mounted) entry.remove();
+}
+
 void showAppSnack(BuildContext context, String message) {
-  final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(localizedMessage(context, message)),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 96),
-        duration: const Duration(seconds: 2),
+  final localized = localizedMessage(context, message);
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(localized),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    return;
+  }
+
+  final topPadding = MediaQuery.paddingOf(context).top;
+  final colors = context.appColors;
+  final brightness = Theme.of(context).brightness;
+  final closeLabel = AppLanguageScope.textOf(context).close;
+  _removeActiveNotice();
+
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => Positioned(
+      top: topPadding + 12,
+      left: 14,
+      right: 14,
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        tween: Tween<double>(begin: 0, end: 1),
+        builder: (_, value, child) => Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, -18 * (1 - value)),
+            child: child,
+          ),
+        ),
+        child: _TopAppNotice(
+          message: localized,
+          colors: colors,
+          brightness: brightness,
+          closeLabel: closeLabel,
+          onDismiss: _removeActiveNotice,
+        ),
+      ),
+    ),
+  );
+
+  _activeNoticeEntry = entry;
+  overlay.insert(entry);
+  _activeNoticeTimer = Timer(const Duration(milliseconds: 2600), () {
+    if (identical(_activeNoticeEntry, entry)) _removeActiveNotice();
+  });
+}
+
+class _TopAppNotice extends StatelessWidget {
+  const _TopAppNotice({
+    required this.message,
+    required this.colors,
+    required this.brightness,
+    required this.closeLabel,
+    required this.onDismiss,
+  });
+
+  final String message;
+  final MobileChatColors colors;
+  final Brightness brightness;
+  final String closeLabel;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Semantics(
+        liveRegion: true,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.fromLTRB(14, 11, 8, 11),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.34 : 0.16),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: MobileChatTheme.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: MobileChatTheme.primary,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textStrong,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onDismiss,
+                tooltip: closeLabel,
+                icon: Icon(Icons.close_rounded, color: colors.textMuted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
 }
 
 class ErrorBanner extends StatelessWidget {

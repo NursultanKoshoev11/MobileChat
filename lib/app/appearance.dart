@@ -1,20 +1,53 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../shared/koom_ui.dart';
 
 import 'localization.dart';
+import 'preferences_store.dart';
 import 'theme.dart';
 
 class AppAppearanceController extends ChangeNotifier {
+  AppAppearanceController({
+    AppPreferencesStore store = const AppPreferencesStore(),
+  }) : _store = store;
+
+  final AppPreferencesStore _store;
   ThemeMode _themeMode = ThemeMode.light;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
 
+  Future<void> restore() async {
+    try {
+      final stored = await _store.readThemeMode();
+      final restored = switch (stored) {
+        'dark' => ThemeMode.dark,
+        'light' => ThemeMode.light,
+        _ => null,
+      };
+      if (restored == null || restored == _themeMode) return;
+      _themeMode = restored;
+      notifyListeners();
+    } catch (_) {
+      // Keep the default theme when local storage is unavailable.
+    }
+  }
+
   void setThemeMode(ThemeMode value) {
     if (_themeMode == value) return;
     _themeMode = value;
     notifyListeners();
+    unawaited(_persistThemeMode(value));
+  }
+
+  Future<void> _persistThemeMode(ThemeMode value) async {
+    try {
+      await _store.writeThemeMode(value.name);
+    } catch (_) {
+      // The in-memory choice remains active even if persistence fails.
+    }
   }
 
   void toggleTheme() {
