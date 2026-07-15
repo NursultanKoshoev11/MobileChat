@@ -412,6 +412,44 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  Future<void> deleteGroup(ChatGroup group) async {
+    final text = AppLanguageScope.textOf(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(text.isKy ? 'Топту өчүрүү' : 'Удалить группу'),
+        content: Text(
+          text.isKy
+              ? '«${group.title}» тобун толугу менен өчүрөсүзбү? Бардык билдирүүлөр жана өтүнүчтөр да өчүрүлөт.'
+              : 'Удалить группу «${group.title}» полностью? Все сообщения и заявки этой группы также будут удалены.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(text.isKy ? 'Жок' : 'Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(text.isKy ? 'Өчүрүү' : 'Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.api.deleteGroupAsPlatformAdmin(group.id);
+      removeGroup(group.id);
+      if (mounted) {
+        showAppSnack(
+          context,
+          text.isKy ? 'Топ өчүрүлдү.' : 'Группа удалена.',
+        );
+      }
+    } catch (error) {
+      if (mounted) showAppSnack(context, error.toString());
+    }
+  }
+
   Future<void> showMainMenu() async {
     final counts = await Future.wait([
       adminRequestsCountFuture,
@@ -546,6 +584,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     group: group,
                     onTap: () => openGroup(group),
                     onLeave: () => leaveGroup(group),
+                    canDelete: isAdmin,
+                    onDelete: () => deleteGroup(group),
                   );
                 },
               );
@@ -957,11 +997,15 @@ class GroupTile extends StatelessWidget {
     required this.group,
     required this.onTap,
     required this.onLeave,
+    required this.canDelete,
+    required this.onDelete,
   });
 
   final ChatGroup group;
   final VoidCallback onTap;
   final VoidCallback onLeave;
+  final bool canDelete;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1060,6 +1104,7 @@ class GroupTile extends StatelessWidget {
                   }
                 }
                 if (value == 'leave') onLeave();
+                if (value == 'delete') onDelete();
               },
               itemBuilder: (_) => [
                 if (inviteCode.isNotEmpty)
@@ -1070,6 +1115,28 @@ class GroupTile extends StatelessWidget {
                         const Icon(Icons.copy_rounded, size: 19),
                         const SizedBox(width: 10),
                         Expanded(child: Text(text.copyInviteCode)),
+                      ],
+                    ),
+                  ),
+                if (canDelete)
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_forever_outlined,
+                          size: 19,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            text.isKy ? 'Топту өчүрүү' : 'Удалить группу',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

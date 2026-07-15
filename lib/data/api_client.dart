@@ -150,6 +150,10 @@ class ApiClient {
     return ChatGroup.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<void> deleteGroupAsPlatformAdmin(String groupId) async {
+    await _request('DELETE', '/api/admin/groups/$groupId');
+  }
+
   Future<ChatGroup> updateGroupAvatar({required String groupId, required String avatarData}) async {
     final response = await _request('PUT', '/api/groups/$groupId/avatar', body: {'avatar_data': avatarData});
     return ChatGroup.fromJson(response as Map<String, dynamic>);
