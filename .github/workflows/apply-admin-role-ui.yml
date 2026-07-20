@@ -100,7 +100,22 @@ jobs:
         run: flutter test test/role_permissions_test.dart
 
       - name: Run all Flutter tests
-        run: flutter test
+        run: |
+          set +e
+          flutter test > full-flutter-test.log 2>&1
+          status=$?
+          echo "Flutter test exit code: $status"
+          tail -n 120 full-flutter-test.log || true
+          exit $status
+
+      - name: Upload Flutter test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-role-full-test-log
+          path: full-flutter-test.log
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Commit validated UI separation
         run: |
