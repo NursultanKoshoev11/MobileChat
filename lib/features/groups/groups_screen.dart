@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -83,6 +84,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
         break;
       case 'public_request.read':
         setUnreadPublicRequests(event.groupId, 0);
+        break;
+      case 'group.avatar_updated':
+        final payload = event.payload;
+        if (payload is Map<String, dynamic>) {
+          final avatarData = payload['avatar_data'] as String? ?? '';
+          setGroups(
+            currentGroups
+                .map(
+                  (group) => group.id == event.groupId
+                      ? group.copyWith(avatarData: avatarData)
+                      : group,
+                )
+                .toList(),
+          );
+        }
         break;
       case 'invite.created':
       case 'invite.reviewed':
@@ -361,6 +377,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
         ),
       ),
     );
+    if (mounted) {
+      await refresh(silent: true);
+    }
   }
 
   Future<void> leaveGroup(ChatGroup group) async {
@@ -440,10 +459,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       await widget.api.deleteGroupAsPlatformAdmin(group.id);
       removeGroup(group.id);
       if (mounted) {
-        showAppSnack(
-          context,
-          text.isKy ? 'Топ өчүрүлдү.' : 'Группа удалена.',
-        );
+        showAppSnack(context, text.isKy ? 'Топ өчүрүлдү.' : 'Группа удалена.');
       }
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
@@ -521,6 +537,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   children: [
                     _GroupsOverview(
                       userName: widget.session.user.displayName,
+                      userAvatarBytes: widget.session.user.avatarBytes,
                       groupCount: currentGroups.length,
                       isAdmin: isAdmin,
                       adminRequestsCountFuture: adminRequestsCountFuture,
@@ -546,6 +563,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   if (index == 0) {
                     return _GroupsOverview(
                       userName: widget.session.user.displayName,
+                      userAvatarBytes: widget.session.user.avatarBytes,
                       groupCount: groups.length,
                       isAdmin: isAdmin,
                       adminRequestsCountFuture: adminRequestsCountFuture,
@@ -600,6 +618,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 class _GroupsOverview extends StatelessWidget {
   const _GroupsOverview({
     required this.userName,
+    required this.userAvatarBytes,
     required this.groupCount,
     required this.isAdmin,
     required this.adminRequestsCountFuture,
@@ -611,6 +630,7 @@ class _GroupsOverview extends StatelessWidget {
   });
 
   final String userName;
+  final Uint8List? userAvatarBytes;
   final int groupCount;
   final bool isAdmin;
   final Future<int> adminRequestsCountFuture;
@@ -640,6 +660,7 @@ class _GroupsOverview extends StatelessWidget {
                 label: safeName,
                 radius: 28,
                 background: Colors.white.withValues(alpha: 0.18),
+                imageBytes: userAvatarBytes,
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -878,7 +899,6 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
-
 
 class _GroupVisibilityBadge extends StatelessWidget {
   const _GroupVisibilityBadge({required this.isPublic});

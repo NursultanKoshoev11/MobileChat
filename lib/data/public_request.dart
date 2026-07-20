@@ -9,6 +9,7 @@ class PublicRequest {
     required this.groupId,
     required this.authorId,
     required this.authorName,
+    this.authorAvatarData = '',
     required this.requestType,
     required this.interactionMode,
     required this.title,
@@ -26,6 +27,7 @@ class PublicRequest {
   final String groupId;
   final String authorId;
   final String authorName;
+  final String authorAvatarData;
   final String requestType;
   final String interactionMode;
   final String title;
@@ -40,8 +42,22 @@ class PublicRequest {
 
   bool get supportedByMe => myVote == 'support';
   bool get opposedByMe => myVote == 'oppose';
+
+  Uint8List? get authorAvatarBytes {
+    final value = authorAvatarData.trim();
+    if (value.isEmpty) return null;
+    try {
+      final separator = value.indexOf(',');
+      final payload = separator >= 0 ? value.substring(separator + 1) : value;
+      return base64Decode(payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
   PublicRequestContent get content => PublicRequestContent.tryParse(body);
-  String get displayBody => content.hasMedia || content.text.isNotEmpty ? content.text : body;
+  String get displayBody =>
+      content.hasMedia || content.text.isNotEmpty ? content.text : body;
 
   factory PublicRequest.fromJson(Map<String, dynamic> json) {
     return PublicRequest(
@@ -49,6 +65,10 @@ class PublicRequest {
       groupId: json['group_id'] as String,
       authorId: json['author_id'] as String,
       authorName: json['author_name'] as String? ?? 'User',
+      authorAvatarData:
+          json['author_avatar_data'] as String? ??
+          json['avatar_data'] as String? ??
+          '',
       requestType: json['request_type'] as String? ?? 'idea',
       interactionMode: json['interaction_mode'] as String? ?? 'discussion',
       title: json['title'] as String,
@@ -68,6 +88,7 @@ class PublicRequest {
     String? groupId,
     String? authorId,
     String? authorName,
+    String? authorAvatarData,
     String? requestType,
     String? interactionMode,
     String? title,
@@ -85,6 +106,7 @@ class PublicRequest {
       groupId: groupId ?? this.groupId,
       authorId: authorId ?? this.authorId,
       authorName: authorName ?? this.authorName,
+      authorAvatarData: authorAvatarData ?? this.authorAvatarData,
       requestType: requestType ?? this.requestType,
       interactionMode: interactionMode ?? this.interactionMode,
       title: title ?? this.title,
@@ -93,12 +115,13 @@ class PublicRequest {
       supportCount: supportCount ?? this.supportCount,
       opposeCount: opposeCount ?? this.opposeCount,
       commentCount: commentCount ?? this.commentCount,
-      myVote: identical(myVote, _publicRequestUnset) ? this.myVote : myVote as String?,
+      myVote: identical(myVote, _publicRequestUnset)
+          ? this.myVote
+          : myVote as String?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
 }
 
 class PublicRequestVoteUpdate {
@@ -129,7 +152,10 @@ class PublicRequestVoteUpdate {
   }
 }
 
-PublicRequest optimisticPublicRequestVote(PublicRequest request, String voteType) {
+PublicRequest optimisticPublicRequestVote(
+  PublicRequest request,
+  String voteType,
+) {
   final current = request.myVote;
   var support = request.supportCount;
   var oppose = request.opposeCount;
@@ -192,12 +218,20 @@ class PublicRequestContent {
   static PublicRequestContent tryParse(String value) {
     final raw = value.trim();
     if (raw.isEmpty || !raw.startsWith('{')) {
-      return PublicRequestContent(text: value, photos: const [], videos: const []);
+      return PublicRequestContent(
+        text: value,
+        photos: const [],
+        videos: const [],
+      );
     }
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) {
-        return PublicRequestContent(text: value, photos: const [], videos: const []);
+        return PublicRequestContent(
+          text: value,
+          photos: const [],
+          videos: const [],
+        );
       }
       final photosRaw = decoded['photos'];
       final videosRaw = decoded['videos'];
@@ -205,19 +239,23 @@ class PublicRequestContent {
         text: decoded['text'] as String? ?? '',
         photos: photosRaw is List
             ? photosRaw
-                .whereType<Map<String, dynamic>>()
-                .map(PublicRequestPhoto.fromJson)
-                .toList()
+                  .whereType<Map<String, dynamic>>()
+                  .map(PublicRequestPhoto.fromJson)
+                  .toList()
             : const [],
         videos: videosRaw is List
             ? videosRaw
-                .whereType<Map<String, dynamic>>()
-                .map(PublicRequestVideo.fromJson)
-                .toList()
+                  .whereType<Map<String, dynamic>>()
+                  .map(PublicRequestVideo.fromJson)
+                  .toList()
             : const [],
       );
     } catch (_) {
-      return PublicRequestContent(text: value, photos: const [], videos: const []);
+      return PublicRequestContent(
+        text: value,
+        photos: const [],
+        videos: const [],
+      );
     }
   }
 }
@@ -238,12 +276,12 @@ class PublicRequestPhoto {
   final String url;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'size_bytes': sizeBytes,
-        if (fileId.isNotEmpty) 'file_id': fileId,
-        if (url.isNotEmpty) 'url': url,
-        if (base64Data.isNotEmpty) 'base64': base64Data,
-      };
+    'name': name,
+    'size_bytes': sizeBytes,
+    if (fileId.isNotEmpty) 'file_id': fileId,
+    if (url.isNotEmpty) 'url': url,
+    if (base64Data.isNotEmpty) 'base64': base64Data,
+  };
 
   factory PublicRequestPhoto.fromJson(Map<String, dynamic> json) {
     return PublicRequestPhoto(
@@ -270,11 +308,11 @@ class PublicRequestVideo {
   final String mimeType;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'size_bytes': sizeBytes,
-        'base64': base64Data,
-        'mime_type': mimeType,
-      };
+    'name': name,
+    'size_bytes': sizeBytes,
+    'base64': base64Data,
+    'mime_type': mimeType,
+  };
 
   factory PublicRequestVideo.fromJson(Map<String, dynamic> json) {
     return PublicRequestVideo(

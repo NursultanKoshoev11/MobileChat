@@ -9,7 +9,6 @@ import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import 'public_request_media_widgets.dart';
 
-
 String _requestTypeLabel(AppText text, String value) {
   switch (value) {
     case 'announcement':
@@ -99,7 +98,11 @@ class MediaPublicRequestCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                KoomAvatar(label: request.authorName, radius: 20),
+                KoomAvatar(
+                  label: request.authorName,
+                  radius: 20,
+                  imageBytes: request.authorAvatarBytes,
+                ),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
@@ -194,7 +197,9 @@ class MediaPublicRequestCard extends StatelessWidget {
               Text(
                 request.displayBody,
                 maxLines: compact ? (content.hasMedia ? 3 : 5) : null,
-                overflow: compact ? TextOverflow.ellipsis : TextOverflow.visible,
+                overflow: compact
+                    ? TextOverflow.ellipsis
+                    : TextOverflow.visible,
                 style: TextStyle(
                   color: colors.textStrong,
                   height: 1.42,
@@ -214,9 +219,7 @@ class MediaPublicRequestCard extends StatelessWidget {
                 if (request.interactionMode != 'read_only')
                   Expanded(
                     child: _RequestActionButton(
-                      key: ValueKey(
-                        'public_request_support_${request.id}',
-                      ),
+                      key: ValueKey('public_request_support_${request.id}'),
                       icon: request.supportedByMe
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
@@ -228,9 +231,7 @@ class MediaPublicRequestCard extends StatelessWidget {
                 if (request.interactionMode != 'read_only')
                   Expanded(
                     child: _RequestActionButton(
-                      key: ValueKey(
-                        'public_request_oppose_${request.id}',
-                      ),
+                      key: ValueKey('public_request_oppose_${request.id}'),
                       icon: request.opposedByMe
                           ? Icons.thumb_down_alt_rounded
                           : Icons.thumb_down_alt_outlined,
@@ -296,8 +297,9 @@ class _RequestActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final foreground =
-        selected ? Theme.of(context).colorScheme.primary : colors.textMuted;
+    final foreground = selected
+        ? Theme.of(context).colorScheme.primary
+        : colors.textMuted;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
@@ -380,7 +382,9 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
       appBar: AppBar(
-          title: Text(text.readPost), actions: const [AppSettingsButton()]),
+        title: Text(text.readPost),
+        actions: const [AppSettingsButton()],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
