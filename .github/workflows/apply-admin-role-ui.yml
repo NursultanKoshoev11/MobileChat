@@ -5,6 +5,8 @@ on:
     branches: [fix/separate-admin-role-ui]
     paths:
       - .github/workflows/apply-admin-role-ui.yml
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
