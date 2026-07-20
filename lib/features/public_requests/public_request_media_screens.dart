@@ -98,11 +98,7 @@ class MediaPublicRequestCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                KoomAvatar(
-                  label: request.authorName,
-                  radius: 20,
-                  imageBytes: request.authorAvatarBytes,
-                ),
+                KoomAvatar(label: request.authorName, radius: 20),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
@@ -197,9 +193,8 @@ class MediaPublicRequestCard extends StatelessWidget {
               Text(
                 request.displayBody,
                 maxLines: compact ? (content.hasMedia ? 3 : 5) : null,
-                overflow: compact
-                    ? TextOverflow.ellipsis
-                    : TextOverflow.visible,
+                overflow:
+                    compact ? TextOverflow.ellipsis : TextOverflow.visible,
                 style: TextStyle(
                   color: colors.textStrong,
                   height: 1.42,
@@ -211,45 +206,18 @@ class MediaPublicRequestCard extends StatelessWidget {
               const SizedBox(height: 12),
               PublicRequestMediaView(content: content, compact: compact),
             ],
-            const SizedBox(height: 13),
-            Divider(color: colors.border),
-            const SizedBox(height: 5),
-            Row(
-              children: [
-                if (request.interactionMode != 'read_only')
-                  Expanded(
-                    child: _RequestActionButton(
-                      key: ValueKey('public_request_support_${request.id}'),
-                      icon: request.supportedByMe
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      label: '${request.supportCount}',
-                      selected: request.supportedByMe,
-                      onTap: () => onVote('support'),
-                    ),
-                  ),
-                if (request.interactionMode != 'read_only')
-                  Expanded(
-                    child: _RequestActionButton(
-                      key: ValueKey('public_request_oppose_${request.id}'),
-                      icon: request.opposedByMe
-                          ? Icons.thumb_down_alt_rounded
-                          : Icons.thumb_down_alt_outlined,
-                      label: '${request.opposeCount}',
-                      selected: request.opposedByMe,
-                      onTap: () => onVote('oppose'),
-                    ),
-                  ),
-                if (request.interactionMode == 'discussion' && showOpenAction)
-                  Expanded(
-                    child: _RequestActionButton(
-                      key: ValueKey('public_request_read_${request.id}'),
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: '${request.commentCount}',
-                      onTap: onTap,
-                    ),
-                  ),
-                if (request.interactionMode == 'read_only') ...[
+            if (request.interactionMode != 'read_only') ...[
+              const SizedBox(height: 14),
+              _TelegramPoll(
+                request: request,
+                onVote: onVote,
+              ),
+            ] else ...[
+              const SizedBox(height: 13),
+              Divider(color: colors.border),
+              const SizedBox(height: 8),
+              Row(
+                children: [
                   Icon(
                     Icons.visibility_outlined,
                     size: 18,
@@ -264,15 +232,58 @@ class MediaPublicRequestCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const Spacer(),
                 ],
-                Icon(
-                  Icons.ios_share_rounded,
-                  size: 19,
-                  color: colors.textMuted,
+              ),
+            ],
+            if (request.interactionMode == 'discussion' && showOpenAction) ...[
+              const SizedBox(height: 10),
+              Material(
+                color: colors.page,
+                borderRadius: BorderRadius.circular(15),
+                child: InkWell(
+                  key: ValueKey('public_request_read_${request.id}'),
+                  borderRadius: BorderRadius.circular(15),
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 11,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 19,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            text.comments,
+                            style: TextStyle(
+                              color: colors.textStrong,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${request.commentCount}',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: colors.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
@@ -280,49 +291,186 @@ class MediaPublicRequestCard extends StatelessWidget {
   }
 }
 
-class _RequestActionButton extends StatelessWidget {
-  const _RequestActionButton({
+class _TelegramPoll extends StatelessWidget {
+  const _TelegramPoll({required this.request, required this.onVote});
+
+  final PublicRequest request;
+  final ValueChanged<String> onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    final totalVotes = request.supportCount + request.opposeCount;
+    final supportPercent = totalVotes == 0
+        ? 0
+        : ((request.supportCount / totalVotes) * 100).round();
+    final opposePercent = totalVotes == 0 ? 0 : 100 - supportPercent;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: colors.page,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.poll_outlined,
+                size: 19,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text.isKy ? 'Добуш берүү' : 'Голосование',
+                  style: TextStyle(
+                    color: colors.textStrong,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                text.isKy ? '$totalVotes добуш' : '$totalVotes голосов',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _TelegramPollOption(
+            key: ValueKey('public_request_support_${request.id}'),
+            label: text.isKy ? 'Колдойм' : 'Поддерживаю',
+            votes: request.supportCount,
+            percentage: supportPercent,
+            selected: request.supportedByMe,
+            onTap: () => onVote('support'),
+          ),
+          const SizedBox(height: 8),
+          _TelegramPollOption(
+            key: ValueKey('public_request_oppose_${request.id}'),
+            label: text.isKy ? 'Колдобойм' : 'Не поддерживаю',
+            votes: request.opposeCount,
+            percentage: opposePercent,
+            selected: request.opposedByMe,
+            onTap: () => onVote('oppose'),
+          ),
+          if (request.myVote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              text.isKy
+                  ? 'Тандалган вариантты кайра бассаңыз, добуш өчүрүлөт.'
+                  : 'Нажмите выбранный вариант ещё раз, чтобы убрать голос.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TelegramPollOption extends StatelessWidget {
+  const _TelegramPollOption({
     super.key,
-    required this.icon,
     required this.label,
+    required this.votes,
+    required this.percentage,
+    required this.selected,
     required this.onTap,
-    this.selected = false,
   });
 
-  final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final int votes;
+  final int percentage;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final foreground = selected
-        ? Theme.of(context).colorScheme.primary
-        : colors.textMuted;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 7),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 19, color: foreground),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+    final scheme = Theme.of(context).colorScheme;
+    final progress = (percentage / 100).clamp(0.0, 1.0).toDouble();
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label, $percentage%, $votes',
+      child: Material(
+        color:
+            selected ? scheme.primary.withValues(alpha: 0.09) : colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 21,
+                      color: selected ? scheme.primary : colors.textMuted,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: colors.textStrong,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$percentage%',
+                      style: TextStyle(
+                        color: selected ? scheme.primary : colors.textMuted,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Stack(
+                      children: [
+                        Container(
+                          height: 5,
+                          color: colors.border,
+                        ),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          width: constraints.maxWidth * progress,
+                          height: 5,
+                          color: scheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -382,9 +530,7 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(text.readPost),
-        actions: const [AppSettingsButton()],
-      ),
+          title: Text(text.readPost), actions: const [AppSettingsButton()]),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [

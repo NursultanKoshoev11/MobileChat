@@ -174,45 +174,121 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return KoomSheetFrame(
-      title: text.joinByCode,
-      subtitle: text.isKy
-          ? 'Коомчулуктун чакыруу кодун жазыңыз'
-          : 'Введите код приглашения сообщества',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: codeController,
-            textCapitalization: TextCapitalization.characters,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 3,
-            ),
-            inputFormatters: [GroupInviteCodeFormatter()],
-            decoration: InputDecoration(
-              labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
-              hintText: 'AAA-666',
-              prefixIcon: const Icon(Icons.key_rounded),
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Material(
+          color: theme.cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        Icons.key_rounded,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            text.joinByCode,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            text.isKy
+                                ? 'Чакыруу кодун жазыңыз'
+                                : 'Введите код приглашения',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: codeController,
+                  textCapitalization: TextCapitalization.characters,
+                  textAlign: TextAlign.center,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!loading) submit();
+                  },
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3,
+                  ),
+                  inputFormatters: [GroupInviteCodeFormatter()],
+                  decoration: InputDecoration(
+                    labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
+                    hintText: 'AAA-666',
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  ErrorBanner(message: error!),
+                ],
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: loading ? null : submit,
+                  icon: loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.login_rounded),
+                  label: Text(
+                    loading
+                        ? (text.isKy ? 'Кирүүдө...' : 'Входим...')
+                        : text.joinByCode,
+                  ),
+                ),
+              ],
             ),
           ),
-          if (error != null) ...[
-            const SizedBox(height: 12),
-            ErrorBanner(message: error!),
-          ],
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: loading ? null : submit,
-            icon: const Icon(Icons.login_rounded),
-            label: Text(
-              loading
-                  ? (text.isKy ? 'Кирүүдө...' : 'Входим...')
-                  : text.joinByCode,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
