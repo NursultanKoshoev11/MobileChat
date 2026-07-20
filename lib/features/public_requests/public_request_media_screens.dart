@@ -98,7 +98,11 @@ class MediaPublicRequestCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                KoomAvatar(label: request.authorName, radius: 20),
+                KoomAvatar(
+                  label: request.authorName,
+                  radius: 20,
+                  imageBytes: request.authorAvatarBytes,
+                ),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
