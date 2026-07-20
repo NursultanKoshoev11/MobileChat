@@ -49,7 +49,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   StreamSubscription<Map<String, String>>? _openedPushSubscription;
   Timer? _invitationsCountDebounce;
   Timer? _adminCountDebounce;
-  bool get isAdmin => widget.session.user.isPlatformAdmin;
+  bool get canReviewGroupCreationRequests =>
+      widget.session.user.canReviewGroupCreationRequests;
+  bool get canManageAllGroups => widget.session.user.canManageAllGroups;
 
   @override
   void initState() {
@@ -189,7 +191,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   void _scheduleAdminCountRefresh() {
-    if (!isAdmin) return;
+    if (!canReviewGroupCreationRequests) return;
     _adminCountDebounce?.cancel();
     _adminCountDebounce = Timer(const Duration(milliseconds: 250), () {
       if (mounted) unawaited(_refreshAdminCount());
@@ -227,7 +229,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<int> loadAdminRequestsCount() async {
-    if (!isAdmin) return 0;
+    if (!canReviewGroupCreationRequests) return 0;
     try {
       return (await widget.api.fetchAdminGroupCreationRequests(
         status: 'pending',
@@ -273,7 +275,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> createGroup() async {
-    if (!isAdmin) {
+    if (!canManageAllGroups) {
       await openGroupRequests();
       return;
     }
@@ -477,7 +479,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       showDragHandle: true,
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => MainGroupsMenuSheet(
-        isAdmin: isAdmin,
+        canReviewGroupCreationRequests: canReviewGroupCreationRequests,
         adminRequestsCount: counts[0],
         invitationsCount: counts[1],
         onProfile: openProfile,
@@ -511,8 +513,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
       floatingActionButton: KoomAdaptiveFab(
         key: const ValueKey('groups_create_action'),
         onPressed: createGroup,
-        icon: isAdmin ? Icons.add_rounded : Icons.verified_user_outlined,
-        label: isAdmin ? text.newGroup : text.requestGroup,
+        icon: canManageAllGroups
+            ? Icons.add_rounded
+            : Icons.verified_user_outlined,
+        label: canManageAllGroups ? text.newGroup : text.requestGroup,
       ),
       body: KoomPageBackground(
         child: RefreshIndicator(
@@ -539,13 +543,14 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       userName: widget.session.user.displayName,
                       userAvatarBytes: widget.session.user.avatarBytes,
                       groupCount: currentGroups.length,
-                      isAdmin: isAdmin,
+                      canReviewGroupCreationRequests:
+                          canReviewGroupCreationRequests,
                       adminRequestsCountFuture: adminRequestsCountFuture,
                       invitationsCountFuture: invitationsCountFuture,
                       onJoinByCode: joinByCode,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
-                      onRequests: isAdmin
+                      onRequests: canReviewGroupCreationRequests
                           ? openAdminRequests
                           : openGroupRequests,
                     ),
@@ -565,13 +570,14 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       userName: widget.session.user.displayName,
                       userAvatarBytes: widget.session.user.avatarBytes,
                       groupCount: groups.length,
-                      isAdmin: isAdmin,
+                      canReviewGroupCreationRequests:
+                          canReviewGroupCreationRequests,
                       adminRequestsCountFuture: adminRequestsCountFuture,
                       invitationsCountFuture: invitationsCountFuture,
                       onJoinByCode: joinByCode,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
-                      onRequests: isAdmin
+                      onRequests: canReviewGroupCreationRequests
                           ? openAdminRequests
                           : openGroupRequests,
                     );
@@ -593,7 +599,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   }
                   if (groups.isEmpty) {
                     return _EmptyGroups(
-                      isAdmin: isAdmin,
+                      canReviewGroupCreationRequests: canManageAllGroups,
                       onCreate: createGroup,
                     );
                   }
@@ -602,7 +608,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     group: group,
                     onTap: () => openGroup(group),
                     onLeave: () => leaveGroup(group),
-                    canDelete: isAdmin,
+                    canDelete: canManageAllGroups,
                     onDelete: () => deleteGroup(group),
                   );
                 },
@@ -620,7 +626,7 @@ class _GroupsOverview extends StatelessWidget {
     required this.userName,
     required this.userAvatarBytes,
     required this.groupCount,
-    required this.isAdmin,
+    required this.canReviewGroupCreationRequests,
     required this.adminRequestsCountFuture,
     required this.invitationsCountFuture,
     required this.onJoinByCode,
@@ -632,7 +638,7 @@ class _GroupsOverview extends StatelessWidget {
   final String userName;
   final Uint8List? userAvatarBytes;
   final int groupCount;
-  final bool isAdmin;
+  final bool canReviewGroupCreationRequests;
   final Future<int> adminRequestsCountFuture;
   final Future<int> invitationsCountFuture;
   final VoidCallback onJoinByCode;
@@ -748,11 +754,15 @@ class _GroupsOverview extends StatelessWidget {
                 future: adminRequestsCountFuture,
                 builder: (context, snapshot) => KoomIconTile(
                   compact: true,
-                  icon: isAdmin
+                  icon: canReviewGroupCreationRequests
                       ? Icons.fact_check_outlined
                       : Icons.verified_user_outlined,
-                  label: isAdmin ? text.adminRequests : text.myRequests,
-                  badge: isAdmin ? snapshot.data ?? 0 : null,
+                  label: canReviewGroupCreationRequests
+                      ? text.adminRequests
+                      : text.myRequests,
+                  badge: canReviewGroupCreationRequests
+                      ? snapshot.data ?? 0
+                      : null,
                   onTap: onRequests,
                 ),
               ),
@@ -769,7 +779,7 @@ class _GroupsOverview extends StatelessWidget {
 class MainGroupsMenuSheet extends StatelessWidget {
   const MainGroupsMenuSheet({
     super.key,
-    required this.isAdmin,
+    required this.canReviewGroupCreationRequests,
     required this.adminRequestsCount,
     required this.invitationsCount,
     required this.onProfile,
@@ -781,7 +791,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
     required this.onLogout,
   });
 
-  final bool isAdmin;
+  final bool canReviewGroupCreationRequests;
   final int adminRequestsCount;
   final int invitationsCount;
   final VoidCallback onProfile;
@@ -799,7 +809,7 @@ class MainGroupsMenuSheet extends StatelessWidget {
       title: text.isKy ? 'Koom менюсу' : 'Меню Koom',
       child: Column(
         children: [
-          if (isAdmin)
+          if (canReviewGroupCreationRequests)
             _MenuItem(
               icon: Icons.admin_panel_settings_outlined,
               title: text.adminRequests,
@@ -982,9 +992,12 @@ class _GroupMetaPill extends StatelessWidget {
 }
 
 class _EmptyGroups extends StatelessWidget {
-  const _EmptyGroups({required this.isAdmin, required this.onCreate});
+  const _EmptyGroups({
+    required this.canReviewGroupCreationRequests,
+    required this.onCreate,
+  });
 
-  final bool isAdmin;
+  final bool canReviewGroupCreationRequests;
   final VoidCallback onCreate;
 
   @override
@@ -1002,9 +1015,13 @@ class _EmptyGroups extends StatelessWidget {
           key: const ValueKey('groups_empty_create_action'),
           onPressed: onCreate,
           icon: Icon(
-            isAdmin ? Icons.add_rounded : Icons.verified_user_outlined,
+            canReviewGroupCreationRequests
+                ? Icons.add_rounded
+                : Icons.verified_user_outlined,
           ),
-          label: Text(isAdmin ? text.newGroup : text.requestGroup),
+          label: Text(
+            canReviewGroupCreationRequests ? text.newGroup : text.requestGroup,
+          ),
         ),
       ),
     );
