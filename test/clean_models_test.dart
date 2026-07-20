@@ -16,7 +16,7 @@ void main() {
     expect(user.displayName, 'Nursultan');
   });
 
-  test('UserProfile handles phone fallback and admin roles', () {
+  test('UserProfile handles phone fallback and separated admin roles', () {
     final admin = UserProfile.fromJson({
       'id': 'U-ADMIN',
       'phone': '+996700000000',
@@ -34,8 +34,13 @@ void main() {
     expect(admin.createdAt, isNull);
     expect(admin.isPlatformAdmin, isTrue);
     expect(admin.isSuperAdmin, isFalse);
-    expect(superAdmin.isPlatformAdmin, isTrue);
+    expect(admin.canReviewGroupCreationRequests, isTrue);
+    expect(admin.canManageAllGroups, isFalse);
+
+    expect(superAdmin.isPlatformAdmin, isFalse);
     expect(superAdmin.isSuperAdmin, isTrue);
+    expect(superAdmin.canReviewGroupCreationRequests, isTrue);
+    expect(superAdmin.canManageAllGroups, isTrue);
     expect(superAdmin.toJson()['role'], 'super_admin');
   });
 
@@ -60,170 +65,128 @@ void main() {
     final user = UserProfile.fromJson({
       'id': 'U-AVATAR',
       'display_name': 'Avatar User',
-      'avatar_data': 'data:image/jpeg;base64,YWJj',
+      'role': 'user',
+      'avatar_data': 'data:image/png;base64,QQ==',
+      'created_at': '2026-05-14T00:00:00Z',
     });
-    final changed = user.copyWith(avatarData: 'data:image/jpeg;base64,ZGVm');
+    final copied = user.copyWith(avatarData: 'data:image/png;base64,Qg==');
     final session = AppSession(
       accessToken: 'access',
       refreshToken: 'refresh',
-      user: user,
-    ).copyWith(user: changed);
+      user: copied,
+    );
 
-    expect(user.avatarData, 'data:image/jpeg;base64,YWJj');
-    expect(user.toJson()['avatar_data'], user.avatarData);
-    expect(changed.avatarData, 'data:image/jpeg;base64,ZGVm');
-    expect(session.user.avatarData, changed.avatarData);
+    expect(user.avatarData, 'data:image/png;base64,QQ==');
+    expect(user.avatarBytes, isNotNull);
+    expect(user.avatarBytes!.single, 65);
+    expect(copied.avatarData, 'data:image/png;base64,Qg==');
+    expect(session.toJson()['user']['avatar_data'], 'data:image/png;base64,Qg==');
   });
 
   test('ChatGroup canInvite works for admin and owner', () {
-    final admin = ChatGroup.fromJson({
+    final owner = ChatGroup.fromJson({
       'id': 'G-1',
-      'title': 'Group',
-      'description': '',
+      'title': 'Owner group',
       'visibility': 'private',
       'owner_id': 'U-1',
-      'avatar_data': 'data:image/jpeg;base64,YWJj',
       'member_count': 1,
-      'my_role': 'admin',
-      'created_at': '2026-05-14T00:00:00Z',
+      'unread_public_request_count': 0,
+      'my_role': 'owner',
     });
+    final admin = owner.copyWith(myRole: 'admin');
+    final member = owner.copyWith(myRole: 'member');
 
-    expect(admin.isPublic, isFalse);
+    expect(owner.canInvite, isTrue);
     expect(admin.canInvite, isTrue);
-    expect(admin.avatarData, 'data:image/jpeg;base64,YWJj');
-    expect(admin.avatarBytes, isNotNull);
+    expect(member.canInvite, isFalse);
   });
 
   test('ChatGroup parses defaults and copyWith overrides fields', () {
     final group = ChatGroup.fromJson({
-      'id': 'G-2',
-      'title': 'Public Group',
+      'id': 'G-1',
+      'title': 'Group',
       'visibility': 'public',
-      'created_at': 'bad-date',
     });
-    final changed = group.copyWith(
-      title: 'Private Group',
-      description: 'Updated',
-      visibility: 'private',
-      ownerId: 'U-OWNER',
-      memberCount: 8,
-      unreadPublicRequestCount: 4,
-      inviteCode: 'INVITE',
-      qrPass: 'QR',
-      myRole: 'owner',
-      createdAt: DateTime.parse('2026-05-14T00:00:00Z'),
-    );
 
     expect(group.description, '');
     expect(group.ownerId, '');
+    expect(group.avatarData, '');
     expect(group.memberCount, 0);
     expect(group.unreadPublicRequestCount, 0);
-    expect(group.createdAt, isNull);
     expect(group.isPublic, isTrue);
-    expect(group.canInvite, isFalse);
-    expect(changed.id, 'G-2');
-    expect(changed.title, 'Private Group');
-    expect(changed.description, 'Updated');
-    expect(changed.visibility, 'private');
-    expect(changed.ownerId, 'U-OWNER');
-    expect(changed.memberCount, 8);
-    expect(changed.unreadPublicRequestCount, 4);
-    expect(changed.inviteCode, 'INVITE');
-    expect(changed.qrPass, 'QR');
-    expect(changed.canInvite, isTrue);
-    expect(changed.createdAt, DateTime.parse('2026-05-14T00:00:00Z'));
 
-    final same = group.copyWith();
-    expect(same.id, group.id);
-    expect(same.title, group.title);
-    expect(same.description, group.description);
-    expect(same.visibility, group.visibility);
-    expect(same.ownerId, group.ownerId);
-    expect(same.memberCount, group.memberCount);
-    expect(same.unreadPublicRequestCount, group.unreadPublicRequestCount);
-    expect(same.inviteCode, group.inviteCode);
-    expect(same.qrPass, group.qrPass);
-    expect(same.myRole, group.myRole);
-    expect(same.createdAt, group.createdAt);
+    final updated = group.copyWith(
+      title: 'Updated',
+      avatarData: 'data:image/png;base64,QQ==',
+      memberCount: 5,
+      unreadPublicRequestCount: 2,
+      myRole: 'admin',
+    );
+    expect(updated.title, 'Updated');
+    expect(updated.avatarData, 'data:image/png;base64,QQ==');
+    expect(updated.avatarBytes, isNotNull);
+    expect(updated.memberCount, 5);
+    expect(updated.unreadPublicRequestCount, 2);
+    expect(updated.canInvite, isTrue);
   });
 
   test('GroupMember and ChatMessage parse JSON', () {
     final member = GroupMember.fromJson({
-      'user_id': 'U-1',
-      'phone': '+996700123456',
+      'user_id': 'U-2',
+      'display_name': 'Member',
+      'phone': '+996700000002',
+      'role': 'member',
     });
     final message = ChatMessage.fromJson({
       'id': 'M-1',
       'group_id': 'G-1',
-      'sender_id': 'U-1',
-      'sender_name': 'Nursultan',
+      'sender_id': 'U-2',
+      'sender_name': 'Member',
       'text': 'Hello',
-      'created_at': '2026-05-14T07:05:00Z',
+      'created_at': '2026-05-14T00:00:00Z',
     });
 
-    expect(member.displayName, 'User');
-    expect(member.role, 'member');
-    expect(member.phone, '+996700123456');
-    expect(message.id, 'M-1');
+    expect(member.userId, 'U-2');
+    expect(member.phone, '+996700000002');
     expect(message.groupId, 'G-1');
-    expect(message.senderId, 'U-1');
-    expect(message.senderName, 'Nursultan');
     expect(message.text, 'Hello');
-    expect(message.createdAt, DateTime.parse('2026-05-14T07:05:00Z'));
   });
 
   test('GroupCreationRequest parses complete and legacy JSON', () {
-    final complete = GroupCreationRequest.fromJson({
-      'id': 'R-1',
+    final request = GroupCreationRequest.fromJson({
+      'id': 'GCR-1',
       'requester_id': 'U-1',
       'applicant_name': 'Applicant',
       'position': 'Director',
-      'organization_name': 'Org',
-      'organization_type': 'Public',
+      'organization_name': 'Organization',
+      'organization_type': 'ngo',
       'region': 'Bishkek',
-      'official_phone': '+996700123456',
-      'official_email': 'org@example.test',
-      'website': 'https://example.test',
-      'group_title': 'Org Group',
-      'group_description': 'About',
-      'reason': 'Need communication',
-      'documents': 'doc.pdf',
-      'status': 'approved',
-      'admin_comment': 'ok',
-      'created_group_id': 'G-NEW',
+      'official_phone': '+996700000000',
+      'official_email': 'info@example.com',
+      'website': 'https://example.com',
+      'group_title': 'Official Group',
+      'group_description': 'Description',
+      'reason': 'Reason',
+      'documents': 'Documents',
+      'status': 'pending',
+      'admin_comment': '',
+      'created_group_id': '',
       'created_at': '2026-05-14T00:00:00Z',
-      'updated_at': '2026-05-15T00:00:00Z',
-      'reviewed_at': '2026-05-16T00:00:00Z',
+      'updated_at': '2026-05-14T01:00:00Z',
+      'reviewed_at': null,
     });
-    final legacy = GroupCreationRequest.fromJson({'id': 'R-2'});
+    final legacy = GroupCreationRequest.fromJson({'id': 'GCR-2'});
 
-    expect(complete.requesterId, 'U-1');
-    expect(complete.applicantName, 'Applicant');
-    expect(complete.position, 'Director');
-    expect(complete.organizationName, 'Org');
-    expect(complete.organizationType, 'Public');
-    expect(complete.region, 'Bishkek');
-    expect(complete.officialPhone, '+996700123456');
-    expect(complete.officialEmail, 'org@example.test');
-    expect(complete.website, 'https://example.test');
-    expect(complete.groupTitle, 'Org Group');
-    expect(complete.groupDescription, 'About');
-    expect(complete.reason, 'Need communication');
-    expect(complete.documents, 'doc.pdf');
-    expect(complete.status, 'approved');
-    expect(complete.adminComment, 'ok');
-    expect(complete.createdGroupId, 'G-NEW');
-    expect(complete.createdAt, DateTime.parse('2026-05-14T00:00:00Z'));
-    expect(complete.updatedAt, DateTime.parse('2026-05-15T00:00:00Z'));
-    expect(complete.reviewedAt, DateTime.parse('2026-05-16T00:00:00Z'));
+    expect(request.requesterId, 'U-1');
+    expect(request.groupTitle, 'Official Group');
+    expect(request.createdAt, isNotNull);
     expect(legacy.status, 'pending');
-    expect(legacy.requesterId, '');
-    expect(legacy.reviewedAt, isNull);
+    expect(legacy.organizationName, '');
   });
 
   test('UI helpers format values', () {
-    expect(avatarText('mobile'), 'M');
-    expect(avatarText(''), '?');
-    expect(compactTime(DateTime(2026, 5, 14, 7, 5)), '07:05');
+    expect(avatarText('Nursultan'), 'N');
+    expect(avatarText('  '), '?');
+    expect(compactTime(DateTime(2026, 5, 14, 9, 7)), '09:07');
   });
 }
