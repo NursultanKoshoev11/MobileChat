@@ -21,6 +21,18 @@ class UserProfile {
   bool get isPlatformAdmin => role == 'platform_admin' || role == 'super_admin';
   bool get isSuperAdmin => role == 'super_admin';
 
+  Uint8List? get avatarBytes {
+    final value = avatarData.trim();
+    if (value.isEmpty) return null;
+    try {
+      final separator = value.indexOf(',');
+      final payload = separator >= 0 ? value.substring(separator + 1) : value;
+      return base64Decode(payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as String,
@@ -31,7 +43,6 @@ class UserProfile {
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
     );
   }
-
 
   UserProfile copyWith({
     String? displayName,
@@ -150,7 +161,8 @@ class ChatGroup {
       ownerId: json['owner_id'] as String? ?? '',
       avatarData: json['avatar_data'] as String? ?? '',
       memberCount: json['member_count'] as int? ?? 0,
-      unreadPublicRequestCount: json['unread_public_request_count'] as int? ?? 0,
+      unreadPublicRequestCount:
+          json['unread_public_request_count'] as int? ?? 0,
       inviteCode: json['invite_code'] as String?,
       qrPass: json['qr_pass'] as String?,
       myRole: json['my_role'] as String?,
@@ -180,14 +192,14 @@ class ChatGroup {
       ownerId: ownerId ?? this.ownerId,
       avatarData: avatarData ?? this.avatarData,
       memberCount: memberCount ?? this.memberCount,
-      unreadPublicRequestCount: unreadPublicRequestCount ?? this.unreadPublicRequestCount,
+      unreadPublicRequestCount:
+          unreadPublicRequestCount ?? this.unreadPublicRequestCount,
       inviteCode: inviteCode ?? this.inviteCode,
       qrPass: qrPass ?? this.qrPass,
       myRole: myRole ?? this.myRole,
       createdAt: createdAt ?? this.createdAt,
     );
   }
-
 }
 
 class GroupMember {

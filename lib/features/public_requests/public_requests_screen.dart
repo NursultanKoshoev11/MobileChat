@@ -97,6 +97,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
           _realtimeWasReady = true;
         }
         break;
+      case 'group.avatar_updated':
+        final payload = event.payload;
+        if (payload is Map<String, dynamic>) {
+          final avatarData = payload['avatar_data'] as String? ?? '';
+          setState(() {
+            currentGroup = currentGroup.copyWith(avatarData: avatarData);
+          });
+        }
+        break;
       case 'public_request.created':
         upsertRequestFromPayload(event.payload);
         _scheduleMarkRequestsRead();
@@ -295,9 +304,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       ),
     );
     if (created != null) {
+      final visibleCreated = created.authorAvatarData.trim().isEmpty
+          ? created.copyWith(authorAvatarData: widget.user.avatarData)
+          : created;
       final updated = [
-        created,
-        ...cachedRequests.where((request) => request.id != created.id),
+        visibleCreated,
+        ...cachedRequests.where((request) => request.id != visibleCreated.id),
       ];
       cachedRequests = updated;
       if (mounted) {
@@ -1202,8 +1214,8 @@ String _memberCountLabel(AppText text, int count) {
   final suffix = mod10 == 1 && mod100 != 11
       ? 'участник'
       : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
-          ? 'участника'
-          : 'участников';
+      ? 'участника'
+      : 'участников';
   return '$count $suffix';
 }
 
