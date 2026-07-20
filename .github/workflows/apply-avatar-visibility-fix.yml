@@ -1,0 +1,47 @@
+name: Apply avatar visibility fix
+
+on:
+  push:
+    branches:
+      - fix/avatar-and-group-images-20260720
+    paths:
+      - tools/patch_avatar_visibility.py
+      - tools/patch_avatar_visibility_import.py
+      - .github/workflows/apply-avatar-visibility-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/avatar-and-group-images-20260720
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply deterministic patch
+        run: |
+          python3 tools/patch_avatar_visibility_import.py
+          python3 tools/patch_avatar_visibility.py
+      - name: Format changed Dart files
+        run: dart format lib/data/models.dart lib/data/public_request.dart lib/features/groups/groups_screen.dart lib/features/public_requests/public_requests_screen.dart lib/features/public_requests/public_request_media_screens.dart lib/features/public_requests/public_requests_widgets.dart
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Run tests
+        run: flutter test
+      - name: Commit verified fix
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Fix avatar and group image propagation"
+          git push origin HEAD:fix/avatar-and-group-images-20260720
