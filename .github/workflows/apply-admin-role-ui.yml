@@ -87,12 +87,20 @@ jobs:
           path.write_text(text)
           PY
 
-      - name: Format and validate
-        run: |
-          dart format lib/data/models.dart lib/features/groups/groups_screen.dart test/role_permissions_test.dart
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test
+      - name: Format changed Dart files
+        run: dart format lib/data/models.dart lib/features/groups/groups_screen.dart test/role_permissions_test.dart
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter project
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Run role permission regression tests
+        run: flutter test test/role_permissions_test.dart
+
+      - name: Run all Flutter tests
+        run: flutter test
 
       - name: Commit validated UI separation
         run: |
