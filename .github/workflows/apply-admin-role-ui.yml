@@ -37,21 +37,23 @@ jobs:
           text = path.read_text()
           text = re.sub(r'\bisAdmin\b', 'canReviewGroupCreationRequests', text)
 
-          old = '  bool get canReviewGroupCreationRequests => widget.session.user.isPlatformAdmin;'
-          new = '''  bool get canReviewGroupCreationRequests =>
-              widget.session.user.canReviewGroupCreationRequests;
-          bool get canManageAllGroups => widget.session.user.canManageAllGroups;'''
-          if old not in text:
-              raise SystemExit('role getter marker not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r'  bool get canReviewGroupCreationRequests =>\s*widget\.session\.user\.(?:isPlatformAdmin|canReviewGroupCreationRequests);',
+              '  bool get canReviewGroupCreationRequests =>\n      widget.session.user.canReviewGroupCreationRequests;\n  bool get canManageAllGroups => widget.session.user.canManageAllGroups;',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'role getter replacement count={count}')
 
-          old = '''  Future<void> createGroup() async {
-              if (!canReviewGroupCreationRequests) {'''
-          new = '''  Future<void> createGroup() async {
-              if (!canManageAllGroups) {'''
-          if old not in text:
-              raise SystemExit('createGroup marker not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r'(Future<void> createGroup\(\) async \{\s*)if \(!canReviewGroupCreationRequests\)',
+              r'\1if (!canManageAllGroups)',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'createGroup replacement count={count}')
 
           text = text.replace(
               'icon: canReviewGroupCreationRequests ? Icons.add_rounded : Icons.verified_user_outlined,',
@@ -64,23 +66,23 @@ jobs:
               1,
           )
 
-          old = '''return _EmptyGroups(
-                      canReviewGroupCreationRequests: canReviewGroupCreationRequests,
-                      onCreate: createGroup,
-                    );'''
-          new = '''return _EmptyGroups(
-                      canReviewGroupCreationRequests: canManageAllGroups,
-                      onCreate: createGroup,
-                    );'''
-          if old not in text:
-              raise SystemExit('empty groups marker not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r'(return _EmptyGroups\(\s*canReviewGroupCreationRequests:) canReviewGroupCreationRequests,',
+              r'\1 canManageAllGroups,',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'empty groups replacement count={count}')
 
-          old = '                    canDelete: canReviewGroupCreationRequests,'
-          new = '                    canDelete: canManageAllGroups,'
-          if old not in text:
-              raise SystemExit('delete capability marker not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r'(canDelete:) canReviewGroupCreationRequests,',
+              r'\1 canManageAllGroups,',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'delete replacement count={count}')
 
           path.write_text(text)
           PY
