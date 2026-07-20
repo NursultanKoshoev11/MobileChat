@@ -18,8 +18,14 @@ class UserProfile {
   final String role;
   final String avatarData;
 
-  bool get isPlatformAdmin => role == 'platform_admin' || role == 'super_admin';
+  bool get isPlatformAdmin => role == 'platform_admin';
   bool get isSuperAdmin => role == 'super_admin';
+
+  // Keep role checks centralized so future platform privileges can be added
+  // without scattering raw role string comparisons across the UI.
+  bool get canReviewGroupCreationRequests => isPlatformAdmin || isSuperAdmin;
+  bool get canManageAllGroups => isSuperAdmin;
+  bool get canModerateAnyGroup => isSuperAdmin;
 
   Uint8List? get avatarBytes {
     final value = avatarData.trim();
