@@ -7,6 +7,7 @@ class AppPreferencesStore {
 
   static const _languageKey = 'koom_preferred_language_v1';
   static const _themeKey = 'koom_preferred_theme_v1';
+  static const _displayScaleKey = 'koom_display_scale_v1';
   static const _androidOptions =
       AndroidOptions(encryptedSharedPreferences: true);
 
@@ -23,4 +24,14 @@ class AppPreferencesStore {
 
   Future<void> writeThemeMode(String value) =>
       _storage.write(key: _themeKey, value: value, aOptions: _androidOptions);
+
+  Future<String?> readDisplayScale() =>
+      _storage.read(key: _displayScaleKey, aOptions: _androidOptions);
+
+  Future<void> writeDisplayScale(String value) =>
+      _storage.write(
+        key: _displayScaleKey,
+        value: value,
+        aOptions: _androidOptions,
+      );
 }
