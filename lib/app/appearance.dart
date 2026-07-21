@@ -23,7 +23,7 @@ class AppAppearanceController extends ChangeNotifier {
 
   final AppPreferencesStore _store;
   ThemeMode _themeMode = ThemeMode.light;
-  AppDisplayScale _displayScale = AppDisplayScale.standard;
+  AppDisplayScale _displayScale = AppDisplayScale.compact;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
@@ -40,7 +40,9 @@ class AppAppearanceController extends ChangeNotifier {
         'light' => ThemeMode.light,
         _ => null,
       };
-      final restoredScale = AppDisplayScale.values.cast<AppDisplayScale?>().firstWhere(
+      final restoredScale = AppDisplayScale.values
+          .cast<AppDisplayScale?>()
+          .firstWhere(
             (value) => value?.name == values[1],
             orElse: () => null,
           );
@@ -201,7 +203,7 @@ class AppSettingsSheet extends StatelessWidget {
                     Expanded(
                       child: Text(
                         text.settings,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: colors.textStrong,
@@ -226,7 +228,7 @@ class AppSettingsSheet extends StatelessWidget {
                 _SectionTitle(text.isKy ? 'Тема' : 'Тема'),
                 const SizedBox(height: 8),
                 KoomAdaptiveTileGrid(
-                  minItemWidth: 140,
+                  minItemWidth: 148,
                   maxColumns: 2,
                   spacing: 10,
                   runSpacing: 10,
@@ -246,10 +248,12 @@ class AppSettingsSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _SectionTitle(text.isKy ? 'Интерфейстин өлчөмү' : 'Размер интерфейса'),
+                _SectionTitle(
+                  text.isKy ? 'Интерфейстин өлчөмү' : 'Размер интерфейса',
+                ),
                 const SizedBox(height: 8),
                 KoomAdaptiveTileGrid(
-                  minItemWidth: 105,
+                  minItemWidth: 110,
                   maxColumns: 3,
                   spacing: 8,
                   runSpacing: 8,
@@ -257,20 +261,25 @@ class AppSettingsSheet extends StatelessWidget {
                     _SettingsOption(
                       label: text.isKy ? 'Кичине' : 'Меньше',
                       icon: Icons.text_decrease_rounded,
-                      selected: appearance.displayScale == AppDisplayScale.compact,
-                      onTap: () => appearance.setDisplayScale(AppDisplayScale.compact),
+                      selected:
+                          appearance.displayScale == AppDisplayScale.compact,
+                      onTap: () =>
+                          appearance.setDisplayScale(AppDisplayScale.compact),
                     ),
                     _SettingsOption(
                       label: text.isKy ? 'Кадимки' : 'Обычно',
                       icon: Icons.text_fields_rounded,
-                      selected: appearance.displayScale == AppDisplayScale.standard,
-                      onTap: () => appearance.setDisplayScale(AppDisplayScale.standard),
+                      selected:
+                          appearance.displayScale == AppDisplayScale.standard,
+                      onTap: () =>
+                          appearance.setDisplayScale(AppDisplayScale.standard),
                     ),
                     _SettingsOption(
                       label: text.isKy ? 'Чоң' : 'Больше',
                       icon: Icons.text_increase_rounded,
                       selected: appearance.displayScale == AppDisplayScale.large,
-                      onTap: () => appearance.setDisplayScale(AppDisplayScale.large),
+                      onTap: () =>
+                          appearance.setDisplayScale(AppDisplayScale.large),
                     ),
                   ],
                 ),
@@ -278,7 +287,7 @@ class AppSettingsSheet extends StatelessWidget {
                 _SectionTitle(text.languageLabel),
                 const SizedBox(height: 8),
                 KoomAdaptiveTileGrid(
-                  minItemWidth: 140,
+                  minItemWidth: 148,
                   maxColumns: 2,
                   spacing: 10,
                   runSpacing: 10,
@@ -314,6 +323,8 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
         color: context.appColors.textMuted,
         fontWeight: FontWeight.w800,
@@ -346,7 +357,8 @@ class _SettingsOption extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        constraints: const BoxConstraints(minHeight: 54),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(18),
@@ -357,30 +369,35 @@ class _SettingsOption extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, color: iconColor, size: 24),
-            const SizedBox(width: 8),
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 7),
             Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: foreground,
-                  fontWeight: FontWeight.w800,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             SizedBox(
-              width: 18,
-              height: 18,
+              width: 17,
+              height: 17,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 140),
                 opacity: selected ? 1 : 0,
                 child: const Icon(
                   Icons.check_circle_rounded,
                   color: Colors.white,
-                  size: 18,
+                  size: 17,
                 ),
               ),
             ),
