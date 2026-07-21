@@ -3,10 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../shared/koom_ui.dart';
-
 import 'localization.dart';
 import 'preferences_store.dart';
 import 'theme.dart';
+
+enum AppDisplayScale {
+  compact(0.90),
+  standard(1.0),
+  large(1.15);
+
+  const AppDisplayScale(this.factor);
+  final double factor;
+}
 
 class AppAppearanceController extends ChangeNotifier {
   AppAppearanceController({
@@ -15,23 +23,39 @@ class AppAppearanceController extends ChangeNotifier {
 
   final AppPreferencesStore _store;
   ThemeMode _themeMode = ThemeMode.light;
+  AppDisplayScale _displayScale = AppDisplayScale.standard;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
+  AppDisplayScale get displayScale => _displayScale;
 
   Future<void> restore() async {
     try {
-      final stored = await _store.readThemeMode();
-      final restored = switch (stored) {
+      final values = await Future.wait([
+        _store.readThemeMode(),
+        _store.readDisplayScale(),
+      ]);
+      final restoredTheme = switch (values[0]) {
         'dark' => ThemeMode.dark,
         'light' => ThemeMode.light,
         _ => null,
       };
-      if (restored == null || restored == _themeMode) return;
-      _themeMode = restored;
-      notifyListeners();
+      final restoredScale = AppDisplayScale.values.cast<AppDisplayScale?>().firstWhere(
+            (value) => value?.name == values[1],
+            orElse: () => null,
+          );
+      var changed = false;
+      if (restoredTheme != null && restoredTheme != _themeMode) {
+        _themeMode = restoredTheme;
+        changed = true;
+      }
+      if (restoredScale != null && restoredScale != _displayScale) {
+        _displayScale = restoredScale;
+        changed = true;
+      }
+      if (changed) notifyListeners();
     } catch (_) {
-      // Keep the default theme when local storage is unavailable.
+      // Keep defaults when local storage is unavailable.
     }
   }
 
@@ -42,12 +66,23 @@ class AppAppearanceController extends ChangeNotifier {
     unawaited(_persistThemeMode(value));
   }
 
+  void setDisplayScale(AppDisplayScale value) {
+    if (_displayScale == value) return;
+    _displayScale = value;
+    notifyListeners();
+    unawaited(_persistDisplayScale(value));
+  }
+
   Future<void> _persistThemeMode(ThemeMode value) async {
     try {
       await _store.writeThemeMode(value.name);
-    } catch (_) {
-      // The in-memory choice remains active even if persistence fails.
-    }
+    } catch (_) {}
+  }
+
+  Future<void> _persistDisplayScale(AppDisplayScale value) async {
+    try {
+      await _store.writeDisplayScale(value.name);
+    } catch (_) {}
   }
 
   void toggleTheme() {
@@ -56,11 +91,11 @@ class AppAppearanceController extends ChangeNotifier {
 }
 
 class AppAppearanceScope extends InheritedNotifier<AppAppearanceController> {
-  const AppAppearanceScope(
-      {super.key,
-      required AppAppearanceController controller,
-      required super.child})
-      : super(notifier: controller);
+  const AppAppearanceScope({
+    super.key,
+    required AppAppearanceController controller,
+    required super.child,
+  }) : super(notifier: controller);
 
   static AppAppearanceController controllerOf(BuildContext context) {
     final scope =
@@ -188,16 +223,10 @@ class AppSettingsSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  text.isKy ? 'Тема' : 'Тема',
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                _SectionTitle(text.isKy ? 'Тема' : 'Тема'),
                 const SizedBox(height: 8),
                 KoomAdaptiveTileGrid(
-                  minItemWidth: 150,
+                  minItemWidth: 140,
                   maxColumns: 2,
                   spacing: 10,
                   runSpacing: 10,
@@ -206,29 +235,50 @@ class AppSettingsSheet extends StatelessWidget {
                       label: text.lightMode,
                       icon: Icons.light_mode_rounded,
                       selected: !appearance.isDark,
-                      onTap: () =>
-                          appearance.setThemeMode(ThemeMode.light),
+                      onTap: () => appearance.setThemeMode(ThemeMode.light),
                     ),
                     _SettingsOption(
                       label: text.darkMode,
                       icon: Icons.dark_mode_rounded,
                       selected: appearance.isDark,
-                      onTap: () =>
-                          appearance.setThemeMode(ThemeMode.dark),
+                      onTap: () => appearance.setThemeMode(ThemeMode.dark),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  text.languageLabel,
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                _SectionTitle(text.isKy ? 'Интерфейстин өлчөмү' : 'Размер интерфейса'),
                 const SizedBox(height: 8),
                 KoomAdaptiveTileGrid(
-                  minItemWidth: 150,
+                  minItemWidth: 105,
+                  maxColumns: 3,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _SettingsOption(
+                      label: text.isKy ? 'Кичине' : 'Меньше',
+                      icon: Icons.text_decrease_rounded,
+                      selected: appearance.displayScale == AppDisplayScale.compact,
+                      onTap: () => appearance.setDisplayScale(AppDisplayScale.compact),
+                    ),
+                    _SettingsOption(
+                      label: text.isKy ? 'Кадимки' : 'Обычно',
+                      icon: Icons.text_fields_rounded,
+                      selected: appearance.displayScale == AppDisplayScale.standard,
+                      onTap: () => appearance.setDisplayScale(AppDisplayScale.standard),
+                    ),
+                    _SettingsOption(
+                      label: text.isKy ? 'Чоң' : 'Больше',
+                      icon: Icons.text_increase_rounded,
+                      selected: appearance.displayScale == AppDisplayScale.large,
+                      onTap: () => appearance.setDisplayScale(AppDisplayScale.large),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _SectionTitle(text.languageLabel),
+                const SizedBox(height: 8),
+                KoomAdaptiveTileGrid(
+                  minItemWidth: 140,
                   maxColumns: 2,
                   spacing: 10,
                   runSpacing: 10,
@@ -256,12 +306,29 @@ class AppSettingsSheet extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: context.appColors.textMuted,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
 class _SettingsOption extends StatelessWidget {
-  const _SettingsOption(
-      {required this.label,
-      required this.icon,
-      required this.selected,
-      required this.onTap});
+  const _SettingsOption({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final IconData icon;
@@ -288,30 +355,37 @@ class _SettingsOption extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Row(children: [
-          Icon(icon, color: iconColor, size: 24),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: foreground, fontWeight: FontWeight.w800))),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 140),
-              opacity: selected ? 1 : 0,
-              child: const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.white,
-                size: 18,
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
-        ]),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 140),
+                opacity: selected ? 1 : 0,
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
