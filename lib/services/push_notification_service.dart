@@ -12,12 +12,17 @@ import '../data/api_client.dart';
 class PushNotificationService {
   PushNotificationService({required this.api});
 
-  static final StreamController<Map<String, String>> _foregroundDataController = StreamController<Map<String, String>>.broadcast();
-  static final StreamController<Map<String, String>> _openedDataController = StreamController<Map<String, String>>.broadcast();
+  static final StreamController<Map<String, String>>
+      _foregroundDataController =
+      StreamController<Map<String, String>>.broadcast();
+  static final StreamController<Map<String, String>> _openedDataController =
+      StreamController<Map<String, String>>.broadcast();
   static Map<String, String>? _pendingOpenedData;
 
-  static Stream<Map<String, String>> get foregroundDataStream => _foregroundDataController.stream;
-  static Stream<Map<String, String>> get openedDataStream => _openedDataController.stream;
+  static Stream<Map<String, String>> get foregroundDataStream =>
+      _foregroundDataController.stream;
+  static Stream<Map<String, String>> get openedDataStream =>
+      _openedDataController.stream;
 
   static Map<String, String>? takePendingOpenedData() {
     final pending = _pendingOpenedData;
@@ -33,7 +38,8 @@ class PushNotificationService {
   }
 
   final ApiClient api;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   bool _tokenRefreshListenerStarted = false;
   bool _foregroundListenerStarted = false;
   bool _localNotificationsInitialized = false;
@@ -44,8 +50,16 @@ class PushNotificationService {
       if (messaging == null) return;
 
       await _initLocalNotifications();
-      await messaging.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) {
@@ -60,7 +74,10 @@ class PushNotificationService {
         messaging.onTokenRefresh.listen((newToken) async {
           if (newToken.isEmpty) return;
           try {
-            await api.registerPushToken(token: newToken, platform: _platformName());
+            await api.registerPushToken(
+              token: newToken,
+              platform: _platformName(),
+            );
           } catch (error) {
             _debugLog('FCM token refresh registration failed: $error');
           }
@@ -95,8 +112,10 @@ class PushNotificationService {
   Future<void> _initLocalNotifications() async {
     if (_localNotificationsInitialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings = InitializationSettings(android: androidSettings);
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings =
+        InitializationSettings(android: androidSettings);
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
@@ -109,13 +128,20 @@ class PushNotificationService {
         description: 'Notifications about new posts and comments in Koom.',
         importance: Importance.high,
       );
-      await _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
-      await _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
     }
 
     _localNotificationsInitialized = true;
 
-    final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+    final launchDetails =
+        await _localNotifications.getNotificationAppLaunchDetails();
     if (launchDetails?.didNotificationLaunchApp ?? false) {
       final response = launchDetails?.notificationResponse;
       if (response != null) _handleLocalNotificationResponse(response);
@@ -132,7 +158,11 @@ class PushNotificationService {
 
   static void _emitOpenedMessage(RemoteMessage message) {
     if (message.data.isEmpty || _openedDataController.isClosed) return;
-    final data = Map<String, String>.from(message.data);
+    _emitOpenedData(Map<String, String>.from(message.data));
+  }
+
+  static void _emitOpenedData(Map<String, String> rawData) {
+    final data = _normalizeOpenedData(rawData);
     if (_openedDataController.hasListener) {
       _openedDataController.add(data);
     } else {
@@ -140,7 +170,53 @@ class PushNotificationService {
     }
   }
 
-  static void _handleLocalNotificationResponse(NotificationResponse response) {
+  static Map<String, String> _normalizeOpenedData(
+    Map<String, String> rawData,
+  ) {
+    final data = Map<String, String>.from(rawData);
+    final type = data['type']?.trim() ?? '';
+
+    final requestId = _firstNonEmpty([
+      data['request_id'],
+      data['public_request_id'],
+      data['post_id'],
+      data['publication_id'],
+    ]);
+    if (requestId != null) data['request_id'] = requestId;
+
+    final isCommentNotification =
+        type == 'public_request.comment_created' ||
+        type == 'comment.created' ||
+        type == 'public_request.comment' ||
+        type.contains('comment_created');
+
+    if (isCommentNotification && requestId != null) {
+      // GroupsScreen already knows how to open a specific publication for this
+      // event type. Reuse that route so a comment notification opens the
+      // comments of the correct publication, not a different item.
+      data['type'] = 'public_request.created';
+      data['opened_from_comment_notification'] = 'true';
+    } else if (type == 'public_request.created') {
+      // A new-publication notification should open the publication list. It
+      // must not automatically enter a publication that has no comments.
+      data['type'] = 'public_request.open_list';
+      data.remove('request_id');
+    }
+
+    return data;
+  }
+
+  static String? _firstNonEmpty(List<String?> values) {
+    for (final value in values) {
+      final normalized = value?.trim() ?? '';
+      if (normalized.isNotEmpty) return normalized;
+    }
+    return null;
+  }
+
+  static void _handleLocalNotificationResponse(
+    NotificationResponse response,
+  ) {
     final payload = response.payload?.trim() ?? '';
     if (payload.isEmpty) return;
     try {
@@ -150,18 +226,18 @@ class PushNotificationService {
       for (final entry in decoded.entries) {
         data[entry.key.toString()] = entry.value.toString();
       }
-      if (_openedDataController.hasListener) {
-        _openedDataController.add(data);
-      } else {
-        _pendingOpenedData = data;
-      }
+      _emitOpenedData(data);
     } catch (_) {}
   }
 
-  static Future<void> _showLocalNotificationFromMessage(RemoteMessage message) async {
+  static Future<void> _showLocalNotificationFromMessage(
+    RemoteMessage message,
+  ) async {
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings = InitializationSettings(android: androidSettings);
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettings =
+        InitializationSettings(android: androidSettings);
     await plugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
@@ -174,22 +250,35 @@ class PushNotificationService {
         description: 'Notifications about new posts and comments in Koom.',
         importance: Importance.high,
       );
-      await plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+      await plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
     }
 
-    final title = message.notification?.title ?? message.data['title'] ?? 'Коом';
-    final body = message.notification?.body ?? message.data['body'] ?? 'Откройте приложение, чтобы посмотреть обновление.';
+    final title =
+        message.notification?.title ?? message.data['title'] ?? 'Коом';
+    final body = message.notification?.body ??
+        message.data['body'] ??
+        'Откройте приложение, чтобы посмотреть обновление.';
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         'koom_default',
         'Koom notifications',
-        channelDescription: 'Notifications about new posts and comments in Koom.',
+        channelDescription:
+            'Notifications about new posts and comments in Koom.',
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
       ),
     );
-    await plugin.show(message.hashCode, title, body, details, payload: jsonEncode(message.data));
+    await plugin.show(
+      message.hashCode,
+      title,
+      body,
+      details,
+      payload: jsonEncode(message.data),
+    );
   }
 
   FirebaseMessaging? _messagingOrNull() {
