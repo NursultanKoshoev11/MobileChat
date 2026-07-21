@@ -29,11 +29,13 @@ class PublicRequestsScreen extends StatefulWidget {
     required this.api,
     required this.user,
     required this.group,
+    this.initialRequestId,
   });
 
   final ApiClient api;
   final UserProfile user;
   final ChatGroup group;
+  final String? initialRequestId;
 
   @override
   State<PublicRequestsScreen> createState() => _PublicRequestsScreenState();
@@ -58,6 +60,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   String? ensuredQrPass;
   final Set<String> _votesInFlight = <String>{};
   bool _realtimeWasReady = false;
+  bool _initialRequestOpened = false;
 
   bool get canModerate =>
       currentGroup.myRole == 'owner' || currentGroup.myRole == 'admin';
@@ -74,9 +77,11 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       sessionStore: widget.api.sessionStore,
     );
     realtime = GroupRealtimeService(api: widget.api, groupId: currentGroup.id);
-    requestsFuture = loadRequests();
+    final initialRequestsFuture = loadRequests();
+    requestsFuture = initialRequestsFuture;
     moderationCountFuture = loadModerationCount();
     realtime.connect(onEvent: _handleRealtimeEvent);
+    unawaited(_openInitialRequest(initialRequestsFuture));
   }
 
   @override
@@ -244,6 +249,32 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     return requests;
   }
 
+  Future<void> _openInitialRequest(
+    Future<List<PublicRequest>> initialRequestsFuture,
+  ) async {
+    final requestId = widget.initialRequestId?.trim() ?? '';
+    if (requestId.isEmpty || _initialRequestOpened) return;
+    try {
+      final requests = await initialRequestsFuture;
+      if (!mounted || _initialRequestOpened) return;
+      PublicRequest? target;
+      for (final request in requests) {
+        if (request.id == requestId) {
+          target = request;
+          break;
+        }
+      }
+      if (target == null) return;
+      _initialRequestOpened = true;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      await openDetails(target);
+    } catch (_) {
+      // The normal requests screen remains available if the target was deleted
+      // or could not be loaded.
+    }
+  }
+
   Future<int> loadModerationCount() async {
     if (!canModerate) return 0;
     try {
@@ -373,16 +404,32 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   }
 
   Future<void> openDetails(PublicRequest request) async {
-    if (request.interactionMode != 'discussion') return;
+    final current = currentRequest(request);
+    if (current.interactionMode != 'discussion') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => MediaPublicRequestDetailsScreen(
+            api: requestsApi,
+            request: current,
+            canModerate: canModerate,
+            currentUserId: widget.user.id,
+            onStatusChanged: canModerate
+                ? (status) => updateStatus(current, status)
+                : null,
+          ),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PublicRequestDetailsScreen(
           api: requestsApi,
-          request: currentRequest(request),
+          request: current,
           canModerate: canModerate,
           currentUserId: widget.user.id,
           onStatusChanged: canModerate
-              ? (status) => updateStatus(request, status)
+              ? (status) => updateStatus(current, status)
               : null,
           onRequestChanged: replaceRequest,
         ),

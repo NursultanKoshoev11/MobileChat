@@ -47,6 +47,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   final Set<String> seenPublicRequestEvents = <String>{};
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
   StreamSubscription<Map<String, String>>? _openedPushSubscription;
+  Map<String, String>? _pendingOpenedPushData;
+  bool _openingNotificationTarget = false;
   Timer? _invitationsCountDebounce;
   Timer? _adminCountDebounce;
   bool get canReviewGroupCreationRequests =>
@@ -66,6 +68,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
     _openedPushSubscription = PushNotificationService.openedDataStream.listen(
       _handleOpenedPushData,
     );
+    final pendingOpenedData = PushNotificationService.takePendingOpenedData();
+    if (pendingOpenedData != null) {
+      scheduleMicrotask(() => _handleOpenedPushData(pendingOpenedData));
+    }
   }
 
   @override
@@ -136,18 +142,72 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   void _handleOpenedPushData(Map<String, String> data) {
+    if (!mounted) return;
     _handleForegroundPushData(data);
-    final groupId = data['group_id'] ?? '';
-    if (groupId.isEmpty) return;
-    ChatGroup? target;
-    for (final group in currentGroups) {
-      if (group.id == groupId) {
-        target = group;
-        break;
+    _pendingOpenedPushData = Map<String, String>.from(data);
+    unawaited(_openPendingNotificationTarget());
+  }
+
+  Future<void> _openPendingNotificationTarget() async {
+    if (!mounted || _openingNotificationTarget) return;
+    final data = _pendingOpenedPushData;
+    if (data == null) return;
+    final groupId = data['group_id']?.trim() ?? '';
+    if (groupId.isEmpty) {
+      _clearPendingNotificationIfCurrent(data);
+      return;
+    }
+
+    _openingNotificationTarget = true;
+    try {
+      if (currentGroups.isEmpty) {
+        try {
+          await groupsFuture;
+        } catch (_) {}
+      }
+      if (!mounted) return;
+
+      ChatGroup? target;
+      for (final group in currentGroups) {
+        if (group.id == groupId) {
+          target = group;
+          break;
+        }
+      }
+      if (target == null) {
+        try {
+          await refresh(silent: true);
+        } catch (_) {}
+        if (!mounted) return;
+        for (final group in currentGroups) {
+          if (group.id == groupId) {
+            target = group;
+            break;
+          }
+        }
+      }
+      if (target == null) {
+        _clearPendingNotificationIfCurrent(data);
+        return;
+      }
+
+      final requestId = data['type'] == 'public_request.created'
+          ? data['request_id']?.trim()
+          : null;
+      _clearPendingNotificationIfCurrent(data);
+      await openGroup(target, initialRequestId: requestId);
+    } finally {
+      _openingNotificationTarget = false;
+      if (mounted && _pendingOpenedPushData != null) {
+        unawaited(_openPendingNotificationTarget());
       }
     }
-    if (target == null) return;
-    unawaited(openGroup(target));
+  }
+
+  void _clearPendingNotificationIfCurrent(Map<String, String> data) {
+    if (identical(_pendingOpenedPushData, data)) {
+      _pendingOpenedPushData = null;
+    }
   }
 
   void incrementUnreadPublicRequests(String groupId, String requestId) {
@@ -363,19 +423,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  Future<void> openGroup(ChatGroup group) async {
+  Future<void> openGroup(ChatGroup group, {String? initialRequestId}) async {
     if (group.unreadPublicRequestCount > 0) {
       try {
         await widget.api.markPublicRequestsRead(group.id);
         setUnreadPublicRequests(group.id, 0);
       } catch (_) {}
     }
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PublicRequestsScreen(
           api: widget.api,
           user: widget.session.user,
           group: group,
+          initialRequestId: initialRequestId,
         ),
       ),
     );

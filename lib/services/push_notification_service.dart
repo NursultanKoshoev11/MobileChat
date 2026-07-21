@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -13,11 +14,21 @@ class PushNotificationService {
 
   static final StreamController<Map<String, String>> _foregroundDataController = StreamController<Map<String, String>>.broadcast();
   static final StreamController<Map<String, String>> _openedDataController = StreamController<Map<String, String>>.broadcast();
+  static Map<String, String>? _pendingOpenedData;
 
   static Stream<Map<String, String>> get foregroundDataStream => _foregroundDataController.stream;
   static Stream<Map<String, String>> get openedDataStream => _openedDataController.stream;
 
+  static Map<String, String>? takePendingOpenedData() {
+    final pending = _pendingOpenedData;
+    _pendingOpenedData = null;
+    return pending;
+  }
+
   static Future<void> handleBackgroundMessage(RemoteMessage message) async {
+    // Android/iOS already display notification messages in the background.
+    // Only data-only messages need an additional local notification.
+    if (message.notification != null) return;
     await _showLocalNotificationFromMessage(message);
   }
 
@@ -86,7 +97,10 @@ class PushNotificationService {
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initializationSettings = InitializationSettings(android: androidSettings);
-    await _localNotifications.initialize(initializationSettings);
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+    );
 
     if (Platform.isAndroid) {
       const channel = AndroidNotificationChannel(
@@ -100,26 +114,58 @@ class PushNotificationService {
     }
 
     _localNotificationsInitialized = true;
+
+    final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      final response = launchDetails?.notificationResponse;
+      if (response != null) _handleLocalNotificationResponse(response);
+    }
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     if (message.data.isNotEmpty && !_foregroundDataController.isClosed) {
       _foregroundDataController.add(Map<String, String>.from(message.data));
     }
+    if (Platform.isIOS && message.notification != null) return;
     await _showLocalNotificationFromMessage(message);
   }
 
   static void _emitOpenedMessage(RemoteMessage message) {
-    if (message.data.isNotEmpty && !_openedDataController.isClosed) {
-      _openedDataController.add(Map<String, String>.from(message.data));
+    if (message.data.isEmpty || _openedDataController.isClosed) return;
+    final data = Map<String, String>.from(message.data);
+    if (_openedDataController.hasListener) {
+      _openedDataController.add(data);
+    } else {
+      _pendingOpenedData = data;
     }
+  }
+
+  static void _handleLocalNotificationResponse(NotificationResponse response) {
+    final payload = response.payload?.trim() ?? '';
+    if (payload.isEmpty) return;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is! Map) return;
+      final data = <String, String>{};
+      for (final entry in decoded.entries) {
+        data[entry.key.toString()] = entry.value.toString();
+      }
+      if (_openedDataController.hasListener) {
+        _openedDataController.add(data);
+      } else {
+        _pendingOpenedData = data;
+      }
+    } catch (_) {}
   }
 
   static Future<void> _showLocalNotificationFromMessage(RemoteMessage message) async {
     final plugin = FlutterLocalNotificationsPlugin();
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initializationSettings = InitializationSettings(android: androidSettings);
-    await plugin.initialize(initializationSettings);
+    await plugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+    );
 
     if (Platform.isAndroid) {
       const channel = AndroidNotificationChannel(
@@ -143,7 +189,7 @@ class PushNotificationService {
         icon: '@mipmap/ic_launcher',
       ),
     );
-    await plugin.show(message.hashCode, title, body, details, payload: message.data.toString());
+    await plugin.show(message.hashCode, title, body, details, payload: jsonEncode(message.data));
   }
 
   FirebaseMessaging? _messagingOrNull() {
