@@ -130,12 +130,31 @@ class _MobileChatAppState extends State<MobileChatApp>
               Listenable.merge([languageController, appearanceController]),
           builder: (context, _) {
             final text = languageController.text;
+            final scale = appearanceController.displayScale.factor;
+            final densityAdjustment = (scale - 1) * 4;
+            final visualDensity = VisualDensity(
+              horizontal: densityAdjustment,
+              vertical: densityAdjustment,
+            );
             return MaterialApp(
               debugShowCheckedModeBanner: false,
               title: text.appTitle,
-              theme: MobileChatTheme.light,
-              darkTheme: MobileChatTheme.dark,
+              theme: MobileChatTheme.light.copyWith(
+                visualDensity: visualDensity,
+              ),
+              darkTheme: MobileChatTheme.dark.copyWith(
+                visualDensity: visualDensity,
+              ),
               themeMode: appearanceController.themeMode,
+              builder: (context, child) {
+                final mediaQuery = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mediaQuery.copyWith(
+                    textScaler: TextScaler.linear(scale),
+                  ),
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
               home: FutureBuilder<AppSession?>(
                 future: bootFuture,
                 builder: (context, snapshot) {
@@ -145,7 +164,9 @@ class _MobileChatAppState extends State<MobileChatApp>
                   final session = snapshot.data;
                   if (session == null) {
                     return PhoneAuthScreen(
-                        api: api, onAuthenticated: setSession);
+                      api: api,
+                      onAuthenticated: setSession,
+                    );
                   }
                   return GroupsScreen(
                     api: api,
