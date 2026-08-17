@@ -31,7 +31,6 @@ type AppSession = {
 type RequestCodeResult = {
   status: string;
   account_exists: boolean;
-  dev_code?: string;
 };
 
 type ChatGroup = {
@@ -52,7 +51,7 @@ type ChatMessage = {
   created_at: string;
 };
 
-const DEFAULT_API_BASE_URL = 'https://koom.servemp3.com';
+const DEFAULT_API_BASE_URL = 'https://koommy.duckdns.org';
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 
 function toErrorMessage(error: unknown): string {
@@ -81,7 +80,6 @@ export default function App() {
   const [mobile, setMobile] = useState('+996');
   const [code, setCode] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [session, setSession] = useState<AppSession | null>(null);
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<ChatGroup | null>(null);
@@ -111,9 +109,7 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({ mobile: mobile.trim() }),
       });
-      setDevCode(result.dev_code || null);
-      if (result.dev_code) setCode(result.dev_code);
-      Alert.alert('Code requested', result.dev_code ? `Development code: ${result.dev_code}` : 'Check SMS code.');
+      Alert.alert('Code requested', 'Check the SMS code sent to your phone.');
     });
   }
 
@@ -198,7 +194,6 @@ export default function App() {
             <Pressable onPress={requestCode} style={styles.primaryButton} disabled={loading}>
               <Text style={styles.primaryButtonText}>Request code</Text>
             </Pressable>
-            {devCode ? <Text style={styles.devCode}>Dev code: {devCode}</Text> : null}
             <Text style={styles.label}>Code</Text>
             <TextInput value={code} onChangeText={setCode} keyboardType="number-pad" style={styles.input} />
             <Pressable onPress={verifyCode} style={styles.secondaryButton} disabled={loading}>
@@ -384,11 +379,6 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 14,
-  },
-  devCode: {
-    marginTop: 12,
-    color: '#027a48',
-    fontWeight: '700',
   },
   adminBadge: {
     alignSelf: 'flex-start',
