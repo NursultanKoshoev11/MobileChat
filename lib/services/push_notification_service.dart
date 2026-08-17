@@ -114,8 +114,11 @@ class PushNotificationService {
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings =
-        InitializationSettings(android: androidSettings);
+    const darwinSettings = DarwinInitializationSettings();
+    const initializationSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+    );
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
@@ -236,8 +239,11 @@ class PushNotificationService {
     final plugin = FlutterLocalNotificationsPlugin();
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettings =
-        InitializationSettings(android: androidSettings);
+    const darwinSettings = DarwinInitializationSettings();
+    const initializationSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+    );
     await plugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleLocalNotificationResponse,

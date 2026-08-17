@@ -77,13 +77,14 @@ class _GroupCreationRequestsScreenState
     );
     if (created != null) {
       upsertRequest(created);
-      if (mounted)
+      if (mounted) {
         showAppSnack(
           context,
           AppLanguageScope.textOf(context).isKy
               ? 'Өтүнүч админдерге жөнөтүлдү.'
               : 'Заявка отправлена администраторам.',
         );
+      }
     }
   }
 
@@ -107,13 +108,15 @@ class _GroupCreationRequestsScreenState
             future: future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
-                  !requestsLoaded)
+                  !requestsLoaded) {
                 return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError)
+              }
+              if (snapshot.hasError) {
                 return ListView(
                   padding: const EdgeInsets.all(24),
                   children: [ErrorBanner(message: snapshot.error.toString())],
                 );
+              }
               final requests = requestsLoaded
                   ? cachedRequests
                   : snapshot.data ?? const <GroupCreationRequest>[];
@@ -996,10 +999,11 @@ class _CreateGroupRequestSheetState extends State<CreateGroupRequestSheet> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    if (organizationType.text.isEmpty)
+    if (organizationType.text.isEmpty) {
       organizationType.text = text.isKy
           ? 'Мамлекеттик уюм'
           : 'Государственная организация';
+    }
     final isResubmit = widget.initialRequest != null;
     return Padding(
       padding: EdgeInsets.only(

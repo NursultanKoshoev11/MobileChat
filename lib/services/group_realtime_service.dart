@@ -176,7 +176,7 @@ class GroupRealtimeService {
         _scheduleReconnect(onEvent: onEvent, onError: onError);
         return;
       }
-      _channel?.sink.add(jsonEncode({'type': 'auth_' + 'refresh', 'tok' + 'en': token}));
+      _channel?.sink.add(jsonEncode({'type': 'auth_refresh', 'token': token}));
       _startAuthRefresh(token, onEvent: onEvent, onError: onError);
     } catch (error) {
       onError?.call(error);

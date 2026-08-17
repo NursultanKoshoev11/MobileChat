@@ -60,7 +60,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!scrollController.hasClients ||
         loadingOlder ||
         !hasMoreOlder ||
-        messages.isEmpty) return;
+        messages.isEmpty) {
+      return;
+    }
     final position = scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 160) {
       loadOlderMessages();
@@ -116,8 +118,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> connectRealtime() async {
     realtimeSubscription = realtime.events.listen((event) {
       final message = event.message;
-      if (event.groupId != widget.group.id || message == null || !mounted)
+      if (event.groupId != widget.group.id || message == null || !mounted) {
         return;
+      }
       switch (event.type) {
         case 'message.created':
           final exists = messages.any((item) => item.id == message.id);
@@ -345,10 +348,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget buildMessages() {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (error != null)
+    if (error != null) {
       return ListView(
           padding: const EdgeInsets.all(16),
           children: [ErrorBanner(message: error!)]);
+    }
     if (messages.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(16),

@@ -185,7 +185,7 @@ class RealtimeClient {
         _scheduleReconnect();
         return;
       }
-      _channel?.sink.add(jsonEncode({'type': 'auth_' + 'refresh', 'tok' + 'en': token}));
+      _channel?.sink.add(jsonEncode({'type': 'auth_refresh', 'token': token}));
       _startAuthRefresh(token);
     } catch (_) {
       _scheduleReconnect();

@@ -356,8 +356,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<void> vote(PublicRequest request, String voteType) async {
     final current = currentRequest(request);
     if (current.interactionMode == 'read_only' ||
-        _votesInFlight.contains(current.id))
+        _votesInFlight.contains(current.id)) {
       return;
+    }
     _votesInFlight.add(current.id);
     final previous = cachedRequests;
     replaceRequest(optimisticPublicRequestVote(current, voteType));
@@ -373,8 +374,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       if (mounted) applyVoteUpdate(update);
     } catch (error) {
       setRequests(previous);
-      if (mounted)
+      if (mounted) {
         showAppSnack(context, localizedMessage(context, error.toString()));
+      }
     } finally {
       _votesInFlight.remove(current.id);
     }
@@ -398,8 +400,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       }
     } catch (error) {
       setRequests(previous);
-      if (mounted)
+      if (mounted) {
         showAppSnack(context, localizedMessage(context, error.toString()));
+      }
     }
   }
 
@@ -464,8 +467,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         });
         code = formatGroupInviteCode(group.inviteCode ?? '');
       } catch (error) {
-        if (mounted)
+        if (mounted) {
           showAppSnack(context, localizedMessage(context, error.toString()));
+        }
         return;
       }
     }
@@ -668,6 +672,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               showResult(success: text.mutedDone);
             } catch (error) {
+              if (!rootContext.mounted) return;
               showResult(
                 error: localizedMessage(rootContext, error.toString()),
               );
@@ -691,6 +696,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               );
               showResult(success: text.unmutedDone);
             } catch (error) {
+              if (!rootContext.mounted) return;
               showResult(
                 error: localizedMessage(rootContext, error.toString()),
               );

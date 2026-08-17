@@ -183,12 +183,10 @@ class AppText {
   String get inviteCodeCopied =>
       isKy ? 'Чакыруу коду көчүрүлдү.' : 'Код приглашения скопирован.';
   String get enterMobileNumber => isKy
-      ? 'Телефон номериңизди жазыңыз. Тест үчүн код: 111111.'
-      : 'Введите номер телефона. Для теста используйте код 111111.';
+      ? 'Телефон номериңизди жазыңыз. Биз SMS аркылуу алты орундуу код жөнөтөбүз.'
+      : 'Введите номер телефона. Мы отправим шестизначный код по SMS.';
   String get mobileNumber => isKy ? 'Телефон номери' : 'Номер телефона';
   String get code => 'Код';
-  String get localTestCode =>
-      isKy ? 'Тест үчүн 111111 жазыңыз' : 'Для теста введите 111111';
   String get displayNameNewOnly =>
       isKy ? 'Жаңы аккаунт үчүн аты-жөнү' : 'Имя только для нового аккаунта';
   String get continueText => isKy ? 'Улантуу' : 'Продолжить';
@@ -205,11 +203,6 @@ class AppText {
   String get newAccountHint => isKy
       ? 'Жаңы аккаунт. Кодду жана аты-жөнүңүздү жазыңыз.'
       : 'Новый аккаунт. Введите код и имя.';
-  String get devSmsAnyCode => isKy
-      ? 'Тест режими: код талаасына 111111 жазыңыз.'
-      : 'Тестовый режим: введите 111111 в поле кода.';
-  String devSmsCode(String code) =>
-      isKy ? 'Тест SMS коду: $code' : 'Тестовый SMS-код: $code';
   String get newest => isKy ? 'Жаңылары' : 'Новые';
   String get popular => isKy ? 'Популярдуу' : 'Популярные';
   String get resolved => isKy ? 'Чечилген' : 'Решённые';

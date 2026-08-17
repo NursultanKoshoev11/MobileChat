@@ -34,7 +34,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   bool accountExists = false;
   bool loading = false;
   String? error;
-  String? devCode;
 
   @override
   void dispose() {
@@ -61,7 +60,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     setState(() {
       loading = true;
       error = null;
-      devCode = null;
       accountExists = false;
     });
     try {
@@ -70,7 +68,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       setState(() {
         codeWasSent = true;
         accountExists = result.accountExists;
-        devCode = result.devCode;
         if (result.accountExists) displayNameController.clear();
       });
     } catch (e) {
@@ -123,7 +120,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       codeWasSent = false;
       accountExists = false;
       codeController.clear();
-      devCode = null;
       error = null;
     });
   }
@@ -255,7 +251,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                               displayNameController,
                                           accountExists: accountExists,
                                           loading: loading,
-                                          devCode: devCode,
                                           onChanged: () {
                                             if (mounted) {
                                               setState(() => error = null);
@@ -290,14 +285,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                           ),
                                         ),
                                 ),
-                                if (devCode != null) ...[
-                                  const SizedBox(height: 12),
-                                  InfoBanner(
-                                    message: devCode == 'any_non_empty_code'
-                                        ? text.devSmsAnyCode
-                                        : text.devSmsCode(devCode!),
-                                  ),
-                                ],
                                 if (error != null) ...[
                                   const SizedBox(height: 12),
                                   ErrorBanner(message: error!),
@@ -396,7 +383,6 @@ class _CodeFields extends StatelessWidget {
     required this.displayNameController,
     required this.accountExists,
     required this.loading,
-    required this.devCode,
     required this.onChanged,
   });
 
@@ -404,7 +390,6 @@ class _CodeFields extends StatelessWidget {
   final TextEditingController displayNameController;
   final bool accountExists;
   final bool loading;
-  final String? devCode;
   final VoidCallback onChanged;
 
   @override
@@ -436,7 +421,6 @@ class _CodeFields extends StatelessWidget {
           onChanged: (_) => onChanged(),
           decoration: InputDecoration(
             labelText: text.code,
-            hintText: devCode,
             prefixIcon: const Icon(Icons.password_rounded),
           ),
         ),

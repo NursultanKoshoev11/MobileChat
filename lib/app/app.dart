@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/api_client.dart';
@@ -43,6 +44,12 @@ class _MobileChatAppState extends State<MobileChatApp>
   @override
   void initState() {
     super.initState();
+    if (kReleaseMode) {
+      final uri = Uri.tryParse(apiBaseUrl);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        throw StateError('Release builds require a valid HTTPS API_BASE_URL.');
+      }
+    }
     WidgetsBinding.instance.addObserver(this);
     bootFuture = _boot();
   }

@@ -30,7 +30,6 @@ void main() {
         text.enterMobileNumber,
         text.mobileNumber,
         text.code,
-        text.localTestCode,
         text.displayNameNewOnly,
         text.continueText,
         text.pleaseWait,
@@ -40,8 +39,6 @@ void main() {
         text.displayNameRequiredForNewAccount,
         text.existingAccountHint,
         text.newAccountHint,
-        text.devSmsAnyCode,
-        text.devSmsCode('654321'),
         text.newest,
         text.popular,
         text.resolved,
@@ -138,7 +135,6 @@ void main() {
     for (final language in AppLanguage.values) {
       final values = allTextValues(AppText(language));
       expect(values, everyElement(isNotEmpty));
-      expect(values, contains(contains('654321')));
     }
     expect(LanguageMenuButton().key, isNull);
   });

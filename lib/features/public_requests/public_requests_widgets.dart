@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -900,20 +899,23 @@ class _PublicRequestDetailsScreenState
         final payload = event.payload;
         if (payload is Map<String, dynamic>) {
           final commentPayload = payload['comment'];
-          if (commentPayload is Map<String, dynamic>)
+          if (commentPayload is Map<String, dynamic>) {
             addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+          }
         }
         break;
       case 'public_request.comment_deleted':
         final payload = event.payload;
-        if (payload is Map<String, dynamic>)
+        if (payload is Map<String, dynamic>) {
           removeRealtimeComment(payload['comment_id'] as String? ?? '');
+        }
         break;
       case 'public_request.voted':
       case 'public_request.vote_cleared':
         final payload = event.payload;
-        if (payload is Map<String, dynamic>)
+        if (payload is Map<String, dynamic>) {
           applyVoteUpdate(PublicRequestVoteUpdate.fromJson(payload));
+        }
         break;
     }
   }
@@ -1011,8 +1013,9 @@ class _PublicRequestDetailsScreenState
       if (mounted) applyVoteUpdate(update);
     } catch (e) {
       setRequest(previous);
-      if (mounted)
+      if (mounted) {
         showAppSnack(context, localizedMessage(context, e.toString()));
+      }
     } finally {
       voteInFlight = false;
     }
@@ -1020,8 +1023,9 @@ class _PublicRequestDetailsScreenState
 
   Future<void> submitComment() async {
     final body = commentController.text.trim();
-    if (body.isEmpty || sending || request.interactionMode != 'discussion')
+    if (body.isEmpty || sending || request.interactionMode != 'discussion') {
       return;
+    }
     setState(() {
       sending = true;
       error = null;
@@ -1070,8 +1074,9 @@ class _PublicRequestDetailsScreenState
     } catch (e) {
       setComments(previousComments);
       setRequest(previousRequest);
-      if (mounted)
+      if (mounted) {
         showAppSnack(context, localizedMessage(context, e.toString()));
+      }
     }
   }
 

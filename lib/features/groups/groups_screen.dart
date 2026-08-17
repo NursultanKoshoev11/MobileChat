@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -406,7 +405,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (inviteCode == null || inviteCode.trim().isEmpty) return;
     try {
       final group = await widget.api.joinByInviteCode(
-        inviteCode.startsWith('I' + 'NV1.')
+        inviteCode.startsWith('INV1.')
             ? inviteCode
             : formatGroupInviteCode(inviteCode),
       );
@@ -485,11 +484,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
         sessionStore: widget.api.sessionStore,
       ).leaveGroup(group.id);
       removeGroup(group.id);
-      if (mounted)
+      if (mounted) {
         showAppSnack(
           context,
           text.isKy ? 'Сиз топтон чыктыңыз.' : 'Вы вышли из группы.',
         );
+      }
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
     }

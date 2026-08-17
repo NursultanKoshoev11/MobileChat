@@ -297,8 +297,9 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
 String formatGroupInviteCode(String input) {
   final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   final shortened = compact.length > 6 ? compact.substring(0, 6) : compact;
-  if (shortened.length > 3)
+  if (shortened.length > 3) {
     return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
+  }
   return shortened;
 }
 

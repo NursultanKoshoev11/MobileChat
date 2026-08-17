@@ -95,11 +95,12 @@ class _AdminGroupCreationRequestsScreenState
         );
       }
       applyReviewedRequest(reviewed);
-      if (mounted)
+      if (mounted) {
         showAppSnack(
           context,
           text.isKy ? 'Өтүнүч жаңыртылды.' : 'Заявка обновлена.',
         );
+      }
     } catch (e) {
       if (mounted) showAppSnack(context, e.toString());
     }
@@ -158,15 +159,17 @@ class _AdminGroupCreationRequestsScreenState
                   future: future,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting &&
-                        !requestsLoaded)
+                        !requestsLoaded) {
                       return const Center(child: CircularProgressIndicator());
-                    if (snapshot.hasError)
+                    }
+                    if (snapshot.hasError) {
                       return ListView(
                         padding: const EdgeInsets.all(24),
                         children: [
                           ErrorBanner(message: snapshot.error.toString()),
                         ],
                       );
+                    }
                     final requests = requestsLoaded
                         ? cachedRequests
                         : snapshot.data ?? const <GroupCreationRequest>[];

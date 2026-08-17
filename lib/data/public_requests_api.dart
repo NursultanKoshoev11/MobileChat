@@ -344,8 +344,9 @@ class PublicRequestsApi {
     _networkGuard.ensureAllowed();
     await _ensureFreshAccessToken();
     final session = await sessionStore.read();
-    if (session == null)
+    if (session == null) {
       throw const ApiException('Session expired. Please sign in again.');
+    }
 
     final uri = Uri.parse(baseUrl).replace(path: path, queryParameters: query);
     final headers = {
@@ -369,13 +370,13 @@ class PublicRequestsApi {
       if (_networkGuard.isRetryableStatus(response.statusCode) && attempt + 1 < _maxAttempts) {
         _networkGuard.recordFailure();
         await _networkGuard.waitBeforeRetry(attempt);
-        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+        return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }
 
       if (response.statusCode == 401 && !retrying) {
         final refreshed = await _refreshSession();
         if (refreshed) {
-          return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+          return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
         }
       }
       final decoded = _decode(response);
@@ -385,7 +386,7 @@ class PublicRequestsApi {
       _networkGuard.recordFailure();
       if (attempt + 1 < _maxAttempts) {
         await _networkGuard.waitBeforeRetry(attempt);
-        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+        return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }
       throw const ApiException('Connection timed out. Please try again.');
     } on CircuitOpenException catch (error) {
@@ -395,7 +396,7 @@ class PublicRequestsApi {
       _networkGuard.recordFailure();
       if (attempt + 1 < _maxAttempts) {
         await _networkGuard.waitBeforeRetry(attempt);
-        return _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
+        return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }
       throw ApiException('Network error: $error');
     }

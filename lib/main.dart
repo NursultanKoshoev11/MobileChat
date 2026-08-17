@@ -21,9 +21,8 @@ Future<void> main() async {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (error) {
-    if (kDebugMode) {
-      debugPrint('Firebase initialization skipped: $error');
-    }
+    if (kReleaseMode) rethrow;
+    debugPrint('Firebase initialization skipped: $error');
   }
   runApp(const MobileChatApp());
 }

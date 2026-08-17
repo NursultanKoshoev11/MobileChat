@@ -308,12 +308,14 @@ class ApiClient {
       if (_networkGuard.isRetryableStatus(response.statusCode) && attempt + 1 < _maxAttempts) {
         _networkGuard.recordFailure();
         await _networkGuard.waitBeforeRetry(attempt);
-        return _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
+        return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
 
       if (response.statusCode == 401 && auth && !retrying) {
         final refreshed = await _refreshSession();
-        if (refreshed) return _request(method, path, query: query, body: body, auth: auth, retrying: true);
+        if (refreshed) {
+          return await _request(method, path, query: query, body: body, auth: auth, retrying: true);
+        }
       }
       final decoded = _decode(response);
       _networkGuard.recordSuccess();
@@ -322,7 +324,7 @@ class ApiClient {
       _networkGuard.recordFailure();
       if (attempt + 1 < _maxAttempts) {
         await _networkGuard.waitBeforeRetry(attempt);
-        return _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
+        return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
       throw const ApiException('Connection timed out. Please check the server and try again.');
     } on CircuitOpenException catch (error) {
@@ -332,7 +334,7 @@ class ApiClient {
       _networkGuard.recordFailure();
       if (attempt + 1 < _maxAttempts) {
         await _networkGuard.waitBeforeRetry(attempt);
-        return _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
+        return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
       throw ApiException('Network error: $error');
     }
@@ -413,16 +415,14 @@ class ApiClient {
 }
 
 class RequestCodeResult {
-  const RequestCodeResult({required this.status, required this.accountExists, this.devCode});
+  const RequestCodeResult({required this.status, required this.accountExists});
   final String status;
   final bool accountExists;
-  final String? devCode;
 
   factory RequestCodeResult.fromJson(Map<String, dynamic> json) {
     return RequestCodeResult(
       status: json['status'] as String? ?? 'code_sent',
       accountExists: json['account_exists'] as bool? ?? false,
-      devCode: json['dev_code'] as String?,
     );
   }
 }

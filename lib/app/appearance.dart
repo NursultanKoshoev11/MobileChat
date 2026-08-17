@@ -30,34 +30,36 @@ class AppAppearanceController extends ChangeNotifier {
   AppDisplayScale get displayScale => _displayScale;
 
   Future<void> restore() async {
+    final themeValue = await _readPreference(_store.readThemeMode);
+    final scaleValue = await _readPreference(_store.readDisplayScale);
+    final restoredTheme = switch (themeValue) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => null,
+    };
+    final restoredScale = AppDisplayScale.values
+        .cast<AppDisplayScale?>()
+        .firstWhere(
+          (value) => value?.name == scaleValue,
+          orElse: () => null,
+        );
+    var changed = false;
+    if (restoredTheme != null && restoredTheme != _themeMode) {
+      _themeMode = restoredTheme;
+      changed = true;
+    }
+    if (restoredScale != null && restoredScale != _displayScale) {
+      _displayScale = restoredScale;
+      changed = true;
+    }
+    if (changed) notifyListeners();
+  }
+
+  Future<String?> _readPreference(Future<String?> Function() read) async {
     try {
-      final values = await Future.wait([
-        _store.readThemeMode(),
-        _store.readDisplayScale(),
-      ]);
-      final restoredTheme = switch (values[0]) {
-        'dark' => ThemeMode.dark,
-        'light' => ThemeMode.light,
-        _ => null,
-      };
-      final restoredScale = AppDisplayScale.values
-          .cast<AppDisplayScale?>()
-          .firstWhere(
-            (value) => value?.name == values[1],
-            orElse: () => null,
-          );
-      var changed = false;
-      if (restoredTheme != null && restoredTheme != _themeMode) {
-        _themeMode = restoredTheme;
-        changed = true;
-      }
-      if (restoredScale != null && restoredScale != _displayScale) {
-        _displayScale = restoredScale;
-        changed = true;
-      }
-      if (changed) notifyListeners();
+      return await read();
     } catch (_) {
-      // Keep defaults when local storage is unavailable.
+      return null;
     }
   }
 
