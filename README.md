@@ -38,7 +38,7 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8080
 
 # Public tunnel or deployed backend
-EXPO_PUBLIC_API_BASE_URL=https://your-domain.example.com
+EXPO_PUBLIC_API_BASE_URL=https://koom.com.kg
 ```
 
 Important: on a real phone, `localhost` means the phone itself. Use your computer's LAN IP address or a public HTTPS tunnel.
