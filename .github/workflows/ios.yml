@@ -9,7 +9,7 @@ on:
       api_base_url:
         description: "Backend API base URL for the iOS build."
         required: false
-        default: "https://koommy.duckdns.org"
+        default: "https://koom.com.kg"
       ios_bundle_id:
         description: "iOS bundle identifier. Must match your Apple provisioning profile for signed IPA."
         required: false
@@ -57,7 +57,7 @@ jobs:
 
       - name: Build iOS simulator app
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koommy.duckdns.org' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.com.kg' }}"
           echo "Building iOS simulator app with API_BASE_URL=$API_BASE_URL"
           flutter build ios --debug --simulator -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
@@ -116,7 +116,7 @@ jobs:
 
       - name: Build unsigned iPhone app
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koommy.duckdns.org' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.com.kg' }}"
           echo "Building unsigned iPhone app with API_BASE_URL=$API_BASE_URL"
           flutter build ios --release --no-codesign -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
 
@@ -235,7 +235,7 @@ jobs:
       - name: Build signed IPA
         if: steps.signing.outputs.ready == 'true'
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koommy.duckdns.org' }}"
+          API_BASE_URL="${{ github.event.inputs.api_base_url || 'https://koom.com.kg' }}"
           flutter build ipa --release -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL" --export-options-plist=ios/ExportOptions.plist
 
       - name: Prepare IPA artifact

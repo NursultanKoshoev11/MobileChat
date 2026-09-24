@@ -26,7 +26,7 @@ class _MobileChatAppState extends State<MobileChatApp>
     with WidgetsBindingObserver {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://koommy.duckdns.org',
+    defaultValue: 'https://koom.com.kg',
   );
 
   final SessionStore sessionStore = const SessionStore();

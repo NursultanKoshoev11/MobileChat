@@ -6,7 +6,7 @@ on:
       api_base_url:
         description: "Backend API base URL for the Android build."
         required: false
-        default: "https://koommy.duckdns.org"
+        default: "https://koom.com.kg"
       version_code:
         description: "Android versionCode. Must be higher than previous Google Play upload. Defaults to GitHub run number."
         required: false
@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 env:
-  DEFAULT_API_BASE_URL: "https://koommy.duckdns.org"
+  DEFAULT_API_BASE_URL: "https://koom.com.kg"
 
 jobs:
   build-android-aab:
