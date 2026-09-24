@@ -51,7 +51,7 @@ type ChatMessage = {
   created_at: string;
 };
 
-const DEFAULT_API_BASE_URL = 'https://koommy.duckdns.org';
+const DEFAULT_API_BASE_URL = 'https://koom.com.kg';
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 
 function toErrorMessage(error: unknown): string {
