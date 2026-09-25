@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/data/public_request.dart';
+import 'package:koom/data/public_request.dart';
 
 void main() {
   PublicRequest sampleRequest({String? body, String? myVote}) {

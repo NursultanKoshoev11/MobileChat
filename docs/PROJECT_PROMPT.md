@@ -1,4 +1,4 @@
-# MobileChat Product Prompt
+# Koom Product Prompt
 
 Original request saved from the user:
 
@@ -6,7 +6,7 @@ Original request saved from the user:
 
 ## Product direction
 
-MobileChat is a Telegram-style cross-platform group chat application built with Flutter/Dart for Android and iOS.
+Koom is a Telegram-style cross-platform group chat application built with Flutter/Dart for Android and iOS.
 
 Core rules:
 

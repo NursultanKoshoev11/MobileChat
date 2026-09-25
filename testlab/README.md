@@ -1,6 +1,6 @@
 # Mobile APK QA with Firebase Test Lab
 
-This folder documents the APK testing flow for MobileChat.
+This folder documents the APK testing flow for Koom.
 
 ## Test types
 

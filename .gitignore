@@ -37,3 +37,13 @@ android/keystores/
 *.keystore
 *.p12
 *.pfx
+
+# Generated local/build artifacts
+coverage/
+android/.gradle/
+android/.kotlin/
+ios/Flutter/
+build-artifacts/
+*.apk
+*.aab
+*.ipa

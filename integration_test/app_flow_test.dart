@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:mobile_chat/data/api_client.dart';
-import 'package:mobile_chat/data/group_invitation.dart';
-import 'package:mobile_chat/data/models.dart';
-import 'package:mobile_chat/data/public_request.dart';
-import 'package:mobile_chat/data/public_requests_api.dart';
-import 'package:mobile_chat/data/session_store.dart';
-import 'package:mobile_chat/main.dart' as app;
+import 'package:koom/data/api_client.dart';
+import 'package:koom/data/group_invitation.dart';
+import 'package:koom/data/models.dart';
+import 'package:koom/data/public_request.dart';
+import 'package:koom/data/public_requests_api.dart';
+import 'package:koom/data/session_store.dart';
+import 'package:koom/main.dart' as app;
 
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',

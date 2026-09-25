@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/localization.dart';
-import 'package:mobile_chat/app/theme.dart';
-import 'package:mobile_chat/shared/ui_helpers.dart';
+import 'package:koom/app/localization.dart';
+import 'package:koom/app/theme.dart';
+import 'package:koom/shared/ui_helpers.dart';
 
 void main() {
   Future<String> localized(
@@ -17,7 +17,7 @@ void main() {
       AppLanguageScope(
         controller: controller,
         child: MaterialApp(
-          theme: MobileChatTheme.light,
+          theme: KoomTheme.light,
           home: Builder(
             builder: (context) {
               result = localizedMessage(context, message);
@@ -117,7 +117,7 @@ void main() {
       AppLanguageScope(
         controller: controller,
         child: MaterialApp(
-          theme: MobileChatTheme.light,
+          theme: KoomTheme.light,
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
@@ -152,8 +152,8 @@ void main() {
       AppLanguageScope(
         controller: controller,
         child: MaterialApp(
-          theme: MobileChatTheme.light,
-          darkTheme: MobileChatTheme.dark,
+          theme: KoomTheme.light,
+          darkTheme: KoomTheme.dark,
           themeMode: ThemeMode.dark,
           home: const Scaffold(
             body: Column(

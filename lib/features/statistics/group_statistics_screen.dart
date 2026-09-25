@@ -89,7 +89,7 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                 children: [
                   KoomCard(
-                    gradient: MobileChatTheme.brandGradient,
+                    gradient: KoomTheme.brandGradient,
                     borderColor: Colors.white.withValues(alpha: 0.14),
                     child: Row(
                       children: [
@@ -434,7 +434,7 @@ class _ProgressLine extends StatelessWidget {
           '${percent.toStringAsFixed(1)}%',
           style: const TextStyle(
             fontWeight: FontWeight.w900,
-            color: MobileChatTheme.primaryDark,
+            color: KoomTheme.primaryDark,
           ),
         ),
       ]),

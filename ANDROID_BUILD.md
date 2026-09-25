@@ -95,7 +95,7 @@ Android APK -> Run workflow
 After it finishes, download the artifact:
 
 ```text
-mobilechat-debug-apk
+koom-debug-apk
 ```
 
 ## Release signing

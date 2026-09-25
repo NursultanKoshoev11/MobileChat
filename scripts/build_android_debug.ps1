@@ -26,7 +26,7 @@ $AndroidConfigFiles = @(
     "android\app\build.gradle",
     "android\app\src\main\AndroidManifest.xml",
     "android\app\src\debug\AndroidManifest.xml",
-    "android\app\src\main\kotlin\com\nursultankoshoev\mobilechat\MainActivity.kt",
+    "android\app\src\main\kotlin\com\nursultankoshoev\koom\MainActivity.kt",
     "android\app\src\main\res\values\styles.xml",
     "android\app\src\main\res\values\colors.xml",
     "android\app\src\main\res\drawable\launch_background.xml",
@@ -39,9 +39,9 @@ flutter --version
 
 if (!(Test-Path "android\gradlew.bat")) {
     Write-Host "Android Gradle wrapper is missing. Generating Android platform files..." -ForegroundColor Yellow
-    $BackupRoot = Join-Path $env:TEMP ("mobilechat-android-backup-" + [guid]::NewGuid().ToString())
+    $BackupRoot = Join-Path $env:TEMP ("koom-android-backup-" + [guid]::NewGuid().ToString())
     foreach ($File in $AndroidConfigFiles) { Backup-FileIfExists $File $BackupRoot }
-    flutter create --platforms=android --project-name mobile_chat .
+    flutter create --platforms=android --project-name koom .
     foreach ($File in $AndroidConfigFiles) { Restore-FileIfExists $File $BackupRoot }
     Remove-Item $BackupRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

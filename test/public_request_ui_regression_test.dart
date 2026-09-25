@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/localization.dart';
-import 'package:mobile_chat/app/theme.dart';
-import 'package:mobile_chat/data/public_request.dart';
-import 'package:mobile_chat/features/public_requests/public_request_media_screens.dart';
-import 'package:mobile_chat/features/public_requests/public_request_media_widgets.dart';
+import 'package:koom/app/localization.dart';
+import 'package:koom/app/theme.dart';
+import 'package:koom/data/public_request.dart';
+import 'package:koom/features/public_requests/public_request_media_screens.dart';
+import 'package:koom/features/public_requests/public_request_media_widgets.dart';
 
 void main() {
   Future<void> pumpLocalized(WidgetTester tester, Widget child) async {
@@ -16,7 +16,7 @@ void main() {
       AppLanguageScope(
         controller: language,
         child: MaterialApp(
-          theme: MobileChatTheme.light,
+          theme: KoomTheme.light,
           home: Scaffold(body: child),
         ),
       ),

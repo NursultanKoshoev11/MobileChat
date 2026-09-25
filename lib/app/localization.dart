@@ -91,7 +91,7 @@ class LanguageMenuButton extends StatelessWidget {
                 child: Row(children: [
                   if (language == controller.language)
                     const Icon(Icons.check_rounded,
-                        size: 18, color: MobileChatTheme.primary)
+                        size: 18, color: KoomTheme.primary)
                   else
                     const SizedBox(width: 18),
                   const SizedBox(width: 8),
@@ -116,7 +116,7 @@ class LanguageMenuButton extends StatelessWidget {
               child: Center(
                 child: Icon(
                   Icons.language_rounded,
-                  color: MobileChatTheme.primary,
+                  color: KoomTheme.primary,
                   size: 21,
                 ),
               ),
@@ -134,7 +134,7 @@ class LanguageMenuButton extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.language_rounded,
-                        color: MobileChatTheme.primary, size: 18),
+                        color: KoomTheme.primary, size: 18),
                     const SizedBox(width: 6),
                     Text(controller.language.shortName,
                         style: TextStyle(

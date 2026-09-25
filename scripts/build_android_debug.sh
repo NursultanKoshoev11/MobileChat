@@ -28,7 +28,7 @@ if [[ ! -f "android/gradlew" ]]; then
       cp "$file" "$BACKUP_ROOT/$file"
     fi
   done
-  flutter create --platforms=android --project-name mobile_chat .
+  flutter create --platforms=android --project-name koom .
   for file in "${ANDROID_CONFIG_FILES[@]}"; do
     if [[ -f "$BACKUP_ROOT/$file" ]]; then
       mkdir -p "$(dirname "$file")"

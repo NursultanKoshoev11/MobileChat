@@ -409,7 +409,7 @@ class MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: mine
-              ? (dark ? const Color(0xFF123A63) : MobileChatTheme.mineBubble)
+              ? (dark ? const Color(0xFF123A63) : KoomTheme.mineBubble)
               : colors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: colors.border),
@@ -428,7 +428,7 @@ class MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text('${message.senderName} · official',
                     style: const TextStyle(
-                        color: MobileChatTheme.primaryDark,
+                        color: KoomTheme.primaryDark,
                         fontWeight: FontWeight.w800,
                         fontSize: 12)),
               ),

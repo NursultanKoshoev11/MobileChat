@@ -232,7 +232,7 @@ class _GroupRequestDetailSheet extends StatelessWidget {
                 children: [
                   if (number != null) ...[
                     CircleAvatar(
-                      backgroundColor: MobileChatTheme.primary,
+                      backgroundColor: KoomTheme.primary,
                       child: Text(
                         '$number',
                         style: const TextStyle(
@@ -414,7 +414,7 @@ class GroupCreationRequestCard extends StatelessWidget {
       case 'needs_more_info':
         return Colors.orange;
       default:
-        return MobileChatTheme.primary;
+        return KoomTheme.primary;
     }
   }
 
@@ -458,7 +458,7 @@ class GroupCreationRequestCard extends StatelessWidget {
                         height: 30,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: MobileChatTheme.primary,
+                          color: KoomTheme.primary,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
@@ -666,7 +666,7 @@ class _DocumentsPreview extends StatelessWidget {
                               ? Icons.image_outlined
                               : Icons.attach_file_rounded,
                           size: 18,
-                          color: MobileChatTheme.primaryDark,
+                          color: KoomTheme.primaryDark,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -1166,7 +1166,7 @@ class _AttachmentTile extends StatelessWidget {
         children: [
           Icon(
             file.isImage ? Icons.image_outlined : Icons.description_outlined,
-            color: MobileChatTheme.primaryDark,
+            color: KoomTheme.primaryDark,
           ),
           const SizedBox(width: 10),
           Expanded(

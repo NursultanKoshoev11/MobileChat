@@ -719,7 +719,7 @@ class _GroupsOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         KoomCard(
-          gradient: MobileChatTheme.brandGradient,
+          gradient: KoomTheme.brandGradient,
           borderColor: Colors.white.withValues(alpha: 0.14),
           padding: const EdgeInsets.fromLTRB(20, 20, 18, 20),
           child: Row(

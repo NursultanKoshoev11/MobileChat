@@ -112,7 +112,7 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
             child: IgnorePointer(
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: MobileChatTheme.primary, width: 4),
+                  border: Border.all(color: KoomTheme.primary, width: 4),
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {

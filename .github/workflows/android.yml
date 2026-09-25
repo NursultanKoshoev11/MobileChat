@@ -50,7 +50,7 @@ jobs:
         run: flutter doctor -v
 
       - name: Ensure Android wrapper files exist
-        run: flutter create --platforms=android --project-name mobile_chat .
+        run: flutter create --platforms=android --project-name koom .
 
       - name: Restore project Android configuration
         run: |

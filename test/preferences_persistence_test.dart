@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/appearance.dart';
-import 'package:mobile_chat/app/localization.dart';
-import 'package:mobile_chat/app/preferences_store.dart';
+import 'package:koom/app/appearance.dart';
+import 'package:koom/app/localization.dart';
+import 'package:koom/app/preferences_store.dart';
 
 class _MemoryPreferencesStore extends AppPreferencesStore {
   _MemoryPreferencesStore({this.languageValue, this.themeValue});

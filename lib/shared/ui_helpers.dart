@@ -781,7 +781,7 @@ class _TopAppNotice extends StatelessWidget {
   });
 
   final String message;
-  final MobileChatColors colors;
+  final KoomColors colors;
   final Brightness brightness;
   final String closeLabel;
   final VoidCallback onDismiss;
@@ -814,12 +814,12 @@ class _TopAppNotice extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: MobileChatTheme.primary.withValues(alpha: 0.12),
+                  color: KoomTheme.primary.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.notifications_active_rounded,
-                  color: MobileChatTheme.primary,
+                  color: KoomTheme.primary,
                   size: 19,
                 ),
               ),
@@ -905,7 +905,7 @@ class InfoBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.info_outline_rounded,
-              color: MobileChatTheme.primary, size: 20),
+              color: KoomTheme.primary, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

@@ -95,7 +95,7 @@ if ((Test-Path (Join-Path $androidStudioJbr "bin\java.exe")) -and
 }
 
 if ([string]::IsNullOrWhiteSpace($ResultsDir)) {
-    $ResultsDir = "mobilechat-integration-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $ResultsDir = "koom-integration-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 }
 
 if ($Build) {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/data/models.dart';
+import 'package:koom/data/models.dart';
 
 UserProfile userWithRole(String role) => UserProfile(
   id: 'U-1',

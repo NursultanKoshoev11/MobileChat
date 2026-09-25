@@ -27,7 +27,7 @@ if (-not (Get-Command "flutter" -ErrorAction SilentlyContinue) -and (Test-Path (
 }
 
 if ([string]::IsNullOrWhiteSpace($ResultsDir)) {
-    $ResultsDir = "mobilechat-robo-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $ResultsDir = "koom-robo-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 }
 
 if ($Build) {

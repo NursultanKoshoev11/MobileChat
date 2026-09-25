@@ -24,7 +24,7 @@ $roles = @(
 )
 
 foreach ($role in $roles) {
-    $resultsDir = "mobilechat-role-$($role.Name)-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $resultsDir = "koom-role-$($role.Name)-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     Write-Host "Running role scenario: $($role.Name)" -ForegroundColor Cyan
     & "$PSScriptRoot\run_firebase_integration_testlab.ps1" `
         -Build `

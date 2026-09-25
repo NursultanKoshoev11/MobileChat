@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/data/network_guard.dart';
+import 'package:koom/data/network_guard.dart';
 
 void main() {
   test('HTTP 429 is an API response, not a transport outage', () {

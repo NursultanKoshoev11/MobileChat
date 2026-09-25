@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/appearance.dart';
-import 'package:mobile_chat/app/localization.dart';
-import 'package:mobile_chat/app/theme.dart';
+import 'package:koom/app/appearance.dart';
+import 'package:koom/app/localization.dart';
+import 'package:koom/app/theme.dart';
 
 void main() {
   testWidgets('settings selection keeps option text geometry stable',
@@ -16,7 +16,7 @@ void main() {
         child: AppLanguageScope(
           controller: language,
           child: MaterialApp(
-            theme: MobileChatTheme.light,
+            theme: KoomTheme.light,
             home: const Scaffold(body: AppSettingsSheet()),
           ),
         ),

@@ -15,14 +15,14 @@ import 'localization.dart';
 import 'preferences_store.dart';
 import 'theme.dart';
 
-class MobileChatApp extends StatefulWidget {
-  const MobileChatApp({super.key});
+class KoomApp extends StatefulWidget {
+  const KoomApp({super.key});
 
   @override
-  State<MobileChatApp> createState() => _MobileChatAppState();
+  State<KoomApp> createState() => _KoomAppState();
 }
 
-class _MobileChatAppState extends State<MobileChatApp>
+class _KoomAppState extends State<KoomApp>
     with WidgetsBindingObserver {
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -146,10 +146,10 @@ class _MobileChatAppState extends State<MobileChatApp>
             return MaterialApp(
               debugShowCheckedModeBanner: false,
               title: text.appTitle,
-              theme: MobileChatTheme.light.copyWith(
+              theme: KoomTheme.light.copyWith(
                 visualDensity: visualDensity,
               ),
-              darkTheme: MobileChatTheme.dark.copyWith(
+              darkTheme: KoomTheme.dark.copyWith(
                 visualDensity: visualDensity,
               ),
               themeMode: appearanceController.themeMode,

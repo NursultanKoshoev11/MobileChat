@@ -1,1 +1,1 @@
-const appName = 'MobileChat';
+const appName = 'Koom';

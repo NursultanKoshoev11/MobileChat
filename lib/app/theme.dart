@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class MobileChatTheme {
+class KoomTheme {
   static const Color primary = Color(0xFF0878F9);
   static const Color primaryDark = Color(0xFF0757D9);
   static const Color primarySoft = Color(0xFFEAF3FF);
@@ -401,7 +401,7 @@ class MobileChatTheme {
         textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
       ),
       extensions: <ThemeExtension<dynamic>>[
-        MobileChatColors(
+        KoomColors(
           page: pageColor,
           surface: surfaceColor,
           surfaceSoft: surfaceSoftColor,
@@ -417,8 +417,8 @@ class MobileChatTheme {
   }
 }
 
-class MobileChatColors extends ThemeExtension<MobileChatColors> {
-  const MobileChatColors({
+class KoomColors extends ThemeExtension<KoomColors> {
+  const KoomColors({
     required this.page,
     required this.surface,
     required this.surfaceSoft,
@@ -439,7 +439,7 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
   final Color shadow;
 
   @override
-  MobileChatColors copyWith({
+  KoomColors copyWith({
     Color? page,
     Color? surface,
     Color? surfaceSoft,
@@ -449,7 +449,7 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
     Color? chipBackground,
     Color? shadow,
   }) {
-    return MobileChatColors(
+    return KoomColors(
       page: page ?? this.page,
       surface: surface ?? this.surface,
       surfaceSoft: surfaceSoft ?? this.surfaceSoft,
@@ -462,9 +462,9 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
   }
 
   @override
-  MobileChatColors lerp(ThemeExtension<MobileChatColors>? other, double t) {
-    if (other is! MobileChatColors) return this;
-    return MobileChatColors(
+  KoomColors lerp(ThemeExtension<KoomColors>? other, double t) {
+    if (other is! KoomColors) return this;
+    return KoomColors(
       page: Color.lerp(page, other.page, t) ?? page,
       surface: Color.lerp(surface, other.surface, t) ?? surface,
       surfaceSoft: Color.lerp(surfaceSoft, other.surfaceSoft, t) ?? surfaceSoft,
@@ -478,7 +478,7 @@ class MobileChatColors extends ThemeExtension<MobileChatColors> {
   }
 }
 
-extension MobileChatThemeContext on BuildContext {
-  MobileChatColors get appColors =>
-      Theme.of(this).extension<MobileChatColors>()!;
+extension KoomThemeContext on BuildContext {
+  KoomColors get appColors =>
+      Theme.of(this).extension<KoomColors>()!;
 }

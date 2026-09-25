@@ -6,11 +6,11 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: Text('MobileChat'),
+          body: Text('Koom'),
         ),
       ),
     );
 
-    expect(find.text('MobileChat'), findsOneWidget);
+    expect(find.text('Koom'), findsOneWidget);
   });
 }

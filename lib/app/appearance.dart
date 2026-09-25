@@ -123,7 +123,7 @@ class ThemeModeButton extends StatelessWidget {
           : (text.isKy ? 'Караңгы режим' : 'Тёмный режим'),
       onPressed: controller.toggleTheme,
       icon: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-      color: MobileChatTheme.primary,
+      color: KoomTheme.primary,
     );
   }
 }
@@ -351,7 +351,7 @@ class _SettingsOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final background = selected ? MobileChatTheme.primary : colors.surfaceSoft;
+    final background = selected ? KoomTheme.primary : colors.surfaceSoft;
     final foreground = selected ? Colors.white : colors.textStrong;
     final iconColor = selected ? Colors.white : colors.textMuted;
     return InkWell(
@@ -365,7 +365,7 @@ class _SettingsOption extends StatelessWidget {
           color: background,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? MobileChatTheme.primary : colors.border,
+            color: selected ? KoomTheme.primary : colors.border,
             width: 1.5,
           ),
         ),

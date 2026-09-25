@@ -127,7 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
             KoomCard(
-              gradient: MobileChatTheme.brandGradient,
+              gradient: KoomTheme.brandGradient,
               borderColor: Colors.white.withValues(alpha: 0.14),
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
               child: Column(
@@ -173,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : const Icon(
                                       Icons.camera_alt_rounded,
                                       size: 18,
-                                      color: MobileChatTheme.primaryDark,
+                                      color: KoomTheme.primaryDark,
                                     ),
                             ),
                           ),

@@ -5,7 +5,7 @@ APK_PATH="${1:-build/app/outputs/flutter-apk/app-debug.apk}"
 GCP_PROJECT="${GCP_PROJECT:-koom-9f163}"
 DEVICE="${FIREBASE_TEST_DEVICE:-model=Pixel2.arm,version=30,locale=ru,orientation=portrait}"
 TIMEOUT="${FIREBASE_ROBO_TIMEOUT:-10m}"
-RESULTS_DIR="${FIREBASE_RESULTS_DIR:-mobilechat-robo-$(date +%Y%m%d-%H%M%S)}"
+RESULTS_DIR="${FIREBASE_RESULTS_DIR:-koom-robo-$(date +%Y%m%d-%H%M%S)}"
 
 if [ ! -f "$APK_PATH" ]; then
   echo "APK not found: $APK_PATH"

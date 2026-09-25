@@ -8,7 +8,7 @@ class SessionStore {
   const SessionStore();
 
   static const _storage = FlutterSecureStorage();
-  static const _key = 'mobilechat_session_v2';
+  static const _key = 'koom_session_v2';
   static const _androidOptions =
       AndroidOptions(encryptedSharedPreferences: true);
 

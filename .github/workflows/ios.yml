@@ -40,7 +40,7 @@ jobs:
         run: flutter doctor -v
 
       - name: Ensure iOS platform files exist
-        run: flutter create --platforms=ios --project-name mobile_chat .
+        run: flutter create --platforms=ios --project-name koom .
 
       - name: Configure iOS bundle identifier
         run: |
@@ -64,17 +64,17 @@ jobs:
       - name: Prepare simulator artifact
         run: |
           mkdir -p build-artifacts
-          ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build-artifacts/MobileChat-iOS-simulator-app.zip
-          shasum -a 256 build-artifacts/MobileChat-iOS-simulator-app.zip > build-artifacts/MobileChat-iOS-simulator-app.sha256.txt
+          ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build-artifacts/Koom-iOS-simulator-app.zip
+          shasum -a 256 build-artifacts/Koom-iOS-simulator-app.zip > build-artifacts/Koom-iOS-simulator-app.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload simulator app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-iOS-simulator-app
+          name: Koom-iOS-simulator-app
           path: |
-            build-artifacts/MobileChat-iOS-simulator-app.zip
-            build-artifacts/MobileChat-iOS-simulator-app.sha256.txt
+            build-artifacts/Koom-iOS-simulator-app.zip
+            build-artifacts/Koom-iOS-simulator-app.sha256.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -99,7 +99,7 @@ jobs:
         run: flutter doctor -v
 
       - name: Ensure iOS platform files exist
-        run: flutter create --platforms=ios --project-name mobile_chat .
+        run: flutter create --platforms=ios --project-name koom .
 
       - name: Configure iOS bundle identifier
         run: |
@@ -130,17 +130,17 @@ jobs:
           rm -rf build-artifacts
           mkdir -p build-artifacts/Payload
           cp -R "$APP_PATH" build-artifacts/Payload/Runner.app
-          (cd build-artifacts && zip -qry MobileChat-unsigned.ipa Payload)
-          shasum -a 256 build-artifacts/MobileChat-unsigned.ipa > build-artifacts/MobileChat-unsigned.sha256.txt
+          (cd build-artifacts && zip -qry Koom-unsigned.ipa Payload)
+          shasum -a 256 build-artifacts/Koom-unsigned.ipa > build-artifacts/Koom-unsigned.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-unsigned-ipa
+          name: Koom-unsigned-ipa
           path: |
-            build-artifacts/MobileChat-unsigned.ipa
-            build-artifacts/MobileChat-unsigned.sha256.txt
+            build-artifacts/Koom-unsigned.ipa
+            build-artifacts/Koom-unsigned.sha256.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -185,7 +185,7 @@ jobs:
 
       - name: Ensure iOS platform files exist
         if: steps.signing.outputs.ready == 'true'
-        run: flutter create --platforms=ios --project-name mobile_chat .
+        run: flutter create --platforms=ios --project-name koom .
 
       - name: Configure iOS bundle identifier
         if: steps.signing.outputs.ready == 'true'
@@ -203,10 +203,10 @@ jobs:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
           IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
         run: |
-          CERTIFICATE_PATH="$RUNNER_TEMP/mobilechat_certificate.p12"
-          PROFILE_PATH="$RUNNER_TEMP/mobilechat.mobileprovision"
-          KEYCHAIN_PATH="$RUNNER_TEMP/mobilechat-signing.keychain-db"
-          KEYCHAIN_PASSWORD="${IOS_KEYCHAIN_PASSWORD:-mobilechat-ci-keychain}"
+          CERTIFICATE_PATH="$RUNNER_TEMP/koom_certificate.p12"
+          PROFILE_PATH="$RUNNER_TEMP/koom.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/koom-signing.keychain-db"
+          KEYCHAIN_PASSWORD="${IOS_KEYCHAIN_PASSWORD:-koom-ci-keychain}"
 
           echo -n "$IOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
           echo -n "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
@@ -247,17 +247,17 @@ jobs:
             echo "No IPA found in build/ios/ipa"
             exit 1
           fi
-          cp "$IPA_PATH" build-artifacts/MobileChat-signed.ipa
-          shasum -a 256 build-artifacts/MobileChat-signed.ipa > build-artifacts/MobileChat-signed.sha256.txt
+          cp "$IPA_PATH" build-artifacts/Koom-signed.ipa
+          shasum -a 256 build-artifacts/Koom-signed.ipa > build-artifacts/Koom-signed.sha256.txt
           ls -lah build-artifacts
 
       - name: Upload signed IPA artifact
         if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: MobileChat-signed-ipa
+          name: Koom-signed-ipa
           path: |
-            build-artifacts/MobileChat-signed.ipa
-            build-artifacts/MobileChat-signed.sha256.txt
+            build-artifacts/Koom-signed.ipa
+            build-artifacts/Koom-signed.sha256.txt
           if-no-files-found: error
           retention-days: 14

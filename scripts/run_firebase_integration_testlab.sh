@@ -6,7 +6,7 @@ TEST_APK="${TEST_APK:-build/app/outputs/apk/androidTest/debug/app-debug-androidT
 GCP_PROJECT="${GCP_PROJECT:-koom-9f163}"
 DEVICE="${FIREBASE_TEST_DEVICE:-model=Pixel2.arm,version=30,locale=ru,orientation=portrait}"
 TIMEOUT="${FIREBASE_INSTRUMENTATION_TIMEOUT:-15m}"
-RESULTS_DIR="${FIREBASE_RESULTS_DIR:-mobilechat-integration-$(date +%Y%m%d-%H%M%S)}"
+RESULTS_DIR="${FIREBASE_RESULTS_DIR:-koom-integration-$(date +%Y%m%d-%H%M%S)}"
 
 if [ ! -f "$APP_APK" ]; then
   echo "App APK not found: $APP_APK"

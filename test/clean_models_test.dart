@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/data/models.dart';
-import 'package:mobile_chat/shared/ui_helpers.dart';
+import 'package:koom/data/models.dart';
+import 'package:koom/shared/ui_helpers.dart';
 
 void main() {
   test('UserProfile parses phone user JSON', () {

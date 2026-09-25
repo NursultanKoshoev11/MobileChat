@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/appearance.dart';
-import 'package:mobile_chat/app/localization.dart';
-import 'package:mobile_chat/app/theme.dart';
-import 'package:mobile_chat/shared/koom_ui.dart';
+import 'package:koom/app/appearance.dart';
+import 'package:koom/app/localization.dart';
+import 'package:koom/app/theme.dart';
+import 'package:koom/shared/koom_ui.dart';
 
 Future<void> pumpAtSize(
   WidgetTester tester,
@@ -16,7 +16,7 @@ Future<void> pumpAtSize(
 
   await tester.pumpWidget(
     MaterialApp(
-      theme: MobileChatTheme.light,
+      theme: KoomTheme.light,
       home: MediaQuery(
         data: MediaQueryData(
           size: size,
@@ -192,7 +192,7 @@ void main() {
         child: AppLanguageScope(
           controller: language,
           child: MaterialApp(
-            theme: MobileChatTheme.light,
+            theme: KoomTheme.light,
             home: MediaQuery(
               data: MediaQueryData(
                 size: const Size(280, 520),

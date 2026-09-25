@@ -24,5 +24,5 @@ Future<void> main() async {
     if (kReleaseMode) rethrow;
     debugPrint('Firebase initialization skipped: $error');
   }
-  runApp(const MobileChatApp());
+  runApp(const KoomApp());
 }

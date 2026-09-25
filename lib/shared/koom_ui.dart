@@ -32,7 +32,7 @@ class KoomLogoMark extends StatelessWidget {
         boxShadow: showShadow
             ? [
                 BoxShadow(
-                  color: MobileChatTheme.primary.withValues(alpha: 0.24),
+                  color: KoomTheme.primary.withValues(alpha: 0.24),
                   blurRadius: size * 0.28,
                   offset: Offset(0, size * 0.12),
                 ),
@@ -372,12 +372,12 @@ class KoomAvatar extends StatelessWidget {
       width: radius * 2,
       height: radius * 2,
       decoration: BoxDecoration(
-        gradient: background == null ? MobileChatTheme.brandGradient : null,
+        gradient: background == null ? KoomTheme.brandGradient : null,
         color: background,
         borderRadius: BorderRadius.circular(radius * 0.72),
         boxShadow: [
           BoxShadow(
-            color: MobileChatTheme.primary.withValues(alpha: 0.18),
+            color: KoomTheme.primary.withValues(alpha: 0.18),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),

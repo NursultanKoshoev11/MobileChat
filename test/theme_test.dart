@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_chat/app/theme.dart';
+import 'package:koom/app/theme.dart';
 
 void main() {
-  test('MobileChatTheme exposes light and dark color extensions', () {
-    final light = MobileChatTheme.light;
-    final dark = MobileChatTheme.dark;
+  test('KoomTheme exposes light and dark color extensions', () {
+    final light = KoomTheme.light;
+    final dark = KoomTheme.dark;
 
     expect(light.brightness, Brightness.light);
-    expect(light.scaffoldBackgroundColor, MobileChatTheme.lightPage);
-    expect(light.cardColor, MobileChatTheme.lightSurface);
-    expect(light.dividerColor, MobileChatTheme.lightBorder);
-    expect(light.extension<MobileChatColors>()!.textStrong,
-        MobileChatTheme.lightTextStrong);
+    expect(light.scaffoldBackgroundColor, KoomTheme.lightPage);
+    expect(light.cardColor, KoomTheme.lightSurface);
+    expect(light.dividerColor, KoomTheme.lightBorder);
+    expect(light.extension<KoomColors>()!.textStrong,
+        KoomTheme.lightTextStrong);
 
     expect(dark.brightness, Brightness.dark);
-    expect(dark.scaffoldBackgroundColor, MobileChatTheme.darkPage);
-    expect(dark.cardColor, MobileChatTheme.darkSurface);
-    expect(dark.dividerColor, MobileChatTheme.darkBorder);
-    expect(dark.extension<MobileChatColors>()!.textMuted,
-        MobileChatTheme.darkTextMuted);
+    expect(dark.scaffoldBackgroundColor, KoomTheme.darkPage);
+    expect(dark.cardColor, KoomTheme.darkSurface);
+    expect(dark.dividerColor, KoomTheme.darkBorder);
+    expect(dark.extension<KoomColors>()!.textMuted,
+        KoomTheme.darkTextMuted);
   });
 
-  test('MobileChatColors copyWith and lerp preserve theme values', () {
-    final light = MobileChatTheme.light.extension<MobileChatColors>()!;
-    final dark = MobileChatTheme.dark.extension<MobileChatColors>()!;
+  test('KoomColors copyWith and lerp preserve theme values', () {
+    final light = KoomTheme.light.extension<KoomColors>()!;
+    final dark = KoomTheme.dark.extension<KoomColors>()!;
 
     final copied = light.copyWith(
       page: Colors.red,
@@ -62,7 +62,7 @@ void main() {
   });
 
   test('selection typography keeps identical metrics', () {
-    final theme = MobileChatTheme.light;
+    final theme = KoomTheme.light;
 
     final chipTheme = theme.chipTheme;
     expect(chipTheme.labelStyle?.fontWeight,
@@ -94,13 +94,13 @@ void main() {
         tabTheme.unselectedLabelStyle?.fontWeight);
   });
 
-  testWidgets('BuildContext extension returns MobileChatColors',
+  testWidgets('BuildContext extension returns KoomColors',
       (tester) async {
-    late MobileChatColors colors;
+    late KoomColors colors;
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MobileChatTheme.light,
+        theme: KoomTheme.light,
         home: Builder(
           builder: (context) {
             colors = context.appColors;
@@ -110,6 +110,6 @@ void main() {
       ),
     );
 
-    expect(colors.page, MobileChatTheme.lightPage);
+    expect(colors.page, KoomTheme.lightPage);
   });
 }
