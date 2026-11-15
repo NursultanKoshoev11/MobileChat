@@ -43,16 +43,20 @@ class PublicRequestsScreen extends StatefulWidget {
 
 class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   static const int maxGroupAvatarBytes = 512 * 1024;
+  static const int requestsPageSize = 50;
 
   late final PublicRequestsApi requestsApi;
   late final GroupRealtimeService realtime;
   late ChatGroup currentGroup;
   final ImagePicker imagePicker = ImagePicker();
+  final ScrollController _requestsScrollController = ScrollController();
   bool updatingGroupPhoto = false;
   late Future<List<PublicRequest>> requestsFuture;
   late Future<int> moderationCountFuture;
   List<PublicRequest> cachedRequests = const <PublicRequest>[];
   bool _requestsLoaded = false;
+  bool _loadingMoreRequests = false;
+  bool _hasMoreRequests = true;
   String _requestFilter = 'all';
   Timer? _refreshDebounce;
   Timer? _markReadDebounce;
@@ -72,6 +76,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void initState() {
     super.initState();
     currentGroup = widget.group;
+    _requestsScrollController.addListener(_handleRequestsScroll);
     requestsApi = PublicRequestsApi(
       baseUrl: widget.api.baseUrl,
       sessionStore: widget.api.sessionStore,
@@ -88,6 +93,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void dispose() {
     _refreshDebounce?.cancel();
     _markReadDebounce?.cancel();
+    _requestsScrollController.removeListener(_handleRequestsScroll);
+    _requestsScrollController.dispose();
     realtime.close();
     super.dispose();
   }
@@ -137,12 +144,47 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   void upsertRequestFromPayload(dynamic payload) {
     if (payload is! Map<String, dynamic>) return;
-    final request = PublicRequest.fromJson(payload);
+    final request = requestsApi.resolveMediaLinks(PublicRequest.fromJson(payload));
     final updated = [
       request,
       ...cachedRequests.where((item) => item.id != request.id),
-    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    ]..sort(_compareRequestsNewestFirst);
     setRequests(updated);
+  }
+
+  int _compareRequestsNewestFirst(PublicRequest a, PublicRequest b) {
+    final byDate = b.createdAt.compareTo(a.createdAt);
+    return byDate != 0 ? byDate : b.id.compareTo(a.id);
+  }
+
+  void _handleRequestsScroll() {
+    if (!_requestsScrollController.hasClients) return;
+    final position = _requestsScrollController.position;
+    if (position.maxScrollExtent - position.pixels < 420) {
+      unawaited(_loadMoreRequests());
+    }
+  }
+
+  Future<void> _loadMoreRequests() async {
+    if (!_requestsLoaded || _loadingMoreRequests || !_hasMoreRequests || cachedRequests.isEmpty) return;
+    setState(() => _loadingMoreRequests = true);
+    final oldest = cachedRequests.last;
+    try {
+      final page = await requestsApi.listRequests(currentGroup.id, before: oldest.createdAt, beforeId: oldest.id);
+      if (!mounted) return;
+      final knownIds = cachedRequests.map((request) => request.id).toSet();
+      final merged = [
+        ...cachedRequests,
+        ...page.where((request) => !knownIds.contains(request.id)),
+      ]..sort(_compareRequestsNewestFirst);
+      cachedRequests = merged;
+      _hasMoreRequests = page.length == requestsPageSize;
+      _requestsLoaded = true;
+    } catch (error) {
+      if (mounted) showAppSnack(context, localizedMessage(context, error.toString()));
+    } finally {
+      if (mounted) setState(() => _loadingMoreRequests = false);
+    }
   }
 
   void updateRequestCommentCount(String requestId, int delta) {
@@ -242,9 +284,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   Future<List<PublicRequest>> loadRequests() async {
     final requests = List<PublicRequest>.from(
       await requestsApi.listRequests(currentGroup.id),
-    )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    )..sort(_compareRequestsNewestFirst);
     cachedRequests = requests;
     _requestsLoaded = true;
+    _hasMoreRequests = requests.length == requestsPageSize;
     unawaited(_markRequestsRead());
     return requests;
   }
@@ -1166,9 +1209,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 _ => allRequests,
               };
               return ListView.builder(
+                controller: _requestsScrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                itemCount: requests.length + (requests.isEmpty ? 2 : 1),
+                itemCount: requests.length + 1 + (requests.isEmpty ? 1 : 0) + ((_hasMoreRequests || _loadingMoreRequests) ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return Column(
@@ -1217,10 +1261,25 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                       ],
                     );
                   }
-                  if (requests.isEmpty) {
+                  if (requests.isEmpty && index == 1) {
                     return EmptyPostsView(onCreate: createRequest);
                   }
-                  final request = requests[index - 1];
+                  final requestIndex = index - 1;
+                  if (requestIndex >= requests.length) {
+                    if (_loadingMoreRequests) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    if (_hasMoreRequests) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) unawaited(_loadMoreRequests());
+                      });
+                    }
+                    return const SizedBox(height: 12);
+                  }
+                  final request = requests[requestIndex];
                   return MediaPublicRequestCard(
                     request: request,
                     canModerate: canModerate,

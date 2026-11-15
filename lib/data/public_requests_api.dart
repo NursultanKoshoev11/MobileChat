@@ -39,14 +39,14 @@ class PublicRequestsApi {
         'request_type': type,
         'interaction_mode': interactionMode,
         'title': title,
-        'body': body,
+        'body': sanitizeRequestMediaUrls(body, groupId),
       },
     );
     final payload = response as Map<String, dynamic>;
     if (payload['status'] == 'pending_review') {
       throw const ModerationPendingException('\u041f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430 \u043d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443 \u0430\u0434\u043c\u0438\u043d\u0443.');
     }
-    return PublicRequest.fromJson(payload);
+    return resolveMediaLinks(PublicRequest.fromJson(payload));
   }
 
   Future<Map<String, dynamic>> uploadPublicRequestFile({
@@ -66,8 +66,8 @@ class PublicRequestsApi {
       ..headers['Authorization'] = 'Bearer ${session.accessToken}'
       ..fields['kind'] = kind
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName, contentType: _mediaTypeForUpload(kind, fileName)));
-    final streamed = await request.send().timeout(_timeout);
-    final response = await http.Response.fromStream(streamed);
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamed).timeout(_timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException('Upload failed: ${response.statusCode}');
     }
@@ -94,17 +94,105 @@ class PublicRequestsApi {
   Future<List<PublicRequest>> listRequests(
     String groupId, {
     bool mineOnly = false,
+    DateTime? before,
+    String? beforeId,
   }) async {
     final query = <String, String>{'limit': '50'};
     if (mineOnly) query['mine'] = 'true';
+    if (before != null) {
+      query['before'] = before.toUtc().toIso8601String();
+      if (beforeId != null && beforeId.isNotEmpty) query['before_id'] = beforeId;
+    }
     final response = await _send(
       'GET',
       '/api/groups/$groupId/requests',
       query: query,
     );
     return (response as List<dynamic>)
-        .map((item) => PublicRequest.fromJson(item as Map<String, dynamic>))
+        .map((item) => resolveMediaLinks(PublicRequest.fromJson(item as Map<String, dynamic>)))
         .toList();
+  }
+
+  PublicRequest resolveMediaLinks(PublicRequest request) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(request.body);
+    } catch (_) {
+      return request;
+    }
+    if (decoded is! Map<String, dynamic>) return request;
+    var changed = false;
+    for (final field in const ['photos', 'videos']) {
+      final items = decoded[field];
+      if (items is! List) continue;
+      for (final item in items.whereType<Map<String, dynamic>>()) {
+        final fileId = (item['file_id'] ?? item['id']) as String? ?? '';
+        final value = item['url'] as String? ?? '';
+        final resolved = _resolveMediaUrl(value, request.groupId, fileId);
+        if (resolved.isEmpty) {
+          changed = item.remove('url') != null || changed;
+        } else if (resolved != value) {
+          item['url'] = resolved;
+          changed = true;
+        }
+      }
+    }
+    return changed ? request.copyWith(body: jsonEncode(decoded)) : request;
+  }
+
+  String sanitizeRequestMediaUrls(String body, String groupId) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(body);
+    } catch (_) {
+      return body;
+    }
+    if (decoded is! Map<String, dynamic>) return body;
+    final base = Uri.parse(baseUrl);
+    for (final field in const ['photos', 'videos']) {
+      final items = decoded[field];
+      if (items is! List) continue;
+      for (final item in items.whereType<Map<String, dynamic>>()) {
+        final value = item['url'] as String? ?? '';
+        if (value.trim().isEmpty) continue;
+        final uri = Uri.tryParse(value.trim());
+        if (uri == null || uri.hasQuery || uri.hasFragment) {
+          throw const ApiException('Media URL is invalid.');
+        }
+        if (uri.hasScheme && uri.origin != base.origin) {
+          throw const ApiException('Media URL must belong to the KOOM server.');
+        }
+        final path = uri.path;
+        final prefix = '/api/public-files/$groupId/';
+        final fileId = (item['file_id'] ?? item['id']) as String? ?? '';
+        if (!path.startsWith(prefix) || (fileId.isNotEmpty && path != '$prefix$fileId')) {
+          throw const ApiException('Media URL does not match this group or file.');
+        }
+        item['url'] = path;
+      }
+    }
+    return jsonEncode(decoded);
+  }
+
+  String _resolveMediaUrl(String value, String groupId, String fileId) {
+    final base = Uri.parse(baseUrl);
+    var candidate = value.trim();
+    if (candidate.isEmpty && fileId.isNotEmpty) {
+      candidate = '/api/public-files/$groupId/$fileId';
+    }
+    if (candidate.isEmpty) return '';
+    final parsed = Uri.tryParse(candidate);
+    if (parsed == null || parsed.hasQuery || parsed.hasFragment) return '';
+    if (parsed.hasScheme) {
+      if (parsed.origin != base.origin) return '';
+    } else if (!candidate.startsWith('/api/public-files/$groupId/')) {
+      return '';
+    }
+    final expected = '/api/public-files/$groupId/';
+    if (!parsed.path.startsWith(expected)) return '';
+    if (fileId.isNotEmpty && parsed.path != '$expected$fileId') return '';
+    final resolved = parsed.hasScheme ? parsed : base.resolveUri(parsed);
+    return resolved.origin == base.origin ? resolved.toString() : '';
   }
 
   Future<List<ContentModerationItem>> listModerationItems(
@@ -367,7 +455,7 @@ class PublicRequestsApi {
             .timeout(_timeout);
       }
 
-      if (_networkGuard.isRetryableStatus(response.statusCode) && attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts) && _networkGuard.isRetryableStatus(response.statusCode)) {
         _networkGuard.recordFailure();
         await _networkGuard.waitBeforeRetry(attempt);
         return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
@@ -375,7 +463,7 @@ class PublicRequestsApi {
 
       if (response.statusCode == 401 && !retrying) {
         final refreshed = await _refreshSession();
-        if (refreshed) {
+        if (refreshed && _networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
           return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
         }
       }
@@ -384,7 +472,7 @@ class PublicRequestsApi {
       return decoded;
     } on TimeoutException {
       _networkGuard.recordFailure();
-      if (attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
         await _networkGuard.waitBeforeRetry(attempt);
         return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }
@@ -394,7 +482,7 @@ class PublicRequestsApi {
     } catch (error) {
       if (error is ApiException) rethrow;
       _networkGuard.recordFailure();
-      if (attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
         await _networkGuard.waitBeforeRetry(attempt);
         return await _send(method, path, query: query, body: body, retrying: true, attempt: attempt + 1);
       }

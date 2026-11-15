@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -69,7 +70,7 @@ class PublicRequestMediaView extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final photos = content.photos.where((p) => p.base64Data.trim().isNotEmpty || p.url.trim().isNotEmpty).take(3).toList(growable: false);
-    final videos = content.videos.where((v) => v.base64Data.trim().isNotEmpty).toList(growable: false);
+    final videos = content.videos.where((v) => v.base64Data.trim().isNotEmpty || v.url.trim().isNotEmpty || v.fileId.trim().isNotEmpty).toList(growable: false);
     if (photos.isEmpty && videos.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (photos.isNotEmpty) ...[
@@ -354,10 +355,19 @@ class _VideoViewerState extends State<_VideoViewer> {
   }
 
   Future<void> setup() async {
-    final bytes = _decodeBase64(widget.video.base64Data);
+    Uint8List? bytes = _decodeBase64(widget.video.base64Data);
+    if ((bytes == null || bytes.isEmpty) && widget.video.url.trim().isNotEmpty) {
+      final uri = Uri.tryParse(widget.video.url.trim());
+      if (uri == null || !uri.hasScheme) throw Exception('Ссылка на видео недействительна');
+      final headers = await _imageAuthHeaders(widget.video.url) ?? const <String, String>{};
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) throw Exception('Не удалось загрузить видео (${response.statusCode})');
+      bytes = response.bodyBytes;
+    }
     if (bytes == null || bytes.isEmpty) throw Exception('Видео пустое');
     final dir = await getTemporaryDirectory();
-    final ext = widget.video.name.toLowerCase().endsWith('.mov') ? '.mov' : '.mp4';
+    final lowerName = widget.video.name.toLowerCase();
+    final ext = lowerName.endsWith('.mov') ? '.mov' : lowerName.endsWith('.webm') ? '.webm' : '.mp4';
     final file = File('${dir.path}/post_video_${DateTime.now().microsecondsSinceEpoch}$ext');
     await file.writeAsBytes(bytes, flush: true);
     final next = VideoPlayerController.file(file);
@@ -545,7 +555,12 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     final text = AppLanguageScope.textOf(context);
     if (loading || videos.isNotEmpty) return;
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: false, withData: true);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['mp4', 'mov'],
+        allowMultiple: false,
+        withData: true,
+      );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.single;
       final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
@@ -554,10 +569,15 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         setState(() => error = text.isKy ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.' : 'Видео слишком большое. Выберите видео до 12 MB.');
         return;
       }
+      final fileName = file.name.isNotEmpty ? file.name : 'video.mp4';
+      final uploaded = await widget.api.uploadPublicRequestFile(groupId: widget.groupId, kind: 'video', fileName: fileName, bytes: bytes);
+      if (!mounted) return;
+      final lowerName = fileName.toLowerCase();
+      final mimeType = lowerName.endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
       setState(() {
         videos
           ..clear()
-          ..add(PublicRequestVideo(name: file.name.isNotEmpty ? file.name : 'video.mp4', sizeBytes: bytes.length, base64Data: base64Encode(bytes)));
+          ..add(PublicRequestVideo(name: uploaded['file_name'] as String? ?? fileName, sizeBytes: uploaded['size_bytes'] as int? ?? bytes.length, fileId: uploaded['id'] as String? ?? '', url: uploaded['url'] as String? ?? '', mimeType: mimeType));
         error = null;
       });
     } catch (e) {
@@ -579,7 +599,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     });
     try {
       final request = await widget.api.createRequest(groupId: widget.groupId, type: type, interactionMode: interactionMode, title: titleController.text.trim(), body: payload);
-      if (mounted) Navigator.of(context).pop(request.copyWith(body: payload));
+      if (mounted) Navigator.of(context).pop(request);
     } on ModerationPendingException catch (e) {
       if (mounted) {
         showAppSnack(context, e.message);
