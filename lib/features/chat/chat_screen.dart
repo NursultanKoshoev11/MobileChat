@@ -42,8 +42,13 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     realtime = RealtimeClient(api: widget.api);
     scrollController.addListener(handleScroll);
-    loadInitialMessages();
-    connectRealtime();
+    unawaited(_initializeChat());
+  }
+
+  Future<void> _initializeChat() async {
+    await loadInitialMessages();
+    if (!mounted) return;
+    await connectRealtime();
   }
 
   @override
@@ -66,6 +71,62 @@ class _ChatScreenState extends State<ChatScreen> {
     final position = scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 160) {
       loadOlderMessages();
+    }
+  }
+
+  int _compareMessages(ChatMessage a, ChatMessage b) {
+    final byDate = a.createdAt.compareTo(b.createdAt);
+    return byDate != 0 ? byDate : a.id.compareTo(b.id);
+  }
+
+  void _upsertMessage(ChatMessage message) {
+    final index = messages.indexWhere((item) => item.id == message.id);
+    if (index >= 0) {
+      messages[index] = message;
+    } else {
+      messages.add(message);
+    }
+    messages.sort(_compareMessages);
+  }
+
+  Future<void> _syncMessagesAfterReconnect() async {
+    try {
+      if (messages.isEmpty) {
+        await loadInitialMessages();
+        return;
+      }
+      final catchUpFrom = messages.last;
+      final latest = await widget.api.fetchMessages(widget.group.id, limit: 50);
+      if (!mounted) return;
+      if (latest.isNotEmpty) {
+        final newestPage = latest.reversed.toList();
+        final oldestInPage = newestPage.first;
+        final latestIds = newestPage.map((message) => message.id).toSet();
+        setState(() {
+          messages.removeWhere((message) => _compareMessages(message, oldestInPage) >= 0 && !latestIds.contains(message.id));
+          for (final message in newestPage) {
+            _upsertMessage(message);
+          }
+        });
+      }
+      var cursor = catchUpFrom;
+      while (mounted) {
+        final batch = await widget.api.fetchMessagesAfter(
+          widget.group.id,
+          after: cursor.createdAt,
+          afterId: cursor.id,
+        );
+        if (!mounted || batch.isEmpty) return;
+        setState(() {
+          for (final message in batch) {
+            _upsertMessage(message);
+          }
+        });
+        cursor = batch.last;
+        if (batch.length < 100) return;
+      }
+    } catch (_) {
+      // A future reconnect will retry the catch-up read.
     }
   }
 
@@ -98,7 +159,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final oldest = messages.first.createdAt;
       final older = await widget.api
-          .fetchMessages(widget.group.id, limit: 50, before: oldest);
+          .fetchMessages(widget.group.id, limit: 50, before: oldest, beforeId: messages.first.id);
       if (!mounted) return;
       setState(() {
         final newItems = older.reversed
@@ -118,21 +179,20 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> connectRealtime() async {
     realtimeSubscription = realtime.events.listen((event) {
       final message = event.message;
-      if (event.groupId != widget.group.id || message == null || !mounted) {
+      if (event.groupId != widget.group.id || !mounted) {
         return;
       }
+      if (event.type == 'connection.ready') {
+        unawaited(_syncMessagesAfterReconnect());
+        return;
+      }
+      if (message == null) return;
       switch (event.type) {
         case 'message.created':
-          final exists = messages.any((item) => item.id == message.id);
-          if (!exists) setState(() => messages.add(message));
+          setState(() => _upsertMessage(message));
           break;
         case 'message.updated':
-          final index = messages.indexWhere((item) => item.id == message.id);
-          if (index >= 0) {
-            setState(() => messages[index] = message);
-          } else {
-            setState(() => messages.add(message));
-          }
+          setState(() => _upsertMessage(message));
           break;
         case 'message.deleted':
           setState(() => messages.removeWhere((item) => item.id == message.id));
@@ -154,9 +214,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final message =
           await widget.api.sendMessage(groupId: widget.group.id, text: text);
       messageController.clear();
-      if (!messages.any((item) => item.id == message.id)) {
-        setState(() => messages.add(message));
-      }
+      setState(() => _upsertMessage(message));
     } on ModerationPendingException catch (e) {
       messageController.clear();
       if (!mounted) return;

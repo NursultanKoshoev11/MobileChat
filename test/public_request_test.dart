@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koom/data/public_request.dart';
+import 'package:koom/data/public_requests_api.dart';
+import 'package:koom/data/session_store.dart';
 
 void main() {
   PublicRequest sampleRequest({String? body, String? myVote}) {
@@ -197,6 +199,45 @@ void main() {
     expect(parsed.videos.single.name, 'clip.mov');
     expect(parsed.videos.single.sizeBytes, 0);
     expect(parsed.videos.single.mimeType, 'video/mp4');
+  });
+
+  test('uploaded media URLs remain relative on write and resolve for display',
+      () {
+    const fileId = 'PF-0123456789ABCDEF';
+    const path = '/api/public-files/G-1/$fileId';
+    const content = PublicRequestContent(
+      text: 'Road footage',
+      photos: [
+        PublicRequestPhoto(
+          name: 'road.jpg',
+          sizeBytes: 1024,
+          fileId: fileId,
+          url: 'https://koom.com.kg$path',
+        ),
+      ],
+      videos: [
+        PublicRequestVideo(
+          name: 'road.mp4',
+          sizeBytes: 2048,
+          fileId: fileId,
+          url: 'https://koom.com.kg$path',
+        ),
+      ],
+    );
+    final api = PublicRequestsApi(
+      baseUrl: 'https://koom.com.kg',
+      sessionStore: const SessionStore(),
+    );
+    final payload = content.toPayload();
+    expect(payload, contains('https://koom.com.kg'));
+    final serverBody = api.sanitizeRequestMediaUrls(payload, 'G-1');
+    expect(serverBody, isNot(contains('https://koom.com.kg')));
+    expect(PublicRequestContent.tryParse(serverBody).photos.single.url, path);
+    expect(PublicRequestContent.tryParse(serverBody).videos.single.url, path);
+
+    final resolved = api.resolveMediaLinks(sampleRequest(body: serverBody));
+    expect(resolved.content.photos.single.url, 'https://koom.com.kg$path');
+    expect(resolved.content.videos.single.url, 'https://koom.com.kg$path');
   });
 
   test(

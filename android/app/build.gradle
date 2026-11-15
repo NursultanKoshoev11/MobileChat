@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -114,4 +116,38 @@ dependencies {
     implementation "androidx.multidex:multidex:2.0.1"
     androidTestImplementation "androidx.test:runner:1.3.0"
     androidTestImplementation "androidx.test:rules:1.2.0"
+}
+
+// Flutter can leave dev-only plugins in the generated Android registrant after
+// tests. They are not on the release classpath, so remove only those generated
+// registration blocks immediately before compiling a release variant.
+tasks.withType(JavaCompile).configureEach { javaTask ->
+    if (javaTask.name.toLowerCase(Locale.ROOT).contains("release")) {
+        javaTask.doFirst {
+            def registrant = file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
+            def pluginMetadataFile = rootProject.file("../.flutter-plugins-dependencies")
+            if (!registrant.isFile() || !pluginMetadataFile.isFile()) {
+                return
+            }
+
+            def metadata = new JsonSlurper().parse(pluginMetadataFile)
+            def devAndroidPlugins = (metadata.plugins.android ?: [])
+                .findAll { plugin -> plugin["dev_dependency"] == true }
+                .collect { plugin -> plugin.name as String }
+            if (devAndroidPlugins.isEmpty()) {
+                return
+            }
+
+            def source = registrant.getText("UTF-8")
+            def blocks = source.split(/(?m)(?=^    try \{)/)
+            def filteredBlocks = blocks.findAll { block ->
+                !devAndroidPlugins.any { pluginName ->
+                    block.contains("Error registering plugin ${pluginName},")
+                }
+            }
+            if (filteredBlocks.size() != blocks.size()) {
+                registrant.writeText(filteredBlocks.join(""), "UTF-8")
+            }
+        }
+    }
 }

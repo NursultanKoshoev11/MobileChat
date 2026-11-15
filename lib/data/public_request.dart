@@ -298,19 +298,25 @@ class PublicRequestVideo {
   const PublicRequestVideo({
     required this.name,
     required this.sizeBytes,
-    required this.base64Data,
+    this.base64Data = '',
+    this.fileId = '',
+    this.url = '',
     this.mimeType = 'video/mp4',
   });
 
   final String name;
   final int sizeBytes;
   final String base64Data;
+  final String fileId;
+  final String url;
   final String mimeType;
 
   Map<String, dynamic> toJson() => {
     'name': name,
     'size_bytes': sizeBytes,
-    'base64': base64Data,
+    if (fileId.isNotEmpty) 'file_id': fileId,
+    if (url.isNotEmpty) 'url': url,
+    if (base64Data.isNotEmpty) 'base64': base64Data,
     'mime_type': mimeType,
   };
 
@@ -319,6 +325,8 @@ class PublicRequestVideo {
       name: json['name'] as String? ?? 'video.mp4',
       sizeBytes: json['size_bytes'] as int? ?? 0,
       base64Data: json['base64'] as String? ?? '',
+      fileId: (json['file_id'] ?? json['id']) as String? ?? '',
+      url: json['url'] as String? ?? '',
       mimeType: json['mime_type'] as String? ?? 'video/mp4',
     );
   }

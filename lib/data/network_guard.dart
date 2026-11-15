@@ -23,7 +23,8 @@ class NetworkGuard {
   void ensureAllowed() {
     final until = _openUntil;
     if (until != null && DateTime.now().isBefore(until)) {
-      throw const CircuitOpenException('Network is temporarily unavailable. Please try again in a moment.');
+      throw const CircuitOpenException(
+          'Network is temporarily unavailable. Please try again in a moment.');
     }
     if (until != null && DateTime.now().isAfter(until)) {
       _openUntil = null;
@@ -51,5 +52,12 @@ class NetworkGuard {
   }
 
   bool isRetryableStatus(int statusCode) =>
-      statusCode == 408 || statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504;
+      statusCode == 408 ||
+      statusCode == 500 ||
+      statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504;
+
+  bool canRetryRequest(String method, int attempt, int maxAttempts) =>
+      method.toUpperCase() == 'GET' && attempt + 1 < maxAttempts;
 }

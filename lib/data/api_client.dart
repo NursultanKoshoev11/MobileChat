@@ -190,10 +190,27 @@ class ApiClient {
     await _post('/api/invites/$inviteId/decline', {});
   }
 
-  Future<List<ChatMessage>> fetchMessages(String groupId, {int limit = 50, DateTime? before}) async {
+  Future<List<ChatMessage>> fetchMessages(String groupId, {int limit = 50, DateTime? before, String? beforeId}) async {
     final query = <String, String>{'limit': '$limit'};
-    if (before != null) query['before'] = before.toUtc().toIso8601String();
+    if (before != null) {
+      query['before'] = before.toUtc().toIso8601String();
+      if (beforeId != null && beforeId.isNotEmpty) query['before_id'] = beforeId;
+    }
     final response = await _get('/api/groups/$groupId/messages', query: query);
+    return (response as List<dynamic>).map((item) => ChatMessage.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<ChatMessage>> fetchMessagesAfter(
+    String groupId, {
+    required DateTime after,
+    required String afterId,
+    int limit = 100,
+  }) async {
+    final response = await _get('/api/groups/$groupId/messages', query: {
+      'limit': '$limit',
+      'after': after.toUtc().toIso8601String(),
+      'after_id': afterId,
+    });
     return (response as List<dynamic>).map((item) => ChatMessage.fromJson(item as Map<String, dynamic>)).toList();
   }
 
@@ -305,7 +322,7 @@ class ApiClient {
       } else {
         response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(_timeout);
       }
-      if (_networkGuard.isRetryableStatus(response.statusCode) && attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts) && _networkGuard.isRetryableStatus(response.statusCode)) {
         _networkGuard.recordFailure();
         await _networkGuard.waitBeforeRetry(attempt);
         return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
@@ -313,7 +330,7 @@ class ApiClient {
 
       if (response.statusCode == 401 && auth && !retrying) {
         final refreshed = await _refreshSession();
-        if (refreshed) {
+        if (refreshed && _networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
           return await _request(method, path, query: query, body: body, auth: auth, retrying: true);
         }
       }
@@ -322,7 +339,7 @@ class ApiClient {
       return decoded;
     } on TimeoutException {
       _networkGuard.recordFailure();
-      if (attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
         await _networkGuard.waitBeforeRetry(attempt);
         return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
@@ -332,7 +349,7 @@ class ApiClient {
     } catch (error) {
       if (error is ApiException) rethrow;
       _networkGuard.recordFailure();
-      if (attempt + 1 < _maxAttempts) {
+      if (_networkGuard.canRetryRequest(method, attempt, _maxAttempts)) {
         await _networkGuard.waitBeforeRetry(attempt);
         return await _request(method, path, query: query, body: body, auth: auth, retrying: true, attempt: attempt + 1);
       }
@@ -431,7 +448,6 @@ class GateX {
   GateX._();
 
   static final GateX i = GateX._();
-  final NetworkGuard _refreshGuard = NetworkGuard();
   Future<RefreshSessionResult>? job;
 
   Future<RefreshSessionResult> run({
@@ -460,63 +476,34 @@ class GateX {
     }
 
     final uri = Uri.parse(baseUrl).replace(path: '/api/auth/refresh');
-    for (var attempt = 0; attempt < ApiClient._maxAttempts; attempt++) {
-      try {
-        final response = await http.post(
-          uri,
-          headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
-          body: jsonEncode({'refresh_token': session.refreshToken}),
-        ).timeout(timeout);
+    try {
+      final response = await http.post(
+        uri,
+        headers: const {'Content-Type': 'application/json; charset=utf-8', 'Accept': 'application/json'},
+        body: jsonEncode({'refresh_token': session.refreshToken}),
+      ).timeout(timeout);
 
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          try {
-            final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-            if (decoded is! Map<String, dynamic>) {
-              throw const FormatException('invalid refresh response');
-            }
-            await store.save(AppSession.fromJson(decoded));
-            return RefreshSessionResult.refreshed;
-          } catch (_) {
-            if (attempt + 1 < ApiClient._maxAttempts) {
-              await _refreshGuard.waitBeforeRetry(attempt);
-              continue;
-            }
-            return RefreshSessionResult.transientFailure;
-          }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is! Map<String, dynamic>) {
+          return RefreshSessionResult.transientFailure;
         }
-
-        if (isConfirmedInvalidRefreshResponse(response)) {
-          await store.clear();
-          return RefreshSessionResult.invalidSession;
-        }
-
-        if (_refreshGuard.isRetryableStatus(response.statusCode) && attempt + 1 < ApiClient._maxAttempts) {
-          await _refreshGuard.waitBeforeRetry(attempt);
-          continue;
-        }
-        return RefreshSessionResult.transientFailure;
-      } on TimeoutException {
-        if (attempt + 1 < ApiClient._maxAttempts) {
-          await _refreshGuard.waitBeforeRetry(attempt);
-          continue;
-        }
-        return RefreshSessionResult.transientFailure;
-      } on http.ClientException {
-        if (attempt + 1 < ApiClient._maxAttempts) {
-          await _refreshGuard.waitBeforeRetry(attempt);
-          continue;
-        }
-        return RefreshSessionResult.transientFailure;
-      } catch (_) {
-        if (attempt + 1 < ApiClient._maxAttempts) {
-          await _refreshGuard.waitBeforeRetry(attempt);
-          continue;
-        }
-        return RefreshSessionResult.transientFailure;
+        await store.save(AppSession.fromJson(decoded));
+        return RefreshSessionResult.refreshed;
       }
-    }
 
-    return RefreshSessionResult.transientFailure;
+      if (isConfirmedInvalidRefreshResponse(response)) {
+        await store.clear();
+        return RefreshSessionResult.invalidSession;
+      }
+      return RefreshSessionResult.transientFailure;
+    } on TimeoutException {
+      return RefreshSessionResult.transientFailure;
+    } on http.ClientException {
+      return RefreshSessionResult.transientFailure;
+    } catch (_) {
+      return RefreshSessionResult.transientFailure;
+    }
   }
 }
 
