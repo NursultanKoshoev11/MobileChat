@@ -877,7 +877,7 @@ packages:
     source: hosted
     version: "2.12.4"
   video_player_avfoundation:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: video_player_avfoundation
       sha256: "4f8a845173377ab250a50f9b9dfe4a43500cc76a7c49dd8410d02d8fc29dfd8b"

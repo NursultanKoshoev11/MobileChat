@@ -26,6 +26,10 @@ dependencies:
   hive: ^2.2.3
   video_player: ^2.9.2
 
+dependency_overrides:
+  # 2.12.4 requires newer Swift APIs than the Xcode 16.4 CI runner provides.
+  video_player_avfoundation: 2.12.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
