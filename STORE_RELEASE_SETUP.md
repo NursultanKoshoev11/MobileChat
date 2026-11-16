@@ -54,7 +54,8 @@ configured export-options plist uses this structure and current profile UUID:
 ```
 
 The workflow checks that the team ID and profile UUID/name match the downloaded profile,
-then configures the generated Xcode project for manual App Store signing.
+then configures the generated Xcode project for manual App Store signing. The signed IPA job
+uses the `macos-26` runner so it builds with the iOS 26 SDK required by App Store Connect.
 
 `IOS_KEYCHAIN_PASSWORD` is optional. The certificate, provisioning profile, and export
 options must be for the App Store distribution of `com.nursultankoshoev.mobilechat`. The
