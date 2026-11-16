@@ -1,7 +1,8 @@
 # Store releases from `main`
 
-The Android and iOS workflows build and submit releases when a commit reaches `main`.
-`workflow_dispatch` remains build-only, so a manual run will not publish to either store.
+The Android workflow submits releases when a commit reaches `main`. The iOS workflow uploads
+signed builds to TestFlight on `main`; App Store review and public release remain manual.
+`workflow_dispatch` runs unsigned iOS builds only.
 
 ## Google Play
 
@@ -19,7 +20,8 @@ gets a new code. The displayed version is `1.0.<run_number>`.
 
 ## App Store
 
-Add these repository Actions secrets:
+Create a GitHub Actions environment named `ios-production`, restrict deployments to the
+`main` branch, and add these environment secrets:
 
 - `IOS_CERTIFICATE_P12_BASE64`
 - `IOS_CERTIFICATE_PASSWORD`
@@ -62,20 +64,22 @@ then configures the generated Xcode project for manual App Store signing.
 
 `IOS_KEYCHAIN_PASSWORD` is optional. The certificate, provisioning profile, and export
 options must be for the App Store distribution of `com.nursultankoshoev.mobilechat`. The
-App Store Connect API key needs permission to upload builds and submit the app for review.
+App Store Connect API key needs permission to upload builds. A Team API key applies to
+all apps in the Apple account, even with the Developer role; the workflow uses it only to
+upload Koom builds to TestFlight.
 The app record must already exist in App Store Connect.
 
-On `main`, the workflow signs the IPA, uploads it, and submits the existing app listing for
-review without replacing its metadata or screenshots. It requests automatic release after
-Apple approves the build; Apple review is still required. The marketing version is
+On `main`, the workflow signs the IPA and uploads it to TestFlight. It does not add testers,
+submit the app for App Review, or release it publicly. The marketing version is
 `1.0.<run_number>` and the build number is `<run_id>.<run_attempt>`.
 
 ## What blocks a release
 
 The workflows fail before store submission if their required credentials are missing. Store
-accounts also need an existing app record, valid signing assets, and completed store-side
-requirements (such as agreements, privacy answers, review details, and listing metadata).
+accounts also need an existing app record and valid signing assets. App Store public release
+also requires completed store-side requirements (such as agreements, privacy answers, review
+details, and listing metadata).
 For Google Play, the app/package must already be created in Play Console. New personal
 developer accounts may also need to complete the required closed test before production access
-is granted. For Apple, the existing App Store Connect listing must be ready to receive a new
-build and review submission.
+is granted. For Apple, the existing App Store Connect listing must be ready before a public
+App Review submission.

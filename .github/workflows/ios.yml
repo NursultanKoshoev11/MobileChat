@@ -146,6 +146,8 @@ jobs:
 
   build-signed-ipa:
     name: Build signed iPhone IPA
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: ios-production
     runs-on: macos-15
 
     steps:
@@ -259,6 +261,12 @@ jobs:
           security import "$CERTIFICATE_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          SIGNING_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\(.*\)"$/\1/p' | head -n 1)
+          if [ -z "$SIGNING_IDENTITY" ]; then
+            echo "::error::No code-signing identity found in the imported certificate."
+            exit 1
+          fi
+          echo "IOS_SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_ENV"
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           DECODED_PROFILE="$RUNNER_TEMP/koom_profile.plist"
@@ -295,7 +303,7 @@ jobs:
             echo "::error::Export options profile does not match the installed App Store provisioning profile."
             exit 1
           fi
-          IOS_BUNDLE_ID="$IOS_BUNDLE_ID" IOS_TEAM_ID="$IOS_TEAM_ID" IOS_PROFILE_UUID="$IOS_PROFILE_UUID" python3 - <<'PY'
+          IOS_BUNDLE_ID="$IOS_BUNDLE_ID" IOS_TEAM_ID="$IOS_TEAM_ID" IOS_PROFILE_UUID="$IOS_PROFILE_UUID" IOS_SIGNING_IDENTITY="$IOS_SIGNING_IDENTITY" python3 - <<'PY'
           import os
           import re
           from pathlib import Path
@@ -305,6 +313,7 @@ jobs:
           bundle_id = os.environ["IOS_BUNDLE_ID"]
           team_id = os.environ["IOS_TEAM_ID"]
           profile_uuid = os.environ["IOS_PROFILE_UUID"]
+          signing_identity = os.environ["IOS_SIGNING_IDENTITY"]
           pattern = rf"(?m)^([ \t]*)PRODUCT_BUNDLE_IDENTIFIER = {re.escape(bundle_id)};[ \t]*$"
 
           def add_signing_settings(match):
@@ -312,7 +321,7 @@ jobs:
               return "\n".join([
                   match.group(0),
                   f"{indent}CODE_SIGN_STYLE = Manual;",
-                  f'{indent}CODE_SIGN_IDENTITY = "Apple Distribution";',
+                  f'{indent}CODE_SIGN_IDENTITY = "{signing_identity}";',
                   f"{indent}DEVELOPMENT_TEAM = {team_id};",
                   f"{indent}PROVISIONING_PROFILE_SPECIFIER = {profile_uuid};",
               ])
@@ -362,11 +371,9 @@ jobs:
           retention-days: 14
 
       - name: Install Fastlane
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: gem install fastlane --no-document
 
       - name: Prepare App Store Connect API key
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -391,17 +398,13 @@ jobs:
           path.chmod(0o600)
           PY
 
-      - name: Submit signed IPA to App Store review
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Upload signed IPA to TestFlight
         run: |
           IPA_PATH="$GITHUB_WORKSPACE/build-artifacts/Koom-signed.ipa"
           test -s "$IPA_PATH"
-          fastlane deliver \
+          fastlane pilot upload \
             --api_key_path "$RUNNER_TEMP/koom-app-store-connect-key.json" \
             --app_identifier com.nursultankoshoev.mobilechat \
             --ipa "$IPA_PATH" \
-            --skip_metadata true \
-            --skip_screenshots true \
-            --submit_for_review true \
-            --automatic_release true \
-            --force true
+            --skip_submission \
+            --skip_waiting_for_build_processing true
