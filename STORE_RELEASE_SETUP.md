@@ -37,6 +37,27 @@ Use the `.p12` certificate, `.mobileprovision` profile, export-options `.plist`,
 App Store Connect `.p8` key for the corresponding secrets above. Keep the original files
 and passwords private; add the encoded value directly in the GitHub secret form.
 
+The export-options plist must describe this exact bundle ID, team, and provisioning
+profile. Its key values are configuration, not credentials from the App Store. For
+example, use this structure and replace the team ID and profile UUID with the values in
+your Apple Developer account:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>teamID</key><string>YOUR_TEAM_ID</string>
+  <key>provisioningProfiles</key><dict>
+    <key>com.nursultankoshoev.mobilechat</key><string>YOUR_PROFILE_UUID</string>
+  </dict>
+</dict></plist>
+```
+
+The workflow checks that the team ID and profile UUID/name match the downloaded profile,
+then configures the generated Xcode project for manual App Store signing.
+
 `IOS_KEYCHAIN_PASSWORD` is optional. The certificate, provisioning profile, and export
 options must be for the App Store distribution of `com.nursultankoshoev.mobilechat`. The
 App Store Connect API key needs permission to upload builds and submit the app for review.
