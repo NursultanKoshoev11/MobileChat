@@ -6,9 +6,9 @@ signed builds to TestFlight on `main`; App Store review and public release remai
 
 ## Google Play
 
-Add the repository Actions secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. Its value is the full
-service-account JSON key. The service account must have access to the existing Play Console
-app `com.nursultankoshoev.mobilechat` and permission to publish test and production releases.
+The repository Actions secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` is configured. The service
+account has access to the existing Play Console app `com.nursultankoshoev.mobilechat` and
+permission to publish releases.
 The workflow signs the AAB with the existing Android upload-key secrets, then submits it to
 the `alpha` closed-testing track. Koom must first complete Google Play's closed-testing
 eligibility requirement and receive production access before the workflow is changed to submit
@@ -20,8 +20,8 @@ gets a new code. The displayed version is `1.0.<run_number>`.
 
 ## App Store
 
-Create a GitHub Actions environment named `ios-production`, restrict deployments to the
-`main` branch, and add these environment secrets:
+The GitHub Actions environment `ios-production` exists and is restricted to the `main` branch.
+It contains these signing and App Store Connect secrets:
 
 - `IOS_CERTIFICATE_P12_BASE64`
 - `IOS_CERTIFICATE_PASSWORD`
@@ -31,30 +31,24 @@ Create a GitHub Actions environment named `ios-production`, restrict deployments
 - `APP_STORE_CONNECT_ISSUER_ID`
 - `APP_STORE_CONNECT_API_KEY_P8_BASE64`
 
-For each file secret, create a single-line Base64 value on Windows PowerShell with:
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\path\to\file'))
-```
-
-Use the `.p12` certificate, `.mobileprovision` profile, export-options `.plist`, and
-App Store Connect `.p8` key for the corresponding secrets above. Keep the original files
-and passwords private; add the encoded value directly in the GitHub secret form.
+The signing secrets are configured for the Koom App Store distribution certificate and
+profile. Do not commit their source files, passwords, or encoded values to the repository.
+The profile is named `Koom App Store Distribution 2026`, uses team `7RHTX4XXX2`, and
+expires on 2027-11-16. Rotate the certificate, profile, and matching secrets before expiry.
 
 The export-options plist must describe this exact bundle ID, team, and provisioning
-profile. Its key values are configuration, not credentials from the App Store. For
-example, use this structure and replace the team ID and profile UUID with the values in
-your Apple Developer account:
+profile. Its key values are configuration, not credentials from the App Store. The
+configured export-options plist uses this structure and current profile UUID:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>method</key><string>app-store-connect</string>
+  <key>method</key><string>app-store</string>
   <key>signingStyle</key><string>manual</string>
-  <key>teamID</key><string>YOUR_TEAM_ID</string>
+  <key>teamID</key><string>7RHTX4XXX2</string>
   <key>provisioningProfiles</key><dict>
-    <key>com.nursultankoshoev.mobilechat</key><string>YOUR_PROFILE_UUID</string>
+    <key>com.nursultankoshoev.mobilechat</key><string>5ce51063-7768-433d-b3a3-74fa069062c0</string>
   </dict>
 </dict></plist>
 ```
@@ -68,6 +62,9 @@ App Store Connect API key needs permission to upload builds. A Team API key appl
 all apps in the Apple account, even with the Developer role; the workflow uses it only to
 upload Koom builds to TestFlight.
 The app record must already exist in App Store Connect.
+
+These workflow changes are in PR #48 (`codex/store-auto-release` → `main`). Until that PR is
+merged, the new store-release jobs are not active on `main`.
 
 On `main`, the workflow signs the IPA and uploads it to TestFlight. It does not add testers,
 submit the app for App Review, or release it publicly. The marketing version is
