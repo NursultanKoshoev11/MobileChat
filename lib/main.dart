@@ -17,12 +17,17 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final firebaseInitialization = _initializeFirebase();
+  runApp(KoomApp(firebaseInitialization: firebaseInitialization));
+}
+
+Future<void> _initializeFirebase() async {
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp().timeout(const Duration(seconds: 10));
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (error) {
-    if (kReleaseMode) rethrow;
-    debugPrint('Firebase initialization skipped: $error');
+    debugPrint(
+      'Firebase initialization skipped; starting Koom without push notifications: $error',
+    );
   }
-  runApp(const KoomApp());
 }

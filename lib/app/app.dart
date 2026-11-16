@@ -16,7 +16,9 @@ import 'preferences_store.dart';
 import 'theme.dart';
 
 class KoomApp extends StatefulWidget {
-  const KoomApp({super.key});
+  const KoomApp({super.key, required this.firebaseInitialization});
+
+  final Future<void> firebaseInitialization;
 
   @override
   State<KoomApp> createState() => _KoomAppState();
@@ -73,6 +75,7 @@ class _KoomAppState extends State<KoomApp>
     await Future.wait([
       languageController.restore(),
       appearanceController.restore(),
+      widget.firebaseInitialization,
     ]);
     await api.handleAppResumed(forceRefresh: true);
     var session = await sessionStore.read();
