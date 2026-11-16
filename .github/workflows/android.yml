@@ -243,12 +243,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Submit release to Google Play production
+      - name: Submit release to Google Play closed testing
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.nursultankoshoev.mobilechat
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: production
+          track: alpha
           status: completed

@@ -7,10 +7,12 @@ The Android and iOS workflows build and submit releases when a commit reaches `m
 
 Add the repository Actions secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. Its value is the full
 service-account JSON key. The service account must have access to the existing Play Console
-app `com.nursultankoshoev.mobilechat` and permission to manage production releases. The
-workflow signs the AAB with the existing Android upload-key secrets, then submits it to the
-production track. A successful upload means Google Play accepted the submission; Google may
-still review it before users receive it.
+app `com.nursultankoshoev.mobilechat` and permission to publish test and production releases.
+The workflow signs the AAB with the existing Android upload-key secrets, then submits it to
+the `alpha` closed-testing track. Koom must first complete Google Play's closed-testing
+eligibility requirement and receive production access before the workflow is changed to submit
+production releases. A successful upload means Google Play accepted the submission; Google
+may still review it before testers or users receive it.
 
 The workflow uses `run_number * 100 + run_attempt` as `versionCode`, so rerunning a release
 gets a new code. The displayed version is `1.0.<run_number>`.
@@ -73,5 +75,7 @@ Apple approves the build; Apple review is still required. The marketing version 
 The workflows fail before store submission if their required credentials are missing. Store
 accounts also need an existing app record, valid signing assets, and completed store-side
 requirements (such as agreements, privacy answers, review details, and listing metadata).
-For Google Play, the app/package must already be created in Play Console. For Apple, the
-existing App Store Connect listing must be ready to receive a new build and review submission.
+For Google Play, the app/package must already be created in Play Console. New personal
+developer accounts may also need to complete the required closed test before production access
+is granted. For Apple, the existing App Store Connect listing must be ready to receive a new
+build and review submission.
