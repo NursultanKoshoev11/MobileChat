@@ -210,7 +210,7 @@ jobs:
 
   build-signed-ipa:
     name: Build signed iPhone IPA
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Check signing secrets
@@ -266,6 +266,30 @@ jobs:
       - name: Show Xcode version
         if: steps.signing.outputs.ready == 'true'
         run: xcodebuild -version
+
+      - name: Verify App Store SDK minimum
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          python3 - <<'PY'
+          import re
+          import subprocess
+
+          xcode_output = subprocess.check_output(["xcodebuild", "-version"], text=True)
+          xcode_match = re.search(r"^Xcode ([0-9.]+)", xcode_output, re.MULTILINE)
+          sdk_version = subprocess.check_output(
+              ["xcrun", "--sdk", "iphoneos", "--show-sdk-version"], text=True
+          ).strip()
+
+          def version_tuple(value):
+              return tuple(int(part) for part in value.split("."))
+
+          if not xcode_match or version_tuple(xcode_match.group(1)) < (26,):
+              raise SystemExit(f"App Store uploads require Xcode 26 or later; found {xcode_output.strip()}.")
+          if version_tuple(sdk_version) < (26,):
+              raise SystemExit(f"App Store uploads require the iOS 26 SDK or later; found {sdk_version}.")
+
+          print(f"Verified App Store toolchain: Xcode {xcode_match.group(1)}, iOS SDK {sdk_version}.")
+          PY
 
       - name: Show Flutter doctor
         if: steps.signing.outputs.ready == 'true'
