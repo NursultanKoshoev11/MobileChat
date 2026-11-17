@@ -24,7 +24,7 @@ permissions:
 jobs:
   build-ios-simulator:
     name: Build unsigned iOS simulator app
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Checkout repository
