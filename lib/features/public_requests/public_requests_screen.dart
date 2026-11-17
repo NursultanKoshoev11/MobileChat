@@ -798,7 +798,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                         value: selectedUserId,
                         isExpanded: true,
                         decoration: InputDecoration(
-                          labelText: text.mobileNumber,
+                          labelText: text.groupMember,
                           prefixIcon: const Icon(Icons.people_outline_rounded),
                         ),
                         items: members
@@ -806,7 +806,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                               (member) => DropdownMenuItem<String>(
                                 value: member.userId,
                                 child: Text(
-                                  '${member.displayName} · ${member.phone ?? ''} · ${member.role}',
+                                  '${member.displayName} · ${member.role}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
