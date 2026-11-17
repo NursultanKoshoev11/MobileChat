@@ -17,11 +17,13 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.user,
+    required this.onAccountDeleted,
     this.onUserChanged,
   });
 
   final ApiClient api;
   final UserProfile user;
+  final Future<void> Function() onAccountDeleted;
   final Future<void> Function(UserProfile user)? onUserChanged;
 
   @override
@@ -34,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker imagePicker = ImagePicker();
   late UserProfile user;
   bool updatingPhoto = false;
+  bool deletingAccount = false;
 
   @override
   void initState() {
@@ -105,6 +108,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => updatingPhoto = false);
       showAppSnack(context, localizedMessage(context, error.toString()));
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    if (deletingAccount) return;
+    final text = AppLanguageScope.textOf(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(text.deleteAccountConfirmTitle),
+        content: Text(text.deleteAccountConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(text.close),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(text.deleteAccount),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => deletingAccount = true);
+    try {
+      await widget.api.deleteAccount();
+      await widget.onAccountDeleted();
+    } catch (error) {
+      if (!mounted) return;
+      final message =
+          error.toString().contains('group_ownership_transfer_required')
+          ? text.accountDeletionNeedsGroupMember
+          : localizedMessage(context, error.toString());
+      showAppSnack(context, message);
+    } finally {
+      if (mounted) setState(() => deletingAccount = false);
     }
   }
 
@@ -291,6 +332,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            KoomSectionTitle(
+              title: text.accountDeletion,
+              subtitle: text.accountDeletionDescription,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: deletingAccount ? null : deleteAccount,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                side: BorderSide(color: Colors.red.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: deletingAccount
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_rounded),
+              label: Text(
+                deletingAccount ? text.pleaseWait : text.deleteAccount,
               ),
             ),
           ],

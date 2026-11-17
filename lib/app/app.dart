@@ -126,6 +126,13 @@ class _KoomAppState extends State<KoomApp>
     });
   }
 
+  Future<void> accountDeleted() async {
+    if (!mounted) return;
+    setState(() {
+      bootFuture = Future.value(null);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppLanguageScope(
@@ -180,6 +187,7 @@ class _KoomAppState extends State<KoomApp>
                     session: session,
                     onSessionChanged: updateSessionLocally,
                     onLogout: logout,
+                    onAccountDeleted: accountDeleted,
                   );
                 },
               ),

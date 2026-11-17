@@ -460,7 +460,7 @@ class PublicRequestCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 10),
                 Text(
-                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
+                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorId.isEmpty ? text.deletedAccount : request.authorName}',
                   style: TextStyle(color: colors.textMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 10),
@@ -1346,7 +1346,9 @@ class _CommentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
-    final authorName = comment.authorName.trim().isEmpty
+    final authorName = comment.authorId.isEmpty
+        ? text.deletedAccount
+        : comment.authorName.trim().isEmpty
         ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
         : comment.authorName.trim();
 

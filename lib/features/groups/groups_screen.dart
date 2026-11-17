@@ -27,11 +27,13 @@ class GroupsScreen extends StatefulWidget {
     required this.session,
     required this.onSessionChanged,
     required this.onLogout,
+    required this.onAccountDeleted,
   });
   final ApiClient api;
   final AppSession session;
   final Future<void> Function(AppSession session) onSessionChanged;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onAccountDeleted;
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
@@ -379,6 +381,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
           onUserChanged: (updatedUser) => widget.onSessionChanged(
             widget.session.copyWith(user: updatedUser),
           ),
+          onAccountDeleted: widget.onAccountDeleted,
         ),
       ),
     );

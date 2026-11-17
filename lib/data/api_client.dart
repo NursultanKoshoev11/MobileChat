@@ -110,6 +110,14 @@ class ApiClient {
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<void> deleteAccount() async {
+    await _request('DELETE', '/api/me');
+    await sessionStore.clear();
+    _proactiveRefreshTimer?.cancel();
+    _proactiveRefreshTimer = null;
+    _proactiveRefreshRetryAttempt = 0;
+  }
+
   Future<UserProfile> updateMyAvatar(String avatarData) async {
     final response = await _request(
       'PUT',

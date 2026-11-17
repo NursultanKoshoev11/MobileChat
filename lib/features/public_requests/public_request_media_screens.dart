@@ -99,7 +99,9 @@ class MediaPublicRequestCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 KoomAvatar(
-                  label: request.authorName,
+                  label: request.authorId.isEmpty
+                      ? text.deletedAccount
+                      : request.authorName,
                   radius: 20,
                   imageBytes: request.authorAvatarBytes,
                 ),
@@ -109,7 +111,9 @@ class MediaPublicRequestCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        request.authorName.trim().isEmpty
+                        request.authorId.isEmpty
+                            ? text.deletedAccount
+                            : request.authorName.trim().isEmpty
                             ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
                             : request.authorName,
                         maxLines: 1,

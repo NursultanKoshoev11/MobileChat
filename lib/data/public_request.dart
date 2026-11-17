@@ -63,7 +63,7 @@ class PublicRequest {
     return PublicRequest(
       id: json['id'] as String,
       groupId: json['group_id'] as String,
-      authorId: json['author_id'] as String,
+      authorId: json['author_id'] as String? ?? '',
       authorName: json['author_name'] as String? ?? 'User',
       authorAvatarData:
           json['author_avatar_data'] as String? ??
@@ -367,7 +367,7 @@ class PublicRequestComment {
     return PublicRequestComment(
       id: json['id'] as String,
       requestId: json['request_id'] as String,
-      authorId: json['author_id'] as String,
+      authorId: json['author_id'] as String? ?? '',
       authorName: json['author_name'] as String? ?? 'User',
       body: json['body'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
