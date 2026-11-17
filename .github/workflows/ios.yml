@@ -1,6 +1,9 @@
 name: iOS Build
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -25,12 +28,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: "3.50.0"
           cache: true
 
       - name: Show Xcode version
@@ -81,7 +84,7 @@ jobs:
           ls -lah build-artifacts
 
       - name: Upload simulator app artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Koom-iOS-simulator-app
           path: |
@@ -96,12 +99,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: "3.50.0"
           cache: true
 
       - name: Show Xcode version
@@ -159,7 +162,7 @@ jobs:
           ls -lah build-artifacts
 
       - name: Upload unsigned IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Koom-unsigned-ipa
           path: |
@@ -215,13 +218,13 @@ jobs:
 
       - name: Checkout repository
         if: steps.signing.outputs.ready == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
         if: steps.signing.outputs.ready == 'true'
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: "3.50.0"
           cache: true
 
       - name: Show Xcode version
@@ -397,7 +400,7 @@ jobs:
 
       - name: Upload signed IPA artifact
         if: steps.signing.outputs.ready == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Koom-signed-ipa
           path: |
