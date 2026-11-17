@@ -73,9 +73,8 @@ const tinyPngBase64 =
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Firebase Test Lab five-person working group flow', (
-    tester,
-  ) async {
+  testWidgets('Firebase Test Lab five-person working group flow',
+      (tester) async {
     final crew = await authenticateCrew();
     await preflightAccountRole(crew.primary);
     await (const SessionStore()).clear();
@@ -108,7 +107,10 @@ void main() {
     var createdRequest = await waitForRequestByTitle(postTitle);
     expect(createdRequest.displayBody, postBody);
 
-    await ensureCrewMembership(crew: crew, groupId: createdRequest.groupId);
+    await ensureCrewMembership(
+      crew: crew,
+      groupId: createdRequest.groupId,
+    );
     await exerciseGroupOwnerToolsAfterMembers(tester);
     await exerciseFivePersonWorkingGroupFlow(
       crew: crew,
@@ -343,10 +345,8 @@ Future<void> preflightAccountRole(QaActor primary) async {
   final expectedMembership = expectedGroupRole.trim();
   if (expectedMembership.isEmpty || expectedMembership == 'any') return;
 
-  final allowedRoles = expectedMembership
-      .split(',')
-      .map((role) => role.trim())
-      .toSet();
+  final allowedRoles =
+      expectedMembership.split(',').map((role) => role.trim()).toSet();
   final groups = await primary.api.fetchGroups();
   expect(
     groups.any((group) => allowedRoles.contains(group.myRole)),
@@ -383,7 +383,7 @@ Future<void> openOrCreateGroup(WidgetTester tester, String groupTitle) async {
 
   final openedCreateGroupSheet =
       find.byType(BottomSheet).evaluate().isNotEmpty &&
-      find.byType(EditableText).evaluate().length >= 2;
+          find.byType(EditableText).evaluate().length >= 2;
 
   if (openedCreateGroupSheet) {
     await enterEditableTextAt(tester, 0, groupTitle);
@@ -435,10 +435,8 @@ Future<bool> openFirstVisibleGroup(WidgetTester tester) async {
 }
 
 Future<void> joinFirstPublicGroupForNonAdmin(WidgetTester tester) async {
-  final api = ApiClient(
-    baseUrl: apiBaseUrl,
-    sessionStore: const SessionStore(),
-  );
+  final api =
+      ApiClient(baseUrl: apiBaseUrl, sessionStore: const SessionStore());
   final groups = await api.searchPublicGroups('');
   if (groups.isEmpty) return;
   try {
@@ -557,7 +555,11 @@ Future<void> exerciseFivePersonWorkingGroupFlow({
     groupId: groupId,
   );
 
-  await exerciseGroupConversation(crew: crew, groupId: groupId, stamp: stamp);
+  await exerciseGroupConversation(
+    crew: crew,
+    groupId: groupId,
+    stamp: stamp,
+  );
 
   final observerPost = await crew.observer.requestsApi.createRequest(
     groupId: groupId,
@@ -603,7 +605,11 @@ Future<void> exerciseFivePersonWorkingGroupFlow({
       requestId: mainRequestId,
       body: entry.value,
     );
-    await waitForCommentByBody(mainRequestId, entry.value, actor: crew.primary);
+    await waitForCommentByBody(
+      mainRequestId,
+      entry.value,
+      actor: crew.primary,
+    );
   }
 
   await exerciseOneHourCommentBlock(
@@ -683,7 +689,11 @@ Future<void> exerciseAdministrativeApiFlows({
     requestId: requestId,
     body: 'Temporary delete check $stamp.',
   );
-  await waitForCommentByBody(requestId, tempComment.body, actor: crew.primary);
+  await waitForCommentByBody(
+    requestId,
+    tempComment.body,
+    actor: crew.primary,
+  );
   await crew.primary.requestsApi.deleteComment(tempComment.id);
   await waitForCommentDeleted(
     actor: crew.primary,
@@ -701,10 +711,8 @@ Future<void> exercisePlatformApiFlows({
   expect(token.trim(), isNotEmpty);
 
   final pushToken = 'firebase-test-lab-$stamp';
-  await crew.primary.api.registerPushToken(
-    token: pushToken,
-    platform: 'android',
-  );
+  await crew.primary.api
+      .registerPushToken(token: pushToken, platform: 'android');
   await crew.primary.api.deletePushToken(token: pushToken, platform: 'android');
 
   final messageText = 'Firebase chat message $stamp';
@@ -719,9 +727,8 @@ Future<void> exercisePlatformApiFlows({
     messageText: messageText,
   );
 
-  final groupWithInvite = await crew.primary.requestsApi.ensureGroupInviteCode(
-    groupId,
-  );
+  final groupWithInvite =
+      await crew.primary.requestsApi.ensureGroupInviteCode(groupId);
   final inviteCode = groupWithInvite.inviteCode ?? '';
   expect(inviteCode.trim(), isNotEmpty);
 
@@ -917,7 +924,10 @@ Future<void> exerciseOneHourCommentBlock({
   );
 
   await expectLater(
-    mutedActor.requestsApi.addComment(requestId: requestId, body: blockedBody),
+    mutedActor.requestsApi.addComment(
+      requestId: requestId,
+      body: blockedBody,
+    ),
     throwsA(isA<ApiException>()),
   );
   final commentsWhileMuted = await admin.requestsApi.listComments(requestId);
@@ -934,7 +944,11 @@ Future<void> exerciseOneHourCommentBlock({
     requestId: requestId,
     body: restoredBody,
   );
-  await waitForCommentByBody(requestId, restoredBody, actor: admin);
+  await waitForCommentByBody(
+    requestId,
+    restoredBody,
+    actor: admin,
+  );
 }
 
 Future<void> ensureActorGroupMembership({
@@ -1036,10 +1050,8 @@ Future<PublicRequest> waitForRequestByTitle(
   int seconds = 25,
 }) async {
   final api = publicRequestsApi();
-  final groupsApi = ApiClient(
-    baseUrl: apiBaseUrl,
-    sessionStore: const SessionStore(),
-  );
+  final groupsApi =
+      ApiClient(baseUrl: apiBaseUrl, sessionStore: const SessionStore());
   final deadline = DateTime.now().add(Duration(seconds: seconds));
 
   while (DateTime.now().isBefore(deadline)) {
@@ -1103,7 +1115,8 @@ Future<void> waitForGroupMemberRole({
   while (DateTime.now().isBefore(deadline)) {
     final members = await actor.requestsApi.listGroupMembers(groupId);
     if (members.any(
-      (member) => member.displayName == displayName && member.role == role,
+      (member) =>
+          member.displayName == displayName && member.role == role,
     )) {
       return;
     }
@@ -1184,11 +1197,8 @@ Future<void> waitForCommentSubmission(
   await waitForText(tester, commentBody, seconds: 1);
 }
 
-Future<void> waitForKey(
-  WidgetTester tester,
-  String key, {
-  int seconds = 10,
-}) async {
+Future<void> waitForKey(WidgetTester tester, String key,
+    {int seconds = 10}) async {
   await waitFor(tester, find.byKey(ValueKey(key)), seconds: seconds);
 }
 
@@ -1235,11 +1245,8 @@ Future<void> refreshPublicRequests(WidgetTester tester) async {
     await settle(tester, seconds: 2);
     return;
   }
-  await tester.drag(
-    scrollables.first,
-    const Offset(0, 520),
-    warnIfMissed: false,
-  );
+  await tester.drag(scrollables.first, const Offset(0, 520),
+      warnIfMissed: false);
   await settle(tester, seconds: 4);
 }
 
@@ -1250,11 +1257,8 @@ Future<void> refreshRequestDetailsComments(WidgetTester tester) async {
   await settle(tester, seconds: 3);
 }
 
-Future<void> waitFor(
-  WidgetTester tester,
-  Finder finder, {
-  int seconds = 10,
-}) async {
+Future<void> waitFor(WidgetTester tester, Finder finder,
+    {int seconds = 10}) async {
   final deadline = DateTime.now().add(Duration(seconds: seconds));
   while (DateTime.now().isBefore(deadline)) {
     await tester.pump(const Duration(milliseconds: 500));
@@ -1340,10 +1344,10 @@ Future<bool> tapFirstKeyPrefix(
 }) async {
   final deadline = DateTime.now().add(Duration(seconds: seconds));
   Finder finder() => find.byWidgetPredicate(
-    (widget) =>
-        widget.key is ValueKey<String> &&
-        (widget.key as ValueKey<String>).value.startsWith(prefix),
-  );
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key as ValueKey<String>).value.startsWith(prefix),
+      );
 
   while (DateTime.now().isBefore(deadline)) {
     final current = finder();
@@ -1360,10 +1364,7 @@ Future<bool> tapFirstKeyPrefix(
 }
 
 Future<void> enterTextByKey(
-  WidgetTester tester,
-  String key,
-  String value,
-) async {
+    WidgetTester tester, String key, String value) async {
   final finder = find.byKey(ValueKey(key));
   await waitFor(tester, finder, seconds: 10);
   await tester.ensureVisible(finder.first);
@@ -1374,10 +1375,7 @@ Future<void> enterTextByKey(
 }
 
 Future<void> enterEditableTextAt(
-  WidgetTester tester,
-  int index,
-  String value,
-) async {
+    WidgetTester tester, int index, String value) async {
   final fields = find.byType(EditableText);
   expect(fields.evaluate().length, greaterThan(index));
   final finder = fields.at(index);
@@ -1420,8 +1418,11 @@ class QaCrew {
 }
 
 class QaActor {
-  QaActor({required this.name, required this.phone, required this.displayName})
-    : sessionStore = MemorySessionStore() {
+  QaActor({
+    required this.name,
+    required this.phone,
+    required this.displayName,
+  }) : sessionStore = MemorySessionStore() {
     api = ApiClient(baseUrl: apiBaseUrl, sessionStore: sessionStore);
     requestsApi = PublicRequestsApi(
       baseUrl: apiBaseUrl,

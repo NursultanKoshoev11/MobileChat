@@ -80,10 +80,7 @@ void main() {
     expect(user.avatarBytes, isNotNull);
     expect(user.avatarBytes!.single, 65);
     expect(copied.avatarData, 'data:image/png;base64,Qg==');
-    expect(
-      session.toJson()['user']['avatar_data'],
-      'data:image/png;base64,Qg==',
-    );
+    expect(session.toJson()['user']['avatar_data'], 'data:image/png;base64,Qg==');
   });
 
   test('ChatGroup canInvite works for admin and owner', () {
