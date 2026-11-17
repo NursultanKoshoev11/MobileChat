@@ -129,20 +129,18 @@ jobs:
           test -s android/key.properties
 
       - name: Create Android local.properties
+        env:
+          REQUESTED_VERSION_CODE: ${{ github.event.inputs.version_code }}
+          REQUESTED_VERSION_NAME: ${{ github.event.inputs.version_name }}
         run: |
-          VERSION_CODE="${{ github.event.inputs.version_code }}"
-          VERSION_NAME="${{ github.event.inputs.version_name }}"
+          VERSION_CODE="$REQUESTED_VERSION_CODE"
+          VERSION_NAME="$REQUESTED_VERSION_NAME"
           if [ -z "$VERSION_CODE" ]; then
-            VERSION_CODE=$((${{ github.run_number }} * 100 + ${{ github.run_attempt }}))
+            VERSION_CODE=$(($GITHUB_RUN_NUMBER * 100 + $GITHUB_RUN_ATTEMPT))
           fi
           if [ -z "$VERSION_NAME" ]; then
-            VERSION_NAME="1.0.${{ github.run_number }}"
+            VERSION_NAME="1.0.${GITHUB_RUN_NUMBER}"
           fi
-          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
-          echo "flutter.versionCode=$VERSION_CODE" >> android/local.properties
-          echo "flutter.versionName=$VERSION_NAME" >> android/local.properties
-          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
             echo "versionCode must be a positive integer, got: $VERSION_CODE"
             exit 1
@@ -151,6 +149,14 @@ jobs:
             echo "versionCode exceeds Android maximum: $VERSION_CODE"
             exit 1
           fi
+          if ! [[ "$VERSION_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$ ]]; then
+            echo "versionName contains unsupported characters or is too long."
+            exit 1
+          fi
+          printf 'flutter.sdk=%s\nflutter.versionCode=%s\nflutter.versionName=%s\n' \
+            "$FLUTTER_ROOT" "$VERSION_CODE" "$VERSION_NAME" > android/local.properties
+          printf 'VERSION_CODE=%s\nVERSION_NAME=%s\n' \
+            "$VERSION_CODE" "$VERSION_NAME" >> "$GITHUB_ENV"
           echo "Using versionCode=$VERSION_CODE versionName=$VERSION_NAME"
 
       - name: Install dependencies
@@ -167,20 +173,19 @@ jobs:
           test/responsive_layout_test.dart
 
       - name: Resolve API base URL
+        env:
+          REQUESTED_API_BASE_URL: ${{ github.event.inputs.api_base_url }}
         run: |
-          API_BASE_URL="${{ github.event.inputs.api_base_url }}"
+          API_BASE_URL="$REQUESTED_API_BASE_URL"
           if [ -z "$API_BASE_URL" ]; then
             API_BASE_URL="$DEFAULT_API_BASE_URL"
           fi
-          if [ -z "$API_BASE_URL" ]; then
-            echo "API_BASE_URL is required"
+          if ! [[ "$API_BASE_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo "API_BASE_URL must be a non-empty HTTPS URL without whitespace."
             exit 1
           fi
-          case "$API_BASE_URL" in
-            https://*) echo "API_BASE_URL is valid: $API_BASE_URL" ;;
-            *) echo "API_BASE_URL must start with https://" && exit 1 ;;
-          esac
-          echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+          printf 'API_BASE_URL=%s\n' "$API_BASE_URL" >> "$GITHUB_ENV"
+          echo "API_BASE_URL is valid: $API_BASE_URL"
 
       - name: Build Google Play release AAB
         run: |
