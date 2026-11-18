@@ -1,0 +1,164 @@
+name: Koom Android UI tests
+
+# Maestro user journey + Monkey random input on an Android emulator, against a
+# throwaway backend (MobileChatServer + Postgres in Docker) started in this job.
+# Never talks to production and never deploys anything.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: "MobileChatServer git ref to test against."
+        required: false
+        default: "main"
+      monkey_events:
+        description: "Monkey events per round."
+        required: false
+        default: "1500"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  API_PORT: "8080"
+  MAESTRO_VERSION: "2.11.0"
+  OUT: ui-test-results
+
+jobs:
+  android-ui-tests:
+    name: Mobile UI / Maestro + Monkey
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v7
+
+      - name: Checkout backend (public repo, read-only)
+        uses: actions/checkout@v7
+        with:
+          repository: NursultanKoshoev11/MobileChatServer
+          ref: ${{ github.event.inputs.server_ref || 'main' }}
+          path: .ci-backend
+          persist-credentials: false
+
+      - name: Start throwaway backend
+        env:
+          KOOM_SERVER_DIR: ${{ github.workspace }}/.ci-backend
+        run: |
+          export JWT_SECRET="$(openssl rand -hex 32)"
+          docker compose -f ci/ui-tests/docker-compose.yml up -d --build --wait
+          curl -fsS "http://127.0.0.1:${API_PORT}/api/health"
+
+      - name: Seed test users and groups
+        run: API="http://127.0.0.1:${API_PORT}" bash ci/ui-tests/seed.sh
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: "3.50.0"
+          cache: true
+
+      - name: Build debug APK for the emulator
+        env:
+          # Adds the x86_64 ABI for the emulator; build.gradle rejects it for
+          # release/profile builds.
+          ORG_GRADLE_PROJECT_koomEmulatorAbi: "true"
+        run: |
+          flutter pub get
+          flutter build apk --debug \
+            --target-platform android-x64 \
+            --dart-define=API_BASE_URL="http://10.0.2.2:${API_PORT}"
+          ls -lah build/app/outputs/flutter-apk/
+
+      - name: Install Maestro
+        run: |
+          mkdir -p "$RUNNER_TEMP/maestro-dl"
+          cd "$RUNNER_TEMP/maestro-dl"
+          base="https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}"
+          curl -fsSLo maestro.zip "$base/maestro.zip"
+          curl -fsSLo checksums_sha256.txt "$base/checksums_sha256.txt"
+          grep ' maestro.zip$' checksums_sha256.txt | sha256sum -c -
+          unzip -q maestro.zip -d "$HOME/.maestro-cli"
+          echo "$HOME/.maestro-cli/maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro-cli/maestro/bin/maestro" --version
+
+      - name: Run Maestro journey and Monkey rounds on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          APK: build/app/outputs/flutter-apk/app-debug.apk
+          MONKEY_EVENTS: ${{ github.event.inputs.monkey_events || '1500' }}
+          MAESTRO_CLI_NO_ANALYTICS: "1"
+          MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: "true"
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash ci/ui-tests/run-ui-tests.sh
+
+      - name: Check backend logs for 5xx and panics
+        if: always()
+        run: |
+          mkdir -p "$OUT/backend"
+          docker compose -f ci/ui-tests/docker-compose.yml logs --no-color api > "$OUT/backend/api.log" 2>&1 || true
+          docker compose -f ci/ui-tests/docker-compose.yml logs --no-color postgres > "$OUT/backend/postgres.log" 2>&1 || true
+          if grep -E 'status=5[0-9]{2}|panic |"level":"(error|fatal)"' "$OUT/backend/api.log" > "$OUT/backend/server-errors.txt"; then
+            echo "::error::Backend returned 5xx / panicked during UI tests:"
+            head -50 "$OUT/backend/server-errors.txt"
+            exit 1
+          fi
+          echo "No 5xx responses or panics in backend logs."
+        env:
+          KOOM_SERVER_DIR: ${{ github.workspace }}/.ci-backend
+          JWT_SECRET: unused-for-log-collection-only-000000
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f "$OUT/summary.md" ]; then
+            { echo "## Android UI tests"; cat "$OUT/summary.md"; } >> "$GITHUB_STEP_SUMMARY"
+            cat "$OUT/summary.md"
+          fi
+
+      - name: Upload UI test artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-ui-test-results
+          path: |
+            ui-test-results/
+            ~/.maestro/tests/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop backend
+        if: always()
+        env:
+          KOOM_SERVER_DIR: ${{ github.workspace }}/.ci-backend
+          JWT_SECRET: unused-for-teardown-only-00000000000
+        run: docker compose -f ci/ui-tests/docker-compose.yml down -v || true

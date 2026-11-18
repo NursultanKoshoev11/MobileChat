@@ -1,0 +1,38 @@
+# Signs in on the phone-auth screen with a fixed test-only account of the
+# throwaway CI backend. Env: PHONE_LOCAL (9 digits after +996), DISPLAY_NAME.
+appId: com.nursultankoshoev.mobilechat.debug
+---
+- extendedWaitUntil:
+    visible:
+      id: auth_mobile_field
+    timeout: 90000
+- tapOn:
+    id: auth_mobile_field
+- inputText: ${PHONE_LOCAL}
+- hideKeyboard
+- tapOn:
+    id: terms_accept_checkbox
+- tapOn:
+    id: auth_submit_button
+- extendedWaitUntil:
+    visible:
+      id: auth_code_field
+    timeout: 30000
+- tapOn:
+    id: auth_code_field
+- inputText: "111111"
+- hideKeyboard
+- runFlow:
+    when:
+      visible:
+        id: auth_display_name_field
+    commands:
+      - tapOn:
+          id: auth_display_name_field
+      - inputText: ${DISPLAY_NAME}
+      - hideKeyboard
+- tapOn:
+    id: auth_submit_button
+- extendedWaitUntil:
+    visible: "Меню"
+    timeout: 45000

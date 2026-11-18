@@ -85,37 +85,45 @@ class _TermsAcceptanceCheckboxState extends State<TermsAcceptanceCheckbox> {
         ? <InlineSpan>[
             const TextSpan(text: 'Мен '),
             TextSpan(
-                text: termsOfUseLabel(text),
-                style: linkStyle,
-                recognizer: _termsTap),
+              text: termsOfUseLabel(text),
+              style: linkStyle,
+              recognizer: _termsTap,
+            ),
             const TextSpan(text: ' жана '),
             TextSpan(
-                text: privacyPolicyLabel(text),
-                style: linkStyle,
-                recognizer: _privacyTap),
+              text: privacyPolicyLabel(text),
+              style: linkStyle,
+              recognizer: _privacyTap,
+            ),
             const TextSpan(text: ' менен макулмун'),
           ]
         : <InlineSpan>[
             const TextSpan(text: 'Я принимаю '),
             TextSpan(
-                text: termsOfUseLabel(text),
-                style: linkStyle,
-                recognizer: _termsTap),
+              text: termsOfUseLabel(text),
+              style: linkStyle,
+              recognizer: _termsTap,
+            ),
             const TextSpan(text: ' и '),
             TextSpan(
-                text: privacyPolicyLabel(text),
-                style: linkStyle,
-                recognizer: _privacyTap),
+              text: privacyPolicyLabel(text),
+              style: linkStyle,
+              recognizer: _privacyTap,
+            ),
           ];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Checkbox(
-          key: const ValueKey('terms_accept_checkbox'),
-          value: widget.value,
-          onChanged: widget.enabled
-              ? (value) => widget.onChanged(value ?? false)
-              : null,
+        Semantics(
+          identifier: 'terms_accept_checkbox',
+          container: true,
+          child: Checkbox(
+            key: const ValueKey('terms_accept_checkbox'),
+            value: widget.value,
+            onChanged: widget.enabled
+                ? (value) => widget.onChanged(value ?? false)
+                : null,
+          ),
         ),
         const SizedBox(width: 4),
         Expanded(

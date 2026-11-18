@@ -1,0 +1,60 @@
+# Throwaway Koom backend for Android UI tests (Maestro + Monkey) in CI.
+# Never point this at production data: it uses a local Postgres container,
+# development mode, SMS disabled and fixed test-only login codes.
+#
+# Required env:
+#   KOOM_SERVER_DIR  path to a checkout of NursultanKoshoev11/MobileChatServer
+#   JWT_SECRET       random 32+ character secret generated per run
+name: koom-ui-tests
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: koom
+      POSTGRES_USER: koom
+      POSTGRES_PASSWORD: koom-ci-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koom -d koom"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: ${KOOM_SERVER_DIR:?KOOM_SERVER_DIR is required}
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      PORT: "8080"
+      DATABASE_URL: postgres://koom:koom-ci-only@postgres:5432/koom?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      RUN_MIGRATIONS_ON_START: "true"
+      ACCESS_TOKEN_TTL_MINUTES: "15"
+      BCRYPT_COST: "10"
+      SMS_PROVIDER: disabled
+      # Store-review style test accounts used by the app under test.
+      # Fixed code, no SMS. Development-only values.
+      APP_REVIEW_PHONE: ${UI_TEST_PHONES:-+996700000101,+996700000102,+996700000103,+996700000104,+996700000105}
+      APP_REVIEW_CODE: "111111"
+      APP_REVIEW_ALLOW_SIMPLE_CODE: "true"
+      # Seed-only platform admin (approves group creation requests via API).
+      TEST_AUTH_ENABLED: "true"
+      TEST_AUTH_PHONE: ${UI_TEST_ADMIN_PHONE:-+996700000900}
+      TEST_AUTH_CODE: ${UI_TEST_ADMIN_CODE:-900900}
+      TEST_AUTH_DISPLAY_NAME: CI Platform Admin
+      PLATFORM_ADMIN_PHONES: ${UI_TEST_ADMIN_PHONE:-+996700000900}
+      CONTENT_MODERATION_ENABLED: "true"
+      CONTENT_MODERATION_PROVIDER: local
+      MODERATION_FAIL_CLOSED: "true"
+    ports:
+      # The Android emulator reaches the host loopback through 10.0.2.2.
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 60

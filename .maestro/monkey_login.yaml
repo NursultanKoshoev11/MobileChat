@@ -1,0 +1,10 @@
+# Fresh sign-in before a Monkey round so Monkey explores the signed-in app.
+# Env: PHONE_LOCAL, DISPLAY_NAME (one account per round, see ui-tests.yml).
+appId: com.nursultankoshoev.mobilechat.debug
+name: Monkey round sign-in
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- runFlow: subflows/login.yaml

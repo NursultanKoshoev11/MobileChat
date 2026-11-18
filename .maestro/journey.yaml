@@ -1,0 +1,113 @@
+# Main user journey against the seeded CI backend (never production).
+appId: com.nursultankoshoev.mobilechat.debug
+name: Koom user journey
+env:
+  PHONE_LOCAL: "700000101"
+  DISPLAY_NAME: "Maestro Journey"
+  GROUP_TITLE: "Maestro QA Group"
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- takeScreenshot: 01_login
+- runFlow: subflows/login.yaml
+- extendedWaitUntil:
+    visible: ${GROUP_TITLE}
+    timeout: 30000
+- takeScreenshot: 02_groups
+
+# Open the seeded group.
+- tapOn: ${GROUP_TITLE}
+- extendedWaitUntil:
+    visible: "Новая публикация"
+    timeout: 30000
+- takeScreenshot: 03_group
+
+# Create a discussion post.
+- tapOn: "Новая публикация"
+- extendedWaitUntil:
+    visible: "Опубликовать"
+    timeout: 15000
+- tapOn: "Заголовок"
+- inputText: "Maestro post"
+- tapOn: "Описание"
+- inputText: "Created by the Maestro journey"
+- hideKeyboard
+- tapOn: "Только текст"
+- tapOn: "Обсуждение с комментариями"
+- takeScreenshot: 04_new_post
+- tapOn: "Опубликовать"
+- extendedWaitUntil:
+    visible: "Maestro post"
+    timeout: 30000
+- takeScreenshot: 05_post_created
+
+# Vote on the new post (it is first in the feed).
+- tapOn:
+    text: "Поддерживаю.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Нажмите выбранный вариант ещё раз, чтобы убрать голос."
+    timeout: 15000
+- takeScreenshot: 06_voted
+
+# Comment on it.
+- tapOn:
+    text: "Комментарии.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Добавить комментарий"
+    timeout: 15000
+- tapOn: "Добавить комментарий"
+- inputText: "Maestro comment"
+- hideKeyboard
+- tapOn: "Отправить"
+- extendedWaitUntil:
+    visible: "Maestro comment"
+    timeout: 15000
+- takeScreenshot: 07_commented
+- back
+
+# Invite code / QR sheet.
+- extendedWaitUntil:
+    visible: "Новая публикация"
+    timeout: 15000
+- tapOn: "Меню"
+- tapOn: "Код и QR"
+- extendedWaitUntil:
+    visible: "Передайте этот код или QR другому пользователю."
+    timeout: 15000
+- takeScreenshot: 08_invite_qr
+- back
+- back
+
+# Profile.
+- extendedWaitUntil:
+    visible: ${GROUP_TITLE}
+    timeout: 15000
+- tapOn: "Меню"
+- tapOn: "Профиль"
+- extendedWaitUntil:
+    visible: "Аккаунт"
+    timeout: 15000
+- assertVisible: ${DISPLAY_NAME}
+- takeScreenshot: 09_profile
+- back
+
+# App settings.
+- tapOn: "Настройки"
+- extendedWaitUntil:
+    visible: "Тема"
+    timeout: 15000
+- takeScreenshot: 10_settings
+- tapOn: "Закрыть"
+
+# Sign out.
+- tapOn: "Меню"
+- tapOn: "Выйти"
+- extendedWaitUntil:
+    visible:
+      id: auth_mobile_field
+    timeout: 30000
+- takeScreenshot: 11_signed_out
