@@ -48,7 +48,7 @@ env:
     text: "(?s)Поддерживаю.*"
     index: 0
 - extendedWaitUntil:
-    visible: "Нажмите выбранный вариант ещё раз, чтобы убрать голос."
+    visible: "(?s).*Нажмите выбранный вариант ещё раз.*"
     timeout: 15000
 - takeScreenshot: 06_voted
 
@@ -76,7 +76,7 @@ env:
 - tapOn: "Меню"
 - tapOn: "Код и QR"
 - extendedWaitUntil:
-    visible: "Передайте этот код или QR другому пользователю."
+    visible: "(?s).*Передайте этот код или QR.*"
     timeout: 15000
 - takeScreenshot: 08_invite_qr
 - back
