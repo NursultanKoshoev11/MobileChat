@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
+import 'app/firebase_config.dart';
 import 'services/push_notification_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
-    await Firebase.initializeApp();
+    await initializeFirebaseApp();
   } catch (_) {}
   await PushNotificationService.handleBackgroundMessage(message);
 }
@@ -25,7 +26,7 @@ Future<bool> initializeFirebaseSafely({
     if (initialize != null) {
       await initialize();
     } else {
-      await Firebase.initializeApp();
+      await initializeFirebaseApp();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
     return true;

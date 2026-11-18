@@ -312,6 +312,13 @@ jobs:
             *".$IOS_BUNDLE_ID") ;;
             *) echo "::error::Provisioning profile app identifier does not match $IOS_BUNDLE_ID: $APP_IDENTIFIER"; exit 1 ;;
           esac
+          APS_ENV=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$DECODED_PROFILE" 2>/dev/null || true)
+          if [ -n "$APS_ENV" ]; then
+            echo "Provisioning profile includes Push Notifications (aps-environment=$APS_ENV)."
+          else
+            echo "::warning::Provisioning profile has no Push Notifications capability; iOS push stays disabled. Enable Push for the App ID and regenerate the profile."
+          fi
+          echo "IOS_APS_ENV=$APS_ENV" >> "$GITHUB_ENV"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
           echo "IOS_PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
           echo "IOS_PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
@@ -336,7 +343,7 @@ jobs:
             echo "::error::Export options profile does not match the installed App Store provisioning profile."
             exit 1
           fi
-          IOS_BUNDLE_ID="$IOS_BUNDLE_ID" IOS_TEAM_ID="$IOS_TEAM_ID" IOS_PROFILE_UUID="$IOS_PROFILE_UUID" IOS_SIGNING_IDENTITY="$IOS_SIGNING_IDENTITY" python3 - <<'PY'
+          IOS_BUNDLE_ID="$IOS_BUNDLE_ID" IOS_TEAM_ID="$IOS_TEAM_ID" IOS_PROFILE_UUID="$IOS_PROFILE_UUID" IOS_SIGNING_IDENTITY="$IOS_SIGNING_IDENTITY" IOS_APS_ENV="$IOS_APS_ENV" python3 - <<'PY'
           import os
           import re
           from pathlib import Path
@@ -347,6 +354,20 @@ jobs:
           team_id = os.environ["IOS_TEAM_ID"]
           profile_uuid = os.environ["IOS_PROFILE_UUID"]
           signing_identity = os.environ["IOS_SIGNING_IDENTITY"]
+          aps_env = os.environ.get("IOS_APS_ENV", "").strip()
+          extra = []
+          if aps_env:
+              if aps_env not in ("production", "development"):
+                  raise SystemExit(f"Unexpected aps-environment in provisioning profile: {aps_env}")
+              Path("ios/Runner/Runner.entitlements").write_text(
+                  '<?xml version="1.0" encoding="UTF-8"?>' + chr(10)
+                  + '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' + chr(10)
+                  + '<plist version="1.0"><dict>' + chr(10)
+                  + f'<key>aps-environment</key><string>{aps_env}</string>' + chr(10)
+                  + '</dict></plist>' + chr(10),
+                  encoding="utf-8",
+              )
+              extra = ["CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;"]
           pattern = rf"(?m)^([ \t]*)PRODUCT_BUNDLE_IDENTIFIER = {re.escape(bundle_id)};[ \t]*$"
 
           def add_signing_settings(match):
@@ -357,7 +378,7 @@ jobs:
                   f'{indent}CODE_SIGN_IDENTITY = "{signing_identity}";',
                   f"{indent}DEVELOPMENT_TEAM = {team_id};",
                   f"{indent}PROVISIONING_PROFILE_SPECIFIER = {profile_uuid};",
-              ])
+              ] + [f"{indent}{line}" for line in extra])
 
           updated, count = re.subn(pattern, add_signing_settings, source)
           if count != 3:
@@ -373,7 +394,24 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         env:
           API_BASE_URL_INPUT: ${{ github.event.inputs.api_base_url }}
+          IOS_FIREBASE_API_KEY: ${{ secrets.IOS_FIREBASE_API_KEY }}
+          IOS_FIREBASE_APP_ID: ${{ secrets.IOS_FIREBASE_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
+          FIREBASE_DEFINES=()
+          if [ -n "$IOS_FIREBASE_API_KEY" ] && [ -n "$IOS_FIREBASE_APP_ID" ] && [ -n "$FIREBASE_MESSAGING_SENDER_ID" ] && [ -n "$FIREBASE_PROJECT_ID" ]; then
+            FIREBASE_DEFINES=(
+              "--dart-define=IOS_FIREBASE_API_KEY=$IOS_FIREBASE_API_KEY"
+              "--dart-define=IOS_FIREBASE_APP_ID=$IOS_FIREBASE_APP_ID"
+              "--dart-define=FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID"
+              "--dart-define=FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID"
+              "--dart-define=IOS_BUNDLE_ID=$IOS_BUNDLE_ID"
+            )
+            echo "iOS Firebase config present: push notifications enabled in this build."
+          else
+            echo "::warning::iOS Firebase secrets are not set; the app runs with push notifications disabled on iOS."
+          fi
           API_BASE_URL="${API_BASE_URL_INPUT:-https://koom.com.kg}"
           if ! [[ "$API_BASE_URL" =~ ^https://[^[:space:]]+$ ]]; then
             echo "API base URL must be a non-empty HTTPS URL without whitespace."
@@ -383,6 +421,7 @@ jobs:
             --build-name="1.0.${GITHUB_RUN_NUMBER}" \
             --build-number="${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}" \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
+            "${FIREBASE_DEFINES[@]}" \
             --export-options-plist=ios/ExportOptions.plist
 
       - name: Prepare IPA artifact
