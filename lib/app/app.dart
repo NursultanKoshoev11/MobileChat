@@ -111,6 +111,7 @@ class _KoomAppState extends State<KoomApp>
 
   Future<void> logout() async {
     await pushNotifications.unregisterDevice();
+    await pushNotifications.forgetDeviceToken();
     await api.logout();
     if (!mounted) return;
     setState(() {
@@ -119,6 +120,9 @@ class _KoomAppState extends State<KoomApp>
   }
 
   Future<void> accountDeleted() async {
+    // The server removes the account's push tokens with the account; also
+    // invalidate the token on the device.
+    await pushNotifications.forgetDeviceToken();
     if (!mounted) return;
     setState(() {
       bootFuture = Future.value(null);
