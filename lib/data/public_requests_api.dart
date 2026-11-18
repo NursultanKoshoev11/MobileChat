@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../app/api_config.dart';
 import 'api_client.dart';
 import 'group_statistics.dart';
 import 'models.dart';
@@ -72,10 +73,10 @@ class PublicRequestsApi {
       throw ApiException('Upload failed: ${response.statusCode}');
     }
     final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    final url = decoded['url'] as String? ?? '';
-    if (url.startsWith('/')) {
-      decoded['url'] = Uri.parse(baseUrl).replace(path: url).toString();
-    }
+    decoded['url'] = normalizeUploadedFileUrl(
+      decoded['url'] as String? ?? '',
+      baseUrl: baseUrl,
+    );
     return decoded;
   }
 
@@ -507,4 +508,27 @@ class PublicRequestsApi {
     }
     throw ApiException('Server error ${response.statusCode}');
   }
+}
+
+/// Normalizes the `url` returned by the upload endpoint. Relative paths are
+/// resolved against [baseUrl]; absolute URLs are accepted only when they share
+/// the API origin. Anything else is rejected so a compromised or misconfigured
+/// response cannot redirect authenticated media requests to a foreign host.
+String normalizeUploadedFileUrl(String url, {required String baseUrl}) {
+  final value = url.trim();
+  if (value.isEmpty) return '';
+  if (value.startsWith('//')) {
+    throw const ApiException('Upload returned a foreign media URL.');
+  }
+  if (value.startsWith('/')) {
+    return Uri.parse(baseUrl).replace(path: value).toString();
+  }
+  final parsed = Uri.tryParse(value);
+  if (parsed == null || !parsed.hasScheme) {
+    throw const ApiException('Upload returned an invalid media URL.');
+  }
+  if (!isSameApiOrigin(value, baseUrl: baseUrl)) {
+    throw const ApiException('Upload returned a foreign media URL.');
+  }
+  return value;
 }
