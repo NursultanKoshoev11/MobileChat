@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/api_client.dart';
+import '../data/blocked_users.dart';
 import '../data/models.dart';
 import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
@@ -73,6 +74,7 @@ class _KoomAppState extends State<KoomApp>
         session = session.copyWith(user: await api.fetchMe());
         await sessionStore.save(session);
       } catch (_) {}
+      unawaited(BlockedUsersController.instance.load(api));
       await pushNotifications.registerDevice();
     }
     return session;
@@ -94,6 +96,7 @@ class _KoomAppState extends State<KoomApp>
       effectiveSession = session.copyWith(user: await api.fetchMe());
       await sessionStore.save(effectiveSession);
     } catch (_) {}
+    unawaited(BlockedUsersController.instance.load(api));
     await pushNotifications.registerDevice();
     if (!mounted) return;
     setState(() {
@@ -112,6 +115,7 @@ class _KoomAppState extends State<KoomApp>
   Future<void> logout() async {
     await pushNotifications.unregisterDevice();
     await pushNotifications.forgetDeviceToken();
+    BlockedUsersController.instance.clear();
     await api.logout();
     if (!mounted) return;
     setState(() {
@@ -123,6 +127,7 @@ class _KoomAppState extends State<KoomApp>
     // The server removes the account's push tokens with the account; also
     // invalidate the token on the device.
     await pushNotifications.forgetDeviceToken();
+    BlockedUsersController.instance.clear();
     if (!mounted) return;
     setState(() {
       bootFuture = Future.value(null);

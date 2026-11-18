@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
+import '../../data/blocked_users.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import 'public_request_media_widgets.dart';
+import '../safety/safety_ui.dart';
 
 String _requestTypeLabel(AppText text, String value) {
   switch (value) {
@@ -68,6 +70,7 @@ class MediaPublicRequestCard extends StatelessWidget {
     this.onStatus,
     this.compact = true,
     this.showOpenAction = true,
+    this.safetyMenu,
   });
 
   final PublicRequest request;
@@ -77,6 +80,9 @@ class MediaPublicRequestCard extends StatelessWidget {
   final ValueChanged<String>? onStatus;
   final bool compact;
   final bool showOpenAction;
+
+  /// Report / block menu for other users' publications.
+  final Widget? safetyMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +142,7 @@ class MediaPublicRequestCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (safetyMenu != null) safetyMenu!,
                 if (canModerate && onStatus != null)
                   PopupMenuButton<String>(
                     key: ValueKey('public_request_status_${request.id}'),
@@ -539,19 +546,35 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
           title: Text(text.readPost), actions: const [AppSettingsButton()]),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          MediaPublicRequestCard(
-            request: request,
-            onTap: () {},
-            onVote: (_) {},
-            canModerate: canModerate,
-            onStatus: onStatusChanged,
-            compact: false,
-            showOpenAction: false,
-          ),
-        ],
+      body: ListenableBuilder(
+        listenable: BlockedUsersController.instance,
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            if (BlockedUsersController.instance.isBlocked(request.authorId))
+              const BlockedContentNotice()
+            else
+              MediaPublicRequestCard(
+                request: request,
+                onTap: () {},
+                onVote: (_) {},
+                canModerate: canModerate,
+                onStatus: onStatusChanged,
+                compact: false,
+                showOpenAction: false,
+                safetyMenu: ContentSafetyMenuButton(
+                  api: api,
+                  target: SafetyTarget(
+                    targetType: ReportTargetType.publicRequest,
+                    targetId: request.id,
+                    authorId: request.authorId,
+                    authorName: request.authorName,
+                    currentUserId: currentUserId,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

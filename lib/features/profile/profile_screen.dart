@@ -13,6 +13,7 @@ import '../../data/models.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/legal_links.dart';
 import '../../shared/ui_helpers.dart';
+import '../safety/blocked_users_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -336,6 +337,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            KoomCard(
+              showShadow: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _ProfileLinkRow(
+                key: const ValueKey('profile_blocked_users_link'),
+                icon: Icons.block_rounded,
+                title: text.isKy
+                    ? 'Бөгөттөлгөн колдонуучулар'
+                    : 'Заблокированные пользователи',
+                external: false,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BlockedUsersScreen(api: widget.api),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             KoomSectionTitle(
               title: text.isKy ? 'Документтер' : 'Документы',
@@ -466,11 +485,15 @@ class _ProfileLinkRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.external = true,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onTap;
+
+  /// Whether the row opens an external page (otherwise an in-app screen).
+  final bool external;
 
   @override
   Widget build(BuildContext context) {
@@ -504,7 +527,9 @@ class _ProfileLinkRow extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.open_in_new_rounded,
+              external
+                  ? Icons.open_in_new_rounded
+                  : Icons.chevron_right_rounded,
               color: colors.textMuted,
               size: 20,
             ),
