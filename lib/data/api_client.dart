@@ -7,12 +7,16 @@ import 'group_invitation.dart';
 import 'models.dart';
 import 'moderation.dart';
 import 'network_guard.dart';
+import 'safety.dart';
 import 'session_store.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(this.message, {this.statusCode});
 
   final String message;
+
+  /// HTTP status code when the error came from a server response.
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -25,7 +29,7 @@ enum RefreshSessionResult {
   transientFailure,
 }
 
-class ApiClient {
+class ApiClient with SafetyEndpoints {
   ApiClient({required this.baseUrl, required this.sessionStore}) {
     unawaited(_scheduleProactiveRefresh());
   }
@@ -289,6 +293,16 @@ class ApiClient {
     return GroupCreationRequest.fromJson(response as Map<String, dynamic>);
   }
 
+  @override
+  Future<dynamic> sendSafetyRequest(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+  }) {
+    return _request(method, path, query: query, body: body);
+  }
+
   Future<dynamic> _get(String path, {Map<String, String>? query, bool auth = true}) {
     return _request('GET', path, query: query, auth: auth);
   }
@@ -426,16 +440,20 @@ class ApiClient {
 
   dynamic _decode(http.Response response) {
     final body = utf8.decode(response.bodyBytes).trim();
+    final ok = response.statusCode >= 200 && response.statusCode < 300;
     dynamic decoded;
     try {
       decoded = body.isEmpty ? null : jsonDecode(body);
     } catch (_) {
-      throw const ApiException('Server returned an invalid response.');
+      if (ok) throw const ApiException('Server returned an invalid response.');
+      throw ApiException('Server error ${response.statusCode}', statusCode: response.statusCode);
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
-    if (decoded is Map<String, dynamic> && decoded['error'] is String) throw ApiException(decoded['error'] as String);
-    throw ApiException('Server error ${response.statusCode}');
+    if (ok) return decoded;
+    if (decoded is Map<String, dynamic> && decoded['error'] is String) {
+      throw ApiException(decoded['error'] as String, statusCode: response.statusCode);
+    }
+    throw ApiException('Server error ${response.statusCode}', statusCode: response.statusCode);
   }
 }
 

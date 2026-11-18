@@ -12,11 +12,13 @@ import 'models.dart';
 import 'public_request.dart';
 import 'session_store.dart';
 import 'network_guard.dart';
+import 'safety.dart';
 import 'moderation.dart';
 
 export 'moderation.dart';
+export 'safety.dart';
 
-class PublicRequestsApi {
+class PublicRequestsApi with SafetyEndpoints {
   PublicRequestsApi({required this.baseUrl, required this.sessionStore});
 
   final String baseUrl;
@@ -409,6 +411,16 @@ class PublicRequestsApi {
     );
   }
 
+  @override
+  Future<dynamic> sendSafetyRequest(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+  }) {
+    return _send(method, path, query: query, body: body);
+  }
+
   Future<dynamic> _send(
     String method,
     String path, {
@@ -488,12 +500,22 @@ class PublicRequestsApi {
 
   dynamic _decode(http.Response response) {
     final text = utf8.decode(response.bodyBytes).trim();
-    final decoded = text.isEmpty ? null : jsonDecode(text);
-    if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
-    if (decoded is Map<String, dynamic> && decoded['error'] is String) {
-      throw ApiException(decoded['error'] as String);
+    final ok = response.statusCode >= 200 && response.statusCode < 300;
+    dynamic decoded;
+    try {
+      decoded = text.isEmpty ? null : jsonDecode(text);
+    } catch (_) {
+      if (ok) throw const ApiException('Server returned an invalid response.');
+      throw ApiException('Server error ${response.statusCode}',
+          statusCode: response.statusCode);
     }
-    throw ApiException('Server error ${response.statusCode}');
+    if (ok) return decoded;
+    if (decoded is Map<String, dynamic> && decoded['error'] is String) {
+      throw ApiException(decoded['error'] as String,
+          statusCode: response.statusCode);
+    }
+    throw ApiException('Server error ${response.statusCode}',
+        statusCode: response.statusCode);
   }
 }
 
