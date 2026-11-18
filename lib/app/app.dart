@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/api_client.dart';
@@ -10,6 +9,7 @@ import '../features/auth/phone_auth_screen.dart';
 import '../features/groups/groups_screen.dart';
 import '../services/push_notification_service.dart';
 import '../shared/koom_ui.dart';
+import 'api_config.dart';
 import 'appearance.dart';
 import 'localization.dart';
 import 'preferences_store.dart';
@@ -24,10 +24,7 @@ class KoomApp extends StatefulWidget {
 
 class _KoomAppState extends State<KoomApp>
     with WidgetsBindingObserver {
-  static const apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://koom.com.kg',
-  );
+  static const apiBaseUrl = kApiBaseUrl;
 
   final SessionStore sessionStore = const SessionStore();
   final AppPreferencesStore preferencesStore = const AppPreferencesStore();
@@ -44,12 +41,7 @@ class _KoomAppState extends State<KoomApp>
   @override
   void initState() {
     super.initState();
-    if (kReleaseMode) {
-      final uri = Uri.tryParse(apiBaseUrl);
-      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-        throw StateError('Release builds require a valid HTTPS API_BASE_URL.');
-      }
-    }
+    validateApiBaseUrl(apiBaseUrl);
     WidgetsBinding.instance.addObserver(this);
     bootFuture = _boot();
   }
