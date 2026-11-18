@@ -55,6 +55,14 @@ maestro_run() { # label flow [env...]
 
 adb wait-for-device
 adb logcat -G 16M || true
+# A freshly booted CI emulator often shows "Pixel Launcher isn't responding";
+# that system dialog covers the app under test. Hide system crash/ANR dialogs
+# (app crashes/ANRs are still caught from Monkey output and logcat) and let
+# the launcher settle before starting.
+adb shell settings put global hide_error_dialogs 1 || true
+until [ "$(adb shell getprop sys.boot_completed | tr -d '')" = 1 ]; do sleep 2; done
+sleep 20
+adb shell input keyevent KEYCODE_HOME || true
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true

@@ -2,6 +2,12 @@
 # throwaway CI backend. Env: PHONE_LOCAL (9 digits after +996), DISPLAY_NAME.
 appId: com.nursultankoshoev.mobilechat.debug
 ---
+# Emulator flake guard: dismiss a system "isn't responding" dialog if one is up.
+- runFlow:
+    when:
+      visible: ".*isn't responding.*"
+    commands:
+      - tapOn: "Wait"
 - extendedWaitUntil:
     visible:
       id: auth_mobile_field

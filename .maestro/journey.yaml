@@ -45,7 +45,7 @@ env:
 
 # Vote on the new post (it is first in the feed).
 - tapOn:
-    text: "Поддерживаю.*"
+    text: "(?s)Поддерживаю.*"
     index: 0
 - extendedWaitUntil:
     visible: "Нажмите выбранный вариант ещё раз, чтобы убрать голос."
@@ -54,7 +54,7 @@ env:
 
 # Comment on it.
 - tapOn:
-    text: "Комментарии.*"
+    text: "(?s)Комментарии.*"
     index: 0
 - extendedWaitUntil:
     visible: "Добавить комментарий"
