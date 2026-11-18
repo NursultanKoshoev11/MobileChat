@@ -13,12 +13,12 @@ env:
 - takeScreenshot: 01_login
 - runFlow: subflows/login.yaml
 - extendedWaitUntil:
-    visible: ${GROUP_TITLE}
+    visible: "(?s).*Maestro QA Group.*"
     timeout: 30000
 - takeScreenshot: 02_groups
 
 # Open the seeded group.
-- tapOn: ${GROUP_TITLE}
+- tapOn: "(?s).*Maestro QA Group.*"
 - extendedWaitUntil:
     visible: "Новая публикация"
     timeout: 30000
@@ -84,7 +84,7 @@ env:
 
 # Profile.
 - extendedWaitUntil:
-    visible: ${GROUP_TITLE}
+    visible: "(?s).*Maestro QA Group.*"
     timeout: 15000
 - tapOn: "Меню"
 - tapOn: "Профиль"
