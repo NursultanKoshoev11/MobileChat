@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 
 import '../../app/appearance.dart';
 import '../../app/localization.dart';
+import '../../app/preferences_store.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../shared/koom_ui.dart';
+import '../../shared/legal_links.dart';
 import '../../shared/ui_helpers.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
@@ -14,9 +16,11 @@ class PhoneAuthScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.onAuthenticated,
+    this.preferencesStore = const AppPreferencesStore(),
   });
 
   final ApiClient api;
+  final AppPreferencesStore preferencesStore;
   final Future<void> Function(AppSession session) onAuthenticated;
 
   @override
@@ -33,7 +37,33 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   bool codeWasSent = false;
   bool accountExists = false;
   bool loading = false;
+  bool termsAccepted = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreTermsAcceptance();
+  }
+
+  Future<void> _restoreTermsAcceptance() async {
+    try {
+      final acceptedAt = await widget.preferencesStore.readTermsAcceptedAt();
+      if (!mounted || acceptedAt == null || acceptedAt.isEmpty) return;
+      setState(() => termsAccepted = true);
+    } catch (_) {}
+  }
+
+  Future<void> _rememberTermsAcceptance() async {
+    try {
+      await widget.preferencesStore
+          .writeTermsAcceptedAt(DateTime.now().toUtc().toIso8601String());
+    } catch (_) {}
+  }
+
+  String _termsRequiredMessage(AppText text) => text.isKy
+      ? 'Улантуу үчүн Колдонуу шарттарын жана Купуялык саясатын кабыл алыңыз'
+      : 'Чтобы продолжить, примите Условия использования и Политику конфиденциальности';
 
   @override
   void dispose() {
@@ -49,6 +79,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   Future<void> requestCode() async {
     final text = AppLanguageScope.textOf(context);
+    if (!termsAccepted) {
+      setState(() => error = _termsRequiredMessage(text));
+      return;
+    }
     if (_mobileDigits.length != 9) {
       setState(() {
         error = text.isKy
@@ -62,6 +96,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       error = null;
       accountExists = false;
     });
+    await _rememberTermsAcceptance();
     try {
       final result = await widget.api.requestPhoneCode(_fullMobileNumber);
       if (!mounted) return;
@@ -80,6 +115,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   Future<void> verifyCode() async {
     final text = AppLanguageScope.textOf(context);
+    if (!termsAccepted) {
+      setState(() => error = _termsRequiredMessage(text));
+      return;
+    }
     final code = codeController.text.trim();
     if (code.isEmpty) {
       setState(() => error = text.codeRequired);
@@ -285,6 +324,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                           ),
                                         ),
                                 ),
+                                const SizedBox(height: 10),
+                                TermsAcceptanceCheckbox(
+                                  value: termsAccepted,
+                                  enabled: !loading,
+                                  onChanged: (value) => setState(() {
+                                    termsAccepted = value;
+                                    error = null;
+                                  }),
+                                ),
                                 if (error != null) ...[
                                   const SizedBox(height: 12),
                                   ErrorBanner(message: error!),
@@ -293,6 +341,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                 FilledButton.icon(
                                   key: const ValueKey('auth_submit_button'),
                                   onPressed: loading ||
+                                          !termsAccepted ||
                                           (codeWasSent
                                               ? codeController.text
                                                         .trim()

@@ -33,4 +33,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
+    <!-- url_launcher: allow resolving browsers for the Terms/Privacy links (Android 11+). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 </manifest>

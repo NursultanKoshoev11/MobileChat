@@ -28,6 +28,10 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Камера нужна только для сканирования QR-кода приглашения в группу Koom.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
