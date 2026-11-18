@@ -81,3 +81,67 @@ For Google Play, the app/package must already be created in Play Console. New pe
 developer accounts may also need to complete the required closed test before production access
 is granted. For Apple, the existing App Store Connect listing must be ready before a public
 App Review submission.
+
+## Before store submission
+
+The app code now covers the client side of these review requirements: report/block for
+user-generated content (App Store guideline 1.2, Google Play UGC policy), required acceptance
+of the Terms of Use and Privacy Policy at sign-in, Terms/Privacy links in the profile, no
+crash when Firebase is not configured, FCM token deletion on logout/account deletion,
+private lock-screen notifications on Android, and `ITSAppUsesNonExemptEncryption=false`.
+The items below still have to be done by the owner.
+
+### Backend and content
+
+- [ ] Deploy the report/block API the app calls: `POST /api/reports`,
+      `POST`/`DELETE /api/users/{id}/block`, `GET /api/me/blocks`,
+      `GET /api/groups/{id}/reports`, `POST /api/reports/{id}/resolve`. Until then the app
+      shows "not available yet" for these actions (it handles HTTP 404/405).
+- [ ] Publish `https://koom.com.kg/privacy` and `https://koom.com.kg/terms`. The Terms must
+      state that objectionable content and abusive users are not tolerated, and describe how
+      reports are handled (Apple expects action on reports within 24 hours).
+- [ ] Make sure the server sets Android notification visibility to private (or omits content)
+      for FCM notification messages, because system-displayed notifications bypass the app's
+      local-notification settings.
+- [ ] If invite codes become 12 characters long, the server must accept codes with dashes in
+      groups of three (`ABC-DEF-234-567`), as the app sends them formatted.
+
+### iOS
+
+- [ ] Add `ios/Runner/GoogleService-Info.plist` (for example with `flutterfire configure`).
+      Without it the app runs, but push notifications are disabled on iOS.
+- [ ] Commit a real iOS Xcode project (`ios/Runner.xcodeproj`, `Runner.xcworkspace`,
+      `Podfile`, entitlements) instead of regenerating it in CI with `flutter create`; signing,
+      capabilities and privacy files cannot be maintained reliably in a regenerated project.
+- [ ] Create an APNs authentication key in the Apple Developer account and upload it to
+      Firebase (Project settings → Cloud Messaging → Apple app configuration).
+- [ ] Enable the Push Notifications capability and add the `aps-environment` entitlement
+      (`production` for App Store builds); keep Background Modes → Remote notifications.
+- [ ] Add `ios/Runner/PrivacyInfo.xcprivacy` declaring collected data types and required-reason
+      APIs (for example UserDefaults / file timestamp APIs used by plugins), and check the
+      privacy manifests of third-party SDKs (Firebase, image/file pickers, video player).
+- [ ] Permission strings in `Info.plist` are Russian only (there is no `InfoPlist.strings`
+      localization yet). Add Kyrgyz `InfoPlist.strings` once the Xcode project is committed.
+- [ ] Fill in the App Store privacy "nutrition labels" in App Store Connect (phone number,
+      name, photos/videos, user content, device push token, crash/diagnostics if any).
+- [ ] Provide a demo account for App Review (test phone number + fixed verification code, or
+      a review-only login path) in App Review Information, with a group that has content.
+- [ ] Mention the report/block features and the moderation process in the review notes.
+
+### Android / Google Play
+
+- [ ] Complete the Play Console **Data safety** form (phone number, name, photos/videos,
+      messages/user content, device IDs/push token; data encrypted in transit; account
+      deletion available in the app).
+- [ ] Declare user-generated content and the moderation features in the Play Console app
+      content section.
+- [ ] Provide reviewer access (demo account) in Play Console → App access.
+
+### Firebase
+
+- [ ] Restrict the Firebase/Google API key from `google-services.json` in Google Cloud
+      Console: Android apps restricted to package `com.nursultankoshoev.mobilechat` + the
+      upload and Play app-signing SHA-1 fingerprints; iOS key restricted to the bundle ID;
+      limit the APIs the key can call.
+- [ ] Enable Firebase App Check (Play Integrity on Android, App Attest/DeviceCheck on iOS)
+      and enforce it for the Firebase services in use.
