@@ -147,7 +147,8 @@ void main() {
     });
 
     expect(member.userId, 'U-2');
-    expect(member.phone, '+996700000002');
+    expect(member.displayName, 'Member');
+    expect(member.role, 'member');
     expect(message.groupId, 'G-1');
     expect(message.text, 'Hello');
   });

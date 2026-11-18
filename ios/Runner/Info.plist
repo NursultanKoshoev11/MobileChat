@@ -26,17 +26,18 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Koom uses the camera to scan QR codes and capture photos or videos you choose to share.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Koom uses the microphone when you record a video you choose to share.</string>
+	<string>Камера нужна только для сканирования QR-кода приглашения в группу Koom.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Koom uses your photo library only when you choose photos or videos to share.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Koom can save media to your photo library only when you explicitly choose to save it.</string>
+	<string>Koom открывает фотогалерею только когда вы сами выбираете фото или видео для публикации.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>

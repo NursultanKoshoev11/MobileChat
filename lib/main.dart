@@ -14,15 +14,31 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await PushNotificationService.handleBackgroundMessage(message);
 }
 
+/// Initializes Firebase without ever crashing the app. When the platform has no
+/// Firebase configuration (e.g. iOS without GoogleService-Info.plist) the app
+/// runs with push notifications disabled; PushNotificationService no-ops when
+/// `Firebase.apps` is empty.
+Future<bool> initializeFirebaseSafely({
+  Future<void> Function()? initialize,
+}) async {
+  try {
+    if (initialize != null) {
+      await initialize();
+    } else {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    }
+    return true;
+  } catch (error) {
+    if (kDebugMode) {
+      debugPrint('Firebase unavailable, push disabled: $error');
+    }
+    return false;
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  } catch (error) {
-    if (kReleaseMode) rethrow;
-    debugPrint('Firebase initialization skipped: $error');
-  }
+  await initializeFirebaseSafely();
   runApp(const KoomApp());
 }

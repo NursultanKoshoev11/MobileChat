@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../app/api_config.dart';
 import '../../app/localization.dart';
 import '../../data/api_client.dart';
 import '../../data/public_request.dart';
@@ -41,12 +42,24 @@ String _sizeLabel(int bytes) {
   return '${(bytes / 1024).round()} KB';
 }
 
-Future<Map<String, String>?> _imageAuthHeaders(String url) async {
-  final sessionStore = const SessionStore();
-  final uri = Uri.tryParse(url);
-  if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
-  final baseUrl = uri.replace(path: '', query: '', fragment: '').toString().replaceFirst(RegExp(r'/$'), '');
-  await ensureFreshStoredAccessToken(baseUrl: baseUrl, sessionStore: sessionStore, timeout: const Duration(seconds: 15));
+Future<Map<String, String>?> _imageAuthHeaders(String url) =>
+    mediaAuthHeaders(url);
+
+/// Returns an Authorization header for [url] only when the URL has exactly the
+/// same origin as the configured API base. Tokens are always refreshed against
+/// [baseUrl], never against an origin derived from the media URL, so a foreign
+/// media link can never receive or trigger use of the user's credentials.
+Future<Map<String, String>?> mediaAuthHeaders(
+  String url, {
+  String baseUrl = kApiBaseUrl,
+  SessionStore sessionStore = const SessionStore(),
+}) async {
+  if (!isSameApiOrigin(url, baseUrl: baseUrl)) return null;
+  await ensureFreshStoredAccessToken(
+    baseUrl: baseUrl,
+    sessionStore: sessionStore,
+    timeout: const Duration(seconds: 15),
+  );
   final session = await sessionStore.read();
   if (session == null || session.accessToken.isEmpty) return null;
   return {'Authorization': 'Bearer ${session.accessToken}'};

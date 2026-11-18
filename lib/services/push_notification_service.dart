@@ -37,10 +37,15 @@ class PushNotificationService {
     await _showLocalNotificationFromMessage(message);
   }
 
+  /// Generic, content-free text used where a notification may be visible to
+  /// others (Android accessibility ticker).
+  static const genericNotificationTicker =
+      'Новое уведомление KOOM / KOOM: жаңы билдирүү';
+
   final ApiClient api;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
-  bool _tokenRefreshListenerStarted = false;
+  StreamSubscription<String>? _tokenRefreshSubscription;
   bool _foregroundListenerStarted = false;
   bool _localNotificationsInitialized = false;
 
@@ -69,9 +74,8 @@ class PushNotificationService {
       _debugLog('FCM token received.');
       await api.registerPushToken(token: token, platform: _platformName());
 
-      if (!_tokenRefreshListenerStarted) {
-        _tokenRefreshListenerStarted = true;
-        messaging.onTokenRefresh.listen((newToken) async {
+      _tokenRefreshSubscription ??=
+          messaging.onTokenRefresh.listen((newToken) async {
           if (newToken.isEmpty) return;
           try {
             await api.registerPushToken(
@@ -82,7 +86,6 @@ class PushNotificationService {
             _debugLog('FCM token refresh registration failed: $error');
           }
         });
-      }
 
       if (!_foregroundListenerStarted) {
         _foregroundListenerStarted = true;
@@ -106,6 +109,26 @@ class PushNotificationService {
       await api.deletePushToken(token: token, platform: _platformName());
     } catch (error) {
       _debugLog('FCM token cleanup skipped: $error');
+    }
+  }
+
+  /// Invalidates the device's FCM token locally so a token known to the
+  /// server for the previous account can never deliver pushes again. Call it
+  /// after the server-side unregister (logout) or after account deletion.
+  Future<void> forgetDeviceToken() async {
+    final subscription = _tokenRefreshSubscription;
+    _tokenRefreshSubscription = null;
+    try {
+      await subscription?.cancel();
+    } catch (error) {
+      _debugLog('FCM token refresh listener cancel failed: $error');
+    }
+    try {
+      final messaging = _messagingOrNull();
+      if (messaging == null) return;
+      await messaging.deleteToken();
+    } catch (error) {
+      _debugLog('FCM token deletion skipped: $error');
     }
   }
 
@@ -276,6 +299,10 @@ class PushNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+        // Hide group content on a secure lock screen. The system replaces the
+        // text with its generic "contents hidden" placeholder.
+        visibility: NotificationVisibility.private,
+        ticker: genericNotificationTicker,
       ),
     );
     await plugin.show(

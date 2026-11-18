@@ -362,6 +362,12 @@ Future<void> loginIfNeeded(WidgetTester tester) async {
   }
 
   await enterTextByKey(tester, 'auth_mobile_field', testPhone);
+  final termsCheckbox = tester.widget<Checkbox>(
+    find.byKey(const ValueKey('terms_accept_checkbox')),
+  );
+  if (termsCheckbox.value != true) {
+    await tapByKey(tester, 'terms_accept_checkbox');
+  }
   await tapByKey(tester, 'auth_submit_button');
   await waitForKey(tester, 'auth_code_field', seconds: 15);
 
@@ -628,7 +634,7 @@ Future<void> exerciseFivePersonWorkingGroupFlow({
   await waitForGroupMemberRole(
     actor: crew.primary,
     groupId: groupId,
-    phone: crew.reviewer.phone,
+    displayName: crew.reviewer.displayName,
     role: 'admin',
   );
   await crew.primary.requestsApi.updateGroupMemberRoleByPhone(
@@ -639,7 +645,7 @@ Future<void> exerciseFivePersonWorkingGroupFlow({
   await waitForGroupMemberRole(
     actor: crew.primary,
     groupId: groupId,
-    phone: crew.reviewer.phone,
+    displayName: crew.reviewer.displayName,
     role: 'member',
   );
 }
@@ -658,7 +664,7 @@ Future<void> exerciseAdministrativeApiFlows({
   await waitForGroupMemberRole(
     actor: crew.primary,
     groupId: groupId,
-    phone: crew.supporter.phone,
+    displayName: crew.supporter.displayName,
     role: 'admin',
   );
 
@@ -670,7 +676,7 @@ Future<void> exerciseAdministrativeApiFlows({
   await waitForGroupMemberRole(
     actor: crew.primary,
     groupId: groupId,
-    phone: crew.supporter.phone,
+    displayName: crew.supporter.displayName,
     role: 'member',
   );
 
@@ -1107,25 +1113,23 @@ Future<void> waitForCommentDeleted({
 Future<void> waitForGroupMemberRole({
   required QaActor actor,
   required String groupId,
-  required String phone,
+  required String displayName,
   required String role,
   int seconds = 25,
 }) async {
-  final normalizedPhone = normalizePhone(phone);
   final deadline = DateTime.now().add(Duration(seconds: seconds));
   while (DateTime.now().isBefore(deadline)) {
     final members = await actor.requestsApi.listGroupMembers(groupId);
     if (members.any(
       (member) =>
-          normalizePhone(member.phone ?? '') == normalizedPhone &&
-          member.role == role,
+          member.displayName == displayName && member.role == role,
     )) {
       return;
     }
     await Future<void>.delayed(const Duration(seconds: 1));
   }
 
-  fail('Member $phone must have role $role in group $groupId.');
+  fail('Member $displayName must have role $role in group $groupId.');
 }
 
 Future<void> waitForStatistics({

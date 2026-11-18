@@ -10,12 +10,14 @@ import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
+import '../../data/blocked_users.dart';
 import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
+import '../safety/safety_ui.dart';
 import 'public_request_media_screens.dart';
 
 class EmptyPostsView extends StatelessWidget {
@@ -460,7 +462,7 @@ class PublicRequestCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 10),
                 Text(
-                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorName}',
+                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorId.isEmpty ? text.deletedAccount : request.authorName}',
                   style: TextStyle(color: colors.textMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 10),
@@ -854,10 +856,16 @@ class _PublicRequestDetailsScreenState
       groupId: request.groupId,
     );
     unawaited(realtime.connect(onEvent: handleRealtimeEvent));
+    BlockedUsersController.instance.addListener(_handleBlockedUsersChanged);
+  }
+
+  void _handleBlockedUsersChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    BlockedUsersController.instance.removeListener(_handleBlockedUsersChanged);
     realtime.close();
     commentController.removeListener(_handleCommentTextChanged);
     commentController.dispose();
@@ -900,7 +908,12 @@ class _PublicRequestDetailsScreenState
         if (payload is Map<String, dynamic>) {
           final commentPayload = payload['comment'];
           if (commentPayload is Map<String, dynamic>) {
-            addRealtimeComment(PublicRequestComment.fromJson(commentPayload));
+            final comment = PublicRequestComment.fromJson(commentPayload);
+            // Realtime events are not filtered server-side.
+            if (BlockedUsersController.instance.isBlocked(comment.authorId)) {
+              break;
+            }
+            addRealtimeComment(comment);
           }
         }
         break;
@@ -1095,9 +1108,12 @@ class _PublicRequestDetailsScreenState
           child: FutureBuilder<List<PublicRequestComment>>(
             future: commentsFuture,
             builder: (context, snapshot) {
-              final comments = commentsLoaded
-                  ? cachedComments
-                  : snapshot.data ?? const <PublicRequestComment>[];
+              final comments = BlockedUsersController.instance.visible(
+                commentsLoaded
+                    ? cachedComments
+                    : snapshot.data ?? const <PublicRequestComment>[],
+                (comment) => comment.authorId,
+              );
               return ListView(
                 key: const ValueKey('request_details_comments_list'),
                 controller: commentsScrollController,
@@ -1106,25 +1122,39 @@ class _PublicRequestDetailsScreenState
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  MediaPublicRequestCard(
-                    request: request,
-                    onTap: () {},
-                    onVote: vote,
-                    canModerate: widget.canModerate,
-                    onStatus: widget.onStatusChanged == null
-                        ? null
-                        : (status) {
-                            setRequest(
-                              request.copyWith(
-                                status: status,
-                                updatedAt: DateTime.now(),
-                              ),
-                            );
-                            widget.onStatusChanged!(status);
-                          },
-                    compact: false,
-                    showOpenAction: false,
-                  ),
+                  if (BlockedUsersController.instance
+                      .isBlocked(request.authorId))
+                    const BlockedContentNotice()
+                  else
+                    MediaPublicRequestCard(
+                      request: request,
+                      safetyMenu: ContentSafetyMenuButton(
+                        api: widget.api,
+                        target: SafetyTarget(
+                          targetType: ReportTargetType.publicRequest,
+                          targetId: request.id,
+                          authorId: request.authorId,
+                          authorName: request.authorName,
+                          currentUserId: widget.currentUserId,
+                        ),
+                      ),
+                      onTap: () {},
+                      onVote: vote,
+                      canModerate: widget.canModerate,
+                      onStatus: widget.onStatusChanged == null
+                          ? null
+                          : (status) {
+                              setRequest(
+                                request.copyWith(
+                                  status: status,
+                                  updatedAt: DateTime.now(),
+                                ),
+                              );
+                              widget.onStatusChanged!(status);
+                            },
+                      compact: false,
+                      showOpenAction: false,
+                    ),
                   const SizedBox(height: 18),
                   Row(
                     children: [
@@ -1235,6 +1265,20 @@ class _PublicRequestDetailsScreenState
                         canDelete: widget.canModerate ||
                             comment.authorId == widget.currentUserId,
                         onDelete: () => deleteComment(comment),
+                        safetyTarget: SafetyTarget(
+                          targetType: ReportTargetType.comment,
+                          targetId: comment.id,
+                          authorId: comment.authorId,
+                          authorName: comment.authorName,
+                          currentUserId: widget.currentUserId,
+                        ),
+                        onSafetyAction: (action, target) =>
+                            handleSafetyMenuAction(
+                          context,
+                          action,
+                          api: widget.api,
+                          target: target,
+                        ),
                       ),
                     ),
                 ],
@@ -1337,16 +1381,22 @@ class _CommentTile extends StatelessWidget {
     required this.comment,
     required this.canDelete,
     required this.onDelete,
+    required this.safetyTarget,
+    required this.onSafetyAction,
   });
   final PublicRequestComment comment;
   final bool canDelete;
   final VoidCallback onDelete;
+  final SafetyTarget safetyTarget;
+  final void Function(String action, SafetyTarget target) onSafetyAction;
 
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
-    final authorName = comment.authorName.trim().isEmpty
+    final authorName = comment.authorId.isEmpty
+        ? text.deletedAccount
+        : comment.authorName.trim().isEmpty
         ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
         : comment.authorName.trim();
 
@@ -1399,8 +1449,9 @@ class _CommentTile extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (canDelete)
+                      if (canDelete || safetyTarget.canReport)
                         PopupMenuButton<String>(
+                          key: ValueKey('comment_menu_${comment.id}'),
                           tooltip: text.isKy ? 'Меню' : 'Меню',
                           padding: EdgeInsets.zero,
                           iconSize: 19,
@@ -1409,19 +1460,25 @@ class _CommentTile extends StatelessWidget {
                             color: colors.textMuted,
                           ),
                           onSelected: (value) {
-                            if (value == 'delete') onDelete();
+                            if (value == 'delete') {
+                              onDelete();
+                            } else if (SafetyMenuAction.isSafetyAction(value)) {
+                              onSafetyAction(value, safetyTarget);
+                            }
                           },
                           itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.delete_outline_rounded),
-                                  const SizedBox(width: 10),
-                                  Text(text.isKy ? 'Өчүрүү' : 'Удалить'),
-                                ],
+                            if (canDelete)
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.delete_outline_rounded),
+                                    const SizedBox(width: 10),
+                                    Text(text.isKy ? 'Өчүрүү' : 'Удалить'),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ...safetyMenuEntries(text, safetyTarget),
                           ],
                         ),
                     ],
