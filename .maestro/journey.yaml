@@ -34,12 +34,12 @@ env:
 - tapOn: "Описание"
 - inputText: "Created by the Maestro journey"
 - hideKeyboard
-- tapOn: "Только текст"
+- tapOn: "(?s).*Только текст.*"
 - tapOn: "Обсуждение с комментариями"
 - takeScreenshot: 04_new_post
 - tapOn: "Опубликовать"
 - extendedWaitUntil:
-    visible: "Maestro post"
+    visible: "(?s).*Maestro post.*"
     timeout: 30000
 - takeScreenshot: 05_post_created
 
@@ -64,7 +64,7 @@ env:
 - hideKeyboard
 - tapOn: "Отправить"
 - extendedWaitUntil:
-    visible: "Maestro comment"
+    visible: "(?s).*Maestro comment.*"
     timeout: 15000
 - takeScreenshot: 07_commented
 - back
@@ -89,16 +89,16 @@ env:
 - tapOn: "Меню"
 - tapOn: "Профиль"
 - extendedWaitUntil:
-    visible: "Аккаунт"
+    visible: "(?s).*Аккаунт.*"
     timeout: 15000
-- assertVisible: ${DISPLAY_NAME}
+- assertVisible: "(?s).*${DISPLAY_NAME}.*"
 - takeScreenshot: 09_profile
 - back
 
 # App settings.
 - tapOn: "Настройки"
 - extendedWaitUntil:
-    visible: "Тема"
+    visible: "(?s).*Тема.*"
     timeout: 15000
 - takeScreenshot: 10_settings
 - tapOn: "Закрыть"
