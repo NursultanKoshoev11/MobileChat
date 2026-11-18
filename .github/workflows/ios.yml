@@ -490,3 +490,41 @@ jobs:
             --ipa "$IPA_PATH" \
             --skip_submission \
             --skip_waiting_for_build_processing true
+
+
+      - name: Distribute build to internal TestFlight testers
+        timeout-minutes: 45
+        env:
+          BUILD_VERSION: 1.0.${{ github.run_number }}
+          BUILD_NUMBER: ${{ github.run_id }}.${{ github.run_attempt }}
+        run: |
+          cat > "$RUNNER_TEMP/distribute.rb" <<'RUBY'
+          require "spaceship"
+
+          bundle_id = "com.nursultankoshoev.mobilechat"
+          version = ENV.fetch("BUILD_VERSION")
+          number = ENV.fetch("BUILD_NUMBER")
+
+          Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(
+            filepath: File.join(ENV.fetch("RUNNER_TEMP"), "koom-app-store-connect-key.json")
+          )
+          app = Spaceship::ConnectAPI::App.find(bundle_id) or abort("App #{bundle_id} not found")
+
+          build = nil
+          deadline = Time.now + 40 * 60
+          loop do
+            build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, build_number: number).first
+            state = build&.processing_state || "NOT_VISIBLE_YET"
+            puts "Build #{version} (#{number}): #{state}"
+            break if state == "VALID"
+            abort("::error::Apple marked build #{number} as #{state}; check the App Store Connect email.") if %w[FAILED INVALID].include?(state)
+            abort("::error::Timed out waiting for Apple to process build #{number}.") if Time.now > deadline
+            sleep 30
+          end
+
+          groups = app.get_beta_groups.select(&:is_internal_group)
+          abort("::error::No internal TestFlight groups exist for #{bundle_id}.") if groups.empty?
+          build.add_beta_groups(beta_groups: groups)
+          puts "Added build #{version} (#{number}) to internal groups: #{groups.map(&:name).join(', ')}"
+          RUBY
+          ruby "$RUNNER_TEMP/distribute.rb"
