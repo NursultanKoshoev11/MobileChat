@@ -10,6 +10,7 @@ import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
+import '../../data/blocked_users.dart';
 import '../../data/models.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
@@ -17,6 +18,8 @@ import '../../services/group_realtime_service.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import '../groups/group_sheets.dart';
+import '../safety/group_reports_screen.dart';
+import '../safety/safety_ui.dart';
 import '../statistics/group_statistics_screen.dart';
 import 'moderation_screen.dart';
 import 'public_request_media_screens.dart';
@@ -86,7 +89,28 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     requestsFuture = initialRequestsFuture;
     moderationCountFuture = loadModerationCount();
     realtime.connect(onEvent: _handleRealtimeEvent);
+    BlockedUsersController.instance.addListener(_handleBlockedUsersChanged);
     unawaited(_openInitialRequest(initialRequestsFuture));
+  }
+
+  void _handleBlockedUsersChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Realtime events are not filtered by the server, so drop anything authored
+  /// by a blocked user before it reaches the list.
+  bool _isFromBlockedUser(GroupRealtimeEvent event) {
+    final payload = event.payload;
+    if (payload is! Map<String, dynamic>) return false;
+    final blocked = BlockedUsersController.instance;
+    final authorId = payload['author_id']?.toString();
+    if (blocked.isBlocked(authorId)) return true;
+    final comment = payload['comment'];
+    if (comment is Map<String, dynamic> &&
+        blocked.isBlocked(comment['author_id']?.toString())) {
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -96,11 +120,13 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     _requestsScrollController.removeListener(_handleRequestsScroll);
     _requestsScrollController.dispose();
     realtime.close();
+    BlockedUsersController.instance.removeListener(_handleBlockedUsersChanged);
     super.dispose();
   }
 
   void _handleRealtimeEvent(GroupRealtimeEvent event) {
     if (!mounted || event.groupId != currentGroup.id) return;
+    if (_isFromBlockedUser(event)) return;
     switch (event.type) {
       case 'connection.ready':
         if (_realtimeWasReady) {
@@ -355,6 +381,14 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       });
     }
     await Future.wait([next, nextModerationCount]);
+  }
+
+  Future<void> openReports() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupReportsScreen(api: requestsApi, group: currentGroup),
+      ),
+    );
   }
 
   Future<void> openStatistics() async {
@@ -1005,6 +1039,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       case 'moderation':
         await openModerationQueue();
         break;
+      case 'reports':
+        await openReports();
+        break;
       case 'group_photo':
         await changeGroupPhoto();
         break;
@@ -1080,6 +1117,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 value: 'moderation',
                 icon: Icons.fact_check_outlined,
                 label: reviewLabel,
+              ),
+            if (canModerate)
+              groupMenuItem(
+                value: 'reports',
+                icon: Icons.flag_outlined,
+                label: text.isKy ? 'Даттануулар' : 'Жалобы',
               ),
             if (canModerate)
               groupMenuItem(
@@ -1186,9 +1229,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                   children: [ErrorBanner(message: snapshot.error.toString())],
                 );
               }
-              final allRequests = _requestsLoaded
-                  ? cachedRequests
-                  : snapshot.data ?? const <PublicRequest>[];
+              final allRequests = BlockedUsersController.instance.visible(
+                _requestsLoaded
+                    ? cachedRequests
+                    : snapshot.data ?? const <PublicRequest>[],
+                (request) => request.authorId,
+              );
               final requests = switch (_requestFilter) {
                 'resolved' =>
                   allRequests
@@ -1286,6 +1332,16 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                     onVote: (voteType) => vote(request, voteType),
                     onTap: () => openDetails(request),
                     onStatus: (status) => updateStatus(request, status),
+                    safetyMenu: ContentSafetyMenuButton(
+                      api: requestsApi,
+                      target: SafetyTarget(
+                        targetType: ReportTargetType.publicRequest,
+                        targetId: request.id,
+                        authorId: request.authorId,
+                        authorName: request.authorName,
+                        currentUserId: widget.user.id,
+                      ),
+                    ),
                   );
                 },
               );

@@ -9,7 +9,7 @@ Install these tools locally:
 1. Flutter SDK
 2. Android Studio or Android SDK command-line tools
 3. JDK 17
-4. Android SDK Platform 35
+4. Android SDK Platform 36 (`compileSdk 36`, `targetSdk 36` in `android/app/build.gradle`)
 
 Check your environment:
 
@@ -66,17 +66,27 @@ For production, use HTTPS:
 https://api.example.com
 ```
 
+Release and profile builds refuse to start with a non-HTTPS `API_BASE_URL`; plain HTTP is
+only allowed in debug builds (the debug manifest also enables cleartext traffic).
+
 ## Firebase push notifications
 
-The app can build without Firebase config, but push notifications require this file:
+Push notifications use this Firebase config file:
 
 ```text
 android/app/google-services.json
 ```
 
-Do not commit `google-services.json` to the repository. It is ignored by `.gitignore`.
+The file **is tracked in the repository** (it was force-added even though `.gitignore` lists it),
+so CI and local builds use it by default. It contains only client identifiers, not server
+secrets, but the Firebase/Google API key inside it must be restricted in Google Cloud Console
+(Android apps: package `com.nursultankoshoev.mobilechat` + release/upload SHA-1 fingerprints)
+and Firebase App Check should be enabled. See `STORE_RELEASE_SETUP.md`.
 
-If `google-services.json` exists, the Android Gradle build applies the Google Services plugin automatically. If it does not exist, the APK still builds, but Firebase push notifications are disabled at runtime.
+If `google-services.json` exists, the Android Gradle build applies the Google Services plugin
+automatically. Debug builds still work without it (push disabled at runtime); profile and
+release builds fail without it unless it is provided via the `GOOGLE_SERVICES_JSON_B64`
+GitHub Actions secret.
 
 ## GitHub Actions build
 

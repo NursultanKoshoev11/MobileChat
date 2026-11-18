@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
+import '../../data/blocked_users.dart';
 import '../../data/models.dart';
 import '../../data/moderation.dart';
 import '../../data/realtime_client.dart';
+import '../../data/safety.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
+import '../safety/safety_ui.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen(
@@ -42,7 +46,12 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     realtime = RealtimeClient(api: widget.api);
     scrollController.addListener(handleScroll);
+    BlockedUsersController.instance.addListener(_handleBlockedUsersChanged);
     unawaited(_initializeChat());
+  }
+
+  void _handleBlockedUsersChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _initializeChat() async {
@@ -53,6 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    BlockedUsersController.instance.removeListener(_handleBlockedUsersChanged);
     scrollController.removeListener(handleScroll);
     scrollController.dispose();
     realtimeSubscription?.cancel();
@@ -187,6 +197,11 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
       if (message == null) return;
+      // Realtime events are not filtered server-side.
+      if (event.type != 'message.deleted' &&
+          BlockedUsersController.instance.isBlocked(message.senderId)) {
+        return;
+      }
       switch (event.type) {
         case 'message.created':
           setState(() => _upsertMessage(message));
@@ -225,6 +240,44 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => sending = false);
     }
+  }
+
+  Future<void> showMessageSafetyActions(ChatMessage message) async {
+    final target = SafetyTarget(
+      targetType: ReportTargetType.message,
+      targetId: message.id,
+      authorId: message.senderId,
+      authorName: message.senderName,
+      currentUserId: widget.user.id,
+    );
+    if (!target.canReport) return;
+    final text = AppLanguageScope.textOf(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in safetyMenuEntries(text, target))
+              if (entry is PopupMenuItem<String>)
+                ListTile(
+                  key: entry.key,
+                  title: entry.child,
+                  onTap: () => Navigator.of(sheetContext).pop(entry.value),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    await handleSafetyMenuAction(
+      context,
+      action,
+      api: widget.api,
+      target: target,
+    );
   }
 
   Future<void> inviteById() async {
@@ -411,7 +464,11 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: const EdgeInsets.all(16),
           children: [ErrorBanner(message: error!)]);
     }
-    if (messages.isEmpty) {
+    final visibleMessages = BlockedUsersController.instance.visible(
+      messages,
+      (message) => message.senderId,
+    );
+    if (visibleMessages.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(16),
         children: const [
@@ -428,9 +485,9 @@ class _ChatScreenState extends State<ChatScreen> {
       controller: scrollController,
       reverse: true,
       padding: const EdgeInsets.all(12),
-      itemCount: messages.length + (loadingOlder ? 1 : 0),
+      itemCount: visibleMessages.length + (loadingOlder ? 1 : 0),
       itemBuilder: (context, index) {
-        if (loadingOlder && index == messages.length) {
+        if (loadingOlder && index == visibleMessages.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(
@@ -440,19 +497,33 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2))),
           );
         }
-        final message = messages[messages.length - 1 - index];
+        final message = visibleMessages[visibleMessages.length - 1 - index];
+        final mine = message.senderId == widget.user.id;
         return MessageBubble(
-            message: message, mine: message.senderId == widget.user.id);
+          message: message,
+          mine: mine,
+          onLongPress: mine
+              ? null
+              : () => showMessageSafetyActions(message),
+        );
       },
     );
   }
 }
 
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message, required this.mine});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.mine,
+    this.onLongPress,
+  });
 
   final ChatMessage message;
   final bool mine;
+
+  /// Opens report / block actions for other users' messages.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -460,44 +531,47 @@ class MessageBubble extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: mine
-              ? (dark ? const Color(0xFF123A63) : KoomTheme.mineBubble)
-              : colors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: colors.border),
-          boxShadow: [
-            BoxShadow(
-                color: colors.shadow,
-                blurRadius: 12,
-                offset: const Offset(0, 6))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!mine)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('${message.senderName} · official',
-                    style: const TextStyle(
-                        color: KoomTheme.primaryDark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12)),
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Container(
+          constraints:
+              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: mine
+                ? (dark ? const Color(0xFF123A63) : KoomTheme.mineBubble)
+                : colors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.border),
+            boxShadow: [
+              BoxShadow(
+                  color: colors.shadow,
+                  blurRadius: 12,
+                  offset: const Offset(0, 6))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!mine)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text('${message.senderName} · official',
+                      style: const TextStyle(
+                          color: KoomTheme.primaryDark,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12)),
+                ),
+              Text(message.text, style: TextStyle(color: colors.textStrong)),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(compactTime(message.createdAt.toLocal()),
+                    style: TextStyle(color: colors.textMuted, fontSize: 11)),
               ),
-            Text(message.text, style: TextStyle(color: colors.textStrong)),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(compactTime(message.createdAt.toLocal()),
-                  style: TextStyle(color: colors.textMuted, fontSize: 11)),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

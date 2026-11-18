@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/api_config.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../shared/koom_ui.dart';
+import '../../shared/legal_links.dart';
 import '../../shared/ui_helpers.dart';
+import '../safety/blocked_users_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -334,6 +337,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            KoomCard(
+              showShadow: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _ProfileLinkRow(
+                key: const ValueKey('profile_blocked_users_link'),
+                icon: Icons.block_rounded,
+                title: text.isKy
+                    ? 'Бөгөттөлгөн колдонуучулар'
+                    : 'Заблокированные пользователи',
+                external: false,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BlockedUsersScreen(api: widget.api),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            KoomSectionTitle(
+              title: text.isKy ? 'Документтер' : 'Документы',
+              subtitle: text.isKy
+                  ? 'Колдонуу эрежелери жана маалыматтарды коргоо'
+                  : 'Правила сервиса и защита данных',
+            ),
+            const SizedBox(height: 12),
+            KoomCard(
+              showShadow: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                children: [
+                  _ProfileLinkRow(
+                    key: const ValueKey('profile_terms_link'),
+                    icon: Icons.description_outlined,
+                    title: termsOfUseLabel(text),
+                    onTap: () => openLegalPage(context, termsOfUseUri()),
+                  ),
+                  Divider(color: colors.border, indent: 62),
+                  _ProfileLinkRow(
+                    key: const ValueKey('profile_privacy_link'),
+                    icon: Icons.privacy_tip_outlined,
+                    title: privacyPolicyLabel(text),
+                    onTap: () => openLegalPage(context, privacyPolicyUri()),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             KoomSectionTitle(
               title: text.accountDeletion,
@@ -424,6 +474,67 @@ class _ProfileInfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileLinkRow extends StatelessWidget {
+  const _ProfileLinkRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.external = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  /// Whether the row opens an external page (otherwise an in-app screen).
+  final bool external;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: primary, size: 20),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: colors.textStrong,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Icon(
+              external
+                  ? Icons.open_in_new_rounded
+                  : Icons.chevron_right_rounded,
+              color: colors.textMuted,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

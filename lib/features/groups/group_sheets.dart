@@ -294,13 +294,23 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   }
 }
 
+/// Maximum invite code length (letters/digits). Current codes have 6
+/// characters; up to 12 are accepted for forward compatibility.
+const maxGroupInviteCodeLength = 12;
+
+/// Formats an invite code in dash-separated groups of three characters:
+/// `ABC234` -> `ABC-234`, `ABCDEF234567` -> `ABC-DEF-234-567`.
 String formatGroupInviteCode(String input) {
   final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-  final shortened = compact.length > 6 ? compact.substring(0, 6) : compact;
-  if (shortened.length > 3) {
-    return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
+  final shortened = compact.length > maxGroupInviteCodeLength
+      ? compact.substring(0, maxGroupInviteCodeLength)
+      : compact;
+  final groups = <String>[];
+  for (var i = 0; i < shortened.length; i += 3) {
+    final end = i + 3 > shortened.length ? shortened.length : i + 3;
+    groups.add(shortened.substring(i, end));
   }
-  return shortened;
+  return groups.join('-');
 }
 
 class GroupInviteCodeFormatter extends TextInputFormatter {

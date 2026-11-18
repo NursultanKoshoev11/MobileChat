@@ -362,6 +362,12 @@ Future<void> loginIfNeeded(WidgetTester tester) async {
   }
 
   await enterTextByKey(tester, 'auth_mobile_field', testPhone);
+  final termsCheckbox = tester.widget<Checkbox>(
+    find.byKey(const ValueKey('terms_accept_checkbox')),
+  );
+  if (termsCheckbox.value != true) {
+    await tapByKey(tester, 'terms_accept_checkbox');
+  }
   await tapByKey(tester, 'auth_submit_button');
   await waitForKey(tester, 'auth_code_field', seconds: 15);
 
