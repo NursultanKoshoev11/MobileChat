@@ -215,9 +215,11 @@ class AppText {
   String get existingAccountHint => isKy
       ? 'Аккаунт табылды. Кодду гана жазыңыз.'
       : 'Аккаунт найден. Введите только код.';
+  // Shown whenever the server does not say the account exists, which is
+  // every time now: the number may belong to a returning user.
   String get newAccountHint => isKy
-      ? 'Жаңы аккаунт. Кодду жана аты-жөнүңүздү жазыңыз.'
-      : 'Новый аккаунт. Введите код и имя.';
+      ? 'Кодду жазыңыз. Аты-жөнү жаңы аккаунт үчүн гана керек.'
+      : 'Введите код. Имя нужно только для нового аккаунта.';
   String get newest => isKy ? 'Жаңылары' : 'Новые';
   String get popular => isKy ? 'Популярдуу' : 'Популярные';
   String get resolved => isKy ? 'Чечилген' : 'Решённые';

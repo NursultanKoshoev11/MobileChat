@@ -56,8 +56,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   Future<void> _rememberTermsAcceptance() async {
     try {
-      await widget.preferencesStore
-          .writeTermsAcceptedAt(DateTime.now().toUtc().toIso8601String());
+      await widget.preferencesStore.writeTermsAcceptedAt(
+        DateTime.now().toUtc().toIso8601String(),
+      );
     } catch (_) {}
   }
 
@@ -131,7 +132,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       });
       return;
     }
-    if (!accountExists && displayNameController.text.trim().length < 2) {
+    // The server no longer reports whether the number already has an account
+    // (that would let anyone enumerate registered numbers), so accountExists
+    // stays false for returning users too. Only reject a name that is present
+    // but too short; an empty name is fine for returning users, and the
+    // server answers "display_name is required for new account" otherwise.
+    final displayName = displayNameController.text.trim();
+    if (!accountExists && displayName.isNotEmpty && displayName.length < 2) {
       setState(() => error = text.displayNameRequiredForNewAccount);
       return;
     }
@@ -148,7 +155,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       await widget.onAuthenticated(session);
     } catch (e) {
       if (!mounted) return;
-      setState(() => error = e.toString());
+      final message = e.toString();
+      setState(() {
+        error = message.contains('display_name is required')
+            ? text.displayNameRequiredForNewAccount
+            : message;
+      });
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -177,8 +189,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
           child: Column(
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(compact ? 10 : 18, 8,
-                    compact ? 10 : 18, 0),
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 10 : 18,
+                  8,
+                  compact ? 10 : 18,
+                  0,
+                ),
                 child: Row(
                   children: [
                     Flexible(
@@ -296,31 +312,38 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                             }
                                           },
                                         )
-                                      : TextField(
-                                          key: const ValueKey(
-                                              'auth_mobile_field'),
-                                          controller: mobileController,
-                                          enabled: !loading,
-                                          keyboardType: TextInputType.phone,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter
-                                                .digitsOnly,
-                                            LengthLimitingTextInputFormatter(9),
-                                          ],
-                                          maxLength: 9,
-                                          onChanged: (_) {
-                                            if (mounted) {
-                                              setState(() => error = null);
-                                            }
-                                          },
-                                          decoration: InputDecoration(
-                                            labelText: text.mobileNumber,
-                                            hintText: '700 123 456',
-                                            prefixIcon: const Icon(
-                                              Icons.phone_iphone_rounded,
+                                      : Semantics(
+                                          identifier: 'auth_mobile_field',
+                                          container: true,
+                                          child: TextField(
+                                            key: const ValueKey(
+                                              'auth_mobile_field',
                                             ),
-                                            prefixText: '$_kgPhonePrefix  ',
-                                            counterText: '',
+                                            controller: mobileController,
+                                            enabled: !loading,
+                                            keyboardType: TextInputType.phone,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                              LengthLimitingTextInputFormatter(
+                                                9,
+                                              ),
+                                            ],
+                                            maxLength: 9,
+                                            onChanged: (_) {
+                                              if (mounted) {
+                                                setState(() => error = null);
+                                              }
+                                            },
+                                            decoration: InputDecoration(
+                                              labelText: text.mobileNumber,
+                                              hintText: '700 123 456',
+                                              prefixIcon: const Icon(
+                                                Icons.phone_iphone_rounded,
+                                              ),
+                                              prefixText: '$_kgPhonePrefix  ',
+                                              counterText: '',
+                                            ),
                                           ),
                                         ),
                                 ),
@@ -338,48 +361,54 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                   ErrorBanner(message: error!),
                                 ],
                                 const SizedBox(height: 18),
-                                FilledButton.icon(
-                                  key: const ValueKey('auth_submit_button'),
-                                  onPressed: loading ||
-                                          !termsAccepted ||
-                                          (codeWasSent
-                                              ? codeController.text
+                                Semantics(
+                                  identifier: 'auth_submit_button',
+                                  container: true,
+                                  child: FilledButton.icon(
+                                    key: const ValueKey('auth_submit_button'),
+                                    onPressed: loading ||
+                                            !termsAccepted ||
+                                            (codeWasSent
+                                                ? codeController.text
                                                         .trim()
                                                         .length !=
                                                     6
-                                              : _mobileDigits.length != 9)
-                                      ? null
-                                      : (codeWasSent
-                                          ? verifyCode
-                                          : requestCode),
-                                  icon: loading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Icon(
-                                          codeWasSent
-                                              ? Icons.verified_rounded
-                                              : Icons.arrow_forward_rounded,
-                                        ),
-                                  label: Text(
-                                    loading
-                                        ? text.pleaseWait
+                                                : _mobileDigits.length != 9)
+                                        ? null
                                         : (codeWasSent
-                                            ? text.verifyAndContinue
-                                            : text.continueText),
+                                            ? verifyCode
+                                            : requestCode),
+                                    icon: loading
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Icon(
+                                            codeWasSent
+                                                ? Icons.verified_rounded
+                                                : Icons.arrow_forward_rounded,
+                                          ),
+                                    label: Text(
+                                      loading
+                                          ? text.pleaseWait
+                                          : (codeWasSent
+                                              ? text.verifyAndContinue
+                                              : text.continueText),
+                                    ),
                                   ),
                                 ),
                                 if (codeWasSent) ...[
                                   const SizedBox(height: 4),
                                   TextButton.icon(
                                     onPressed: loading ? null : changePhone,
-                                    icon: const Icon(Icons.edit_outlined,
-                                        size: 18),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
                                     label: Text(text.changeMobileNumber),
                                   ),
                                 ],
@@ -452,37 +481,45 @@ class _CodeFields extends StatelessWidget {
               accountExists ? text.existingAccountHint : text.newAccountHint,
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const ValueKey('auth_code_field'),
-          controller: codeController,
-          enabled: !loading,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 7,
-          ),
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
-          ],
-          onChanged: (_) => onChanged(),
-          decoration: InputDecoration(
-            labelText: text.code,
-            prefixIcon: const Icon(Icons.password_rounded),
+        Semantics(
+          identifier: 'auth_code_field',
+          container: true,
+          child: TextField(
+            key: const ValueKey('auth_code_field'),
+            controller: codeController,
+            enabled: !loading,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 7,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
+            onChanged: (_) => onChanged(),
+            decoration: InputDecoration(
+              labelText: text.code,
+              prefixIcon: const Icon(Icons.password_rounded),
+            ),
           ),
         ),
         if (!accountExists) ...[
           const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('auth_display_name_field'),
-            controller: displayNameController,
-            enabled: !loading,
-            textCapitalization: TextCapitalization.words,
-            decoration: InputDecoration(
-              labelText: text.displayNameNewOnly,
-              prefixIcon: const Icon(Icons.person_outline_rounded),
+          Semantics(
+            identifier: 'auth_display_name_field',
+            container: true,
+            child: TextField(
+              key: const ValueKey('auth_display_name_field'),
+              controller: displayNameController,
+              enabled: !loading,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: text.displayNameNewOnly,
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+              ),
             ),
           ),
         ],

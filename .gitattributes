@@ -1,0 +1,4 @@
+# CI scripts and Maestro flows run on Linux runners.
+*.sh text eol=lf
+ci/** text eol=lf
+.maestro/** text eol=lf
