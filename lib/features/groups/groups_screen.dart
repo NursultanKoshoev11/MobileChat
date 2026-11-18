@@ -405,13 +405,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
     final inviteCode = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const GroupQrScanScreen()),
     );
-    if (inviteCode == null || inviteCode.trim().isEmpty) return;
+    if (inviteCode == null || inviteCode.trim().isEmpty || !mounted) return;
+    final isSignedInvite = inviteCode.startsWith('INV1.');
+    final code = isSignedInvite ? inviteCode : formatGroupInviteCode(inviteCode);
+    final confirmed = await confirmJoinScannedInvite(
+      context,
+      displayCode: isSignedInvite ? null : code,
+    );
+    if (!confirmed || !mounted) return;
     try {
-      final group = await widget.api.joinByInviteCode(
-        inviteCode.startsWith('INV1.')
-            ? inviteCode
-            : formatGroupInviteCode(inviteCode),
-      );
+      final group = await widget.api.joinByInviteCode(code);
       upsertGroup(group);
       if (mounted) await openGroup(group);
     } catch (error) {
@@ -1272,4 +1275,39 @@ class GroupTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Asks the user to confirm joining a group from a scanned QR code.
+/// [displayCode] is shown when the QR carried a plain invite code.
+Future<bool> confirmJoinScannedInvite(
+  BuildContext context, {
+  String? displayCode,
+}) async {
+  final text = AppLanguageScope.textOf(context);
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(text.isKy ? 'Топко кошуласызбы?' : 'Вступить в группу?'),
+      content: Text(
+        displayCode == null
+            ? (text.isKy
+                ? 'QR код аркылуу топко кошулууну ырастаңыз. Кодду ишенимдүү булактан гана сканерлеңиз.'
+                : 'Подтвердите вступление в группу по QR-коду. Сканируйте коды только из надёжных источников.')
+            : (text.isKy
+                ? '$displayCode коду менен топко кошулууну ырастаңыз.'
+                : 'Подтвердите вступление в группу по коду $displayCode.'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(text.isKy ? 'Жокко чыгаруу' : 'Отмена'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(text.isKy ? 'Кошулуу' : 'Вступить'),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
 }

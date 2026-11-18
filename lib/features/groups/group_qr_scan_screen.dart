@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../app/api_config.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../shared/ui_helpers.dart';
@@ -53,33 +54,6 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
       if (value != null && value.isNotEmpty) return value;
     }
     return null;
-  }
-
-  String? extractInviteCode(String rawValue) {
-    final value = rawValue.trim();
-    if (value.isEmpty) return null;
-
-    final uri = Uri.tryParse(value);
-    if (uri != null) {
-      final queryKeys = ['invite_code', 'inviteCode', 'code', 'group_code'];
-      for (final key in queryKeys) {
-        final queryValue = uri.queryParameters[key]?.trim();
-        if (queryValue != null && queryValue.isNotEmpty) return cleanCode(queryValue);
-      }
-
-      final pathSegments = uri.pathSegments.where((segment) => segment.trim().isNotEmpty).toList();
-      if (pathSegments.isNotEmpty) {
-        return cleanCode(pathSegments.last);
-      }
-    }
-
-    return cleanCode(value);
-  }
-
-  String cleanCode(String value) {
-    final trimmed = value.trim();
-    if (trimmed.startsWith('INV1.')) return trimmed;
-    return trimmed.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '').toUpperCase();
   }
 
   @override
@@ -174,4 +148,60 @@ class _GroupQrScanScreenState extends State<GroupQrScanScreen> {
       ),
     );
   }
+}
+
+/// Hosts whose invite links the scanner accepts.
+Set<String> trustedInviteHosts({String baseUrl = kApiBaseUrl}) {
+  final hosts = <String>{'koom.com.kg'};
+  final apiHost = Uri.tryParse(baseUrl)?.host.toLowerCase() ?? '';
+  if (apiHost.isNotEmpty) hosts.add(apiHost);
+  return hosts;
+}
+
+final RegExp _signedInvitePattern = RegExp(r'^INV1\.[A-Za-z0-9._~-]{1,512}$');
+final RegExp _plainInviteCodePattern =
+    RegExp(r'^(?:[A-Za-z0-9]{6}|[A-Za-z0-9]{12})$');
+const _inviteQueryKeys = ['invite_code', 'inviteCode', 'code', 'group_code'];
+
+/// Extracts a group invite code from a scanned QR payload. Accepts only:
+/// * signed invite tokens starting with `INV1.`;
+/// * http(s) links on koom.com.kg or the configured API host that carry the
+///   code in a query parameter or as the last path segment;
+/// * plain invite codes: 6 or 12 letters/digits once dashes are removed.
+/// Anything else returns null.
+String? extractInviteCode(String rawValue, {String baseUrl = kApiBaseUrl}) {
+  final value = rawValue.trim();
+  if (value.isEmpty || value.length > 2048) return null;
+
+  final direct = _normalizeInviteCandidate(value);
+  if (direct != null) return direct;
+
+  final uri = Uri.tryParse(value);
+  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return null;
+  }
+  if (uri.userInfo.isNotEmpty) return null;
+  if (!trustedInviteHosts(baseUrl: baseUrl).contains(uri.host.toLowerCase())) {
+    return null;
+  }
+  for (final key in _inviteQueryKeys) {
+    final queryValue = uri.queryParameters[key];
+    if (queryValue != null && queryValue.trim().isNotEmpty) {
+      return _normalizeInviteCandidate(queryValue);
+    }
+  }
+  final segments =
+      uri.pathSegments.where((segment) => segment.trim().isNotEmpty).toList();
+  if (segments.isEmpty) return null;
+  return _normalizeInviteCandidate(segments.last);
+}
+
+String? _normalizeInviteCandidate(String value) {
+  final trimmed = value.trim();
+  if (trimmed.startsWith('INV1.')) {
+    return _signedInvitePattern.hasMatch(trimmed) ? trimmed : null;
+  }
+  final compact = trimmed.replaceAll('-', '');
+  if (!_plainInviteCodePattern.hasMatch(compact)) return null;
+  return compact.toUpperCase();
 }
