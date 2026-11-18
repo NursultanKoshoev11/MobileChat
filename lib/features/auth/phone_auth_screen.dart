@@ -132,7 +132,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       });
       return;
     }
-    if (!accountExists && displayNameController.text.trim().length < 2) {
+    // The server no longer reports whether the number already has an account
+    // (that would let anyone enumerate registered numbers), so accountExists
+    // stays false for returning users too. Only reject a name that is present
+    // but too short; an empty name is fine for returning users, and the
+    // server answers "display_name is required for new account" otherwise.
+    final displayName = displayNameController.text.trim();
+    if (!accountExists && displayName.isNotEmpty && displayName.length < 2) {
       setState(() => error = text.displayNameRequiredForNewAccount);
       return;
     }
@@ -149,7 +155,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       await widget.onAuthenticated(session);
     } catch (e) {
       if (!mounted) return;
-      setState(() => error = e.toString());
+      final message = e.toString();
+      setState(() {
+        error = message.contains('display_name is required')
+            ? text.displayNameRequiredForNewAccount
+            : message;
+      });
     } finally {
       if (mounted) setState(() => loading = false);
     }
