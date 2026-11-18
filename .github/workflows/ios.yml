@@ -390,6 +390,10 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         run: flutter pub get
 
+      - name: Generate launcher icons
+        if: steps.signing.outputs.ready == 'true'
+        run: dart run flutter_launcher_icons
+
       - name: Build signed IPA
         if: steps.signing.outputs.ready == 'true'
         env:
