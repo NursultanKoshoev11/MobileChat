@@ -310,4 +310,48 @@ class AppText {
   String get sevenDays => isKy ? '7 күн' : '7 дней';
   String get thirtyDays => isKy ? '30 күн' : '30 дней';
   String get forever => isKy ? 'Түбөлүк' : 'Навсегда';
+  String get featureNotAvailableYet => isKy
+      ? 'Бул функция серверде азырынча жеткиликсиз. Кийинчерээк аракет кылыңыз.'
+      : 'Эта функция пока недоступна на сервере. Попробуйте позже.';
+  String get cancel => isKy ? 'Жокко чыгаруу' : 'Отмена';
+  String get groupMembers => isKy ? 'Катышуучулар' : 'Участники';
+  String get removeFromGroup => isKy ? 'Топтон чыгаруу' : 'Удалить из группы';
+  String get removeFromGroupConfirmTitle =>
+      isKy ? 'Катышуучуну топтон чыгарасызбы?' : 'Удалить участника из группы?';
+  String removeFromGroupConfirmBody(String name) => isKy
+      ? '$name топтон чыгарылат. Кайра кошулуу үчүн ага жаңы чакыруу керек болот.'
+      : '$name будет удалён из группы. Чтобы вернуться, ему понадобится новое приглашение.';
+  String get memberRemoved =>
+      isKy ? 'Катышуучу топтон чыгарылды.' : 'Участник удалён из группы.';
+  String get rotateInviteCode => isKy ? 'Кодду алмаштыруу' : 'Сменить код';
+  String get rotateInviteCodeConfirmTitle =>
+      isKy ? 'Чакыруу кодун алмаштырасызбы?' : 'Сменить код приглашения?';
+  String get rotateInviteCodeConfirmBody => isKy
+      ? 'Жаңы код түзүлөт. Эски код жана эски QR код мындан ары иштебейт.'
+      : 'Будет создан новый код. Старый код и старый QR-код перестанут работать.';
+  String get inviteCodeRotated =>
+      isKy ? 'Чакыруу коду алмаштырылды.' : 'Код приглашения изменён.';
+  String get inviteCodeAdminsOnly => isKy
+      ? 'Чакыруу кодун топтун ээси же админдери гана бөлүшө алат.'
+      : 'Делиться кодом приглашения могут только владелец и администраторы группы.';
+  String get logoutAllDevices =>
+      isKy ? 'Бардык түзмөктөрдөн чыгуу' : 'Выйти на всех устройствах';
+  String get logoutAllDevicesDescription => isKy
+      ? 'Аккаунтуңуз бардык телефондордо, ушул түзмөктү кошо, жабылат.'
+      : 'Аккаунт будет закрыт на всех телефонах, включая этот.';
+  String get logoutAllDevicesConfirmTitle => isKy
+      ? 'Бардык түзмөктөрдөн чыгасызбы?'
+      : 'Выйти на всех устройствах?';
+  String get logoutAllDevicesConfirmBody => isKy
+      ? 'Бардык түзмөктөрдөгү сессиялар жабылат. Кайра кирүү үчүн SMS-код керек болот.'
+      : 'Все сеансы на всех устройствах будут завершены. Для повторного входа понадобится SMS-код.';
+  String get notificationFallbackTitle => 'Koom';
+  String get notificationFallbackBody => isKy
+      ? 'Жаңылыкты көрүү үчүн тиркемени ачыңыз.'
+      : 'Откройте приложение, чтобы посмотреть обновление.';
+  String get notificationChannelName =>
+      isKy ? 'Koom билдирмелери' : 'Уведомления Koom';
+  String get notificationChannelDescription => isKy
+      ? 'Koomдогу жаңы жарыялар жана комментарийлер тууралуу билдирмелер.'
+      : 'Уведомления о новых публикациях и комментариях в Koom.';
 }

@@ -28,12 +28,14 @@ class GroupsScreen extends StatefulWidget {
     required this.onSessionChanged,
     required this.onLogout,
     required this.onAccountDeleted,
+    this.onLogoutAllDevices,
   });
   final ApiClient api;
   final AppSession session;
   final Future<void> Function(AppSession session) onSessionChanged;
   final Future<void> Function() onLogout;
   final Future<void> Function() onAccountDeleted;
+  final Future<void> Function()? onLogoutAllDevices;
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
@@ -271,6 +273,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
     setState(() => adminRequestsCountFuture = Future.value(count));
   }
 
+  /// Title of an already known group, e.g. to name the group of a scanned
+  /// invite when the user is already a member.
+  String? knownGroupTitle(String? groupId) {
+    if (groupId == null || groupId.isEmpty) return null;
+    for (final group in currentGroups) {
+      if (group.id == groupId) return group.title;
+    }
+    return null;
+  }
+
   void upsertGroup(ChatGroup group) {
     final updated = [
       group,
@@ -382,6 +394,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
             widget.session.copyWith(user: updatedUser),
           ),
           onAccountDeleted: widget.onAccountDeleted,
+          onLogoutAllDevices: widget.onLogoutAllDevices,
         ),
       ),
     );
@@ -408,9 +421,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
     if (inviteCode == null || inviteCode.trim().isEmpty || !mounted) return;
     final isSignedInvite = inviteCode.startsWith('INV1.');
     final code = isSignedInvite ? inviteCode : formatGroupInviteCode(inviteCode);
+    final claims = isSignedInvite ? decodeSignedInviteClaims(inviteCode) : null;
+    final displayCode = isSignedInvite
+        ? (claims?.inviteCode == null
+            ? null
+            : formatGroupInviteCode(claims!.inviteCode!))
+        : code;
     final confirmed = await confirmJoinScannedInvite(
       context,
-      displayCode: isSignedInvite ? null : code,
+      displayCode: displayCode,
+      groupName: claims?.groupTitle ?? knownGroupTitle(claims?.groupId),
     );
     if (!confirmed || !mounted) return;
     try {
@@ -418,7 +438,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
       upsertGroup(group);
       if (mounted) await openGroup(group);
     } catch (error) {
-      if (mounted) showAppSnack(context, error.toString());
+      if (mounted) {
+        showAppSnack(context, localizedMessage(context, error.toString()));
+      }
     }
   }
 
@@ -1282,21 +1304,29 @@ class GroupTile extends StatelessWidget {
 Future<bool> confirmJoinScannedInvite(
   BuildContext context, {
   String? displayCode,
+  String? groupName,
 }) async {
   final text = AppLanguageScope.textOf(context);
+  final name = groupName?.trim() ?? '';
+  final String body;
+  if (name.isNotEmpty) {
+    body = text.isKy
+        ? '«$name» тобуна кошулууну ырастаңыз.${displayCode == null ? '' : ' Код: $displayCode.'}'
+        : 'Подтвердите вступление в группу «$name».${displayCode == null ? '' : ' Код: $displayCode.'}';
+  } else if (displayCode == null) {
+    body = text.isKy
+        ? 'QR код аркылуу топко кошулууну ырастаңыз. Кодду ишенимдүү булактан гана сканерлеңиз.'
+        : 'Подтвердите вступление в группу по QR-коду. Сканируйте коды только из надёжных источников.';
+  } else {
+    body = text.isKy
+        ? '$displayCode коду менен топко кошулууну ырастаңыз.'
+        : 'Подтвердите вступление в группу по коду $displayCode.';
+  }
   final result = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(text.isKy ? 'Топко кошуласызбы?' : 'Вступить в группу?'),
-      content: Text(
-        displayCode == null
-            ? (text.isKy
-                ? 'QR код аркылуу топко кошулууну ырастаңыз. Кодду ишенимдүү булактан гана сканерлеңиз.'
-                : 'Подтвердите вступление в группу по QR-коду. Сканируйте коды только из надёжных источников.')
-            : (text.isKy
-                ? '$displayCode коду менен топко кошулууну ырастаңыз.'
-                : 'Подтвердите вступление в группу по коду $displayCode.'),
-      ),
+      content: Text(body),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),

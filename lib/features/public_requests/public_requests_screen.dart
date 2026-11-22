@@ -17,6 +17,7 @@ import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
+import '../groups/group_members_screen.dart';
 import '../groups/group_sheets.dart';
 import '../safety/group_reports_screen.dart';
 import '../safety/safety_ui.dart';
@@ -532,9 +533,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   String get groupAccessQrValue =>
       ensuredQrPass ?? currentGroup.qrPass ?? groupAccessCode;
 
+  /// Members without owner/admin rights only see the code when the server
+  /// still includes it in their group payload (older servers).
+  bool get canShowGroupAccess => canInvite || groupAccessCode.isNotEmpty;
+
   Future<void> showGroupAccess() async {
+    final text = AppLanguageScope.textOf(context);
     var code = groupAccessCode;
     if (code.isEmpty) {
+      if (!canInvite) {
+        showAppSnack(context, text.inviteCodeAdminsOnly);
+        return;
+      }
       try {
         final group = await requestsApi.ensureGroupInviteCode(currentGroup.id);
         if (!mounted) return;
@@ -545,13 +555,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         code = formatGroupInviteCode(group.inviteCode ?? '');
       } catch (error) {
         if (mounted) {
-          showAppSnack(context, localizedMessage(context, error.toString()));
+          showAppSnack(
+            context,
+            error is ApiException && error.statusCode == 403
+                ? text.inviteCodeAdminsOnly
+                : localizedMessage(context, error.toString()),
+          );
         }
         return;
       }
     }
+    if (!mounted) return;
     if (code.isEmpty) {
-      final text = AppLanguageScope.textOf(context);
       showAppSnack(
         context,
         text.isKy
@@ -569,6 +584,32 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         groupTitle: currentGroup.title,
         code: code,
         qrValue: groupAccessQrValue,
+        onRotate: canInvite ? rotateInviteCode : null,
+      ),
+    );
+  }
+
+  /// Issues a new invite code and returns the new (code, QR value).
+  Future<(String, String)> rotateInviteCode() async {
+    final group = await requestsApi.rotateGroupInviteCode(currentGroup.id);
+    final code = formatGroupInviteCode(group.inviteCode ?? '');
+    if (mounted) {
+      setState(() {
+        ensuredInviteCode = group.inviteCode;
+        ensuredQrPass = group.qrPass;
+      });
+    }
+    return (code, group.qrPass ?? code);
+  }
+
+  Future<void> openMembers() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GroupMembersScreen(
+          api: requestsApi,
+          group: currentGroup,
+          currentUserId: widget.user.id,
+        ),
       ),
     );
   }
@@ -1027,6 +1068,9 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       case 'access':
         await showGroupAccess();
         break;
+      case 'members':
+        await openMembers();
+        break;
       case 'admins':
         await changeRoleByPhone();
         break;
@@ -1089,11 +1133,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
               icon: Icons.analytics_outlined,
               label: text.statistics,
             ),
-            groupMenuItem(
-              value: 'access',
-              icon: Icons.qr_code_rounded,
-              label: text.codeAndQr,
-            ),
+            if (canShowGroupAccess)
+              groupMenuItem(
+                value: 'access',
+                icon: Icons.qr_code_rounded,
+                label: text.codeAndQr,
+              ),
+            if (canModerate)
+              groupMenuItem(
+                value: 'members',
+                icon: Icons.people_outline_rounded,
+                label: text.groupMembers,
+              ),
             if (canChangeRoles)
               groupMenuItem(
                 value: 'admins',

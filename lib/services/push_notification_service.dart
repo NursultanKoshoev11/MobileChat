@@ -5,8 +5,11 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../app/localization.dart';
+import '../app/preferences_store.dart';
 import '../data/api_client.dart';
 
 class PushNotificationService {
@@ -41,6 +44,53 @@ class PushNotificationService {
   /// others (Android accessibility ticker).
   static const genericNotificationTicker =
       'Новое уведомление KOOM / KOOM: жаңы билдирүү';
+
+  /// Monochrome status-bar icon (android/app/src/main/res/drawable).
+  static const androidSmallIcon = '@drawable/ic_stat_koom';
+  static const androidChannelId = 'koom_default';
+
+  /// iOS: show banners, badge and sound also while the app is in the
+  /// foreground.
+  static const darwinDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBanner: true,
+    presentList: true,
+    presentBadge: true,
+    presentSound: true,
+  );
+
+  static const _darwinInitializationSettings = DarwinInitializationSettings(
+    // Permission is requested through FirebaseMessaging.requestPermission.
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+    defaultPresentAlert: true,
+    defaultPresentBanner: true,
+    defaultPresentList: true,
+    defaultPresentBadge: true,
+    defaultPresentSound: true,
+  );
+
+  /// Texts in the language the user picked in the app (Russian by default).
+  /// Works in the background isolate too; falls back to Russian when the
+  /// preference cannot be read.
+  static Future<AppText> notificationText({
+    AppPreferencesStore store = const AppPreferencesStore(),
+  }) async {
+    try {
+      final stored = await store.readLanguage();
+      if (stored == AppLanguage.ky.name) return const AppText(AppLanguage.ky);
+    } catch (_) {}
+    return const AppText(AppLanguage.ru);
+  }
+
+  static AndroidNotificationChannel androidChannel(AppText text) =>
+      AndroidNotificationChannel(
+        androidChannelId,
+        text.notificationChannelName,
+        description: text.notificationChannelDescription,
+        importance: Importance.high,
+      );
 
   final ApiClient api;
   final FlutterLocalNotificationsPlugin _localNotifications =
@@ -135,12 +185,9 @@ class PushNotificationService {
   Future<void> _initLocalNotifications() async {
     if (_localNotificationsInitialized) return;
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwinSettings = DarwinInitializationSettings();
     const initializationSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: darwinSettings,
+      android: AndroidInitializationSettings(androidSmallIcon),
+      iOS: _darwinInitializationSettings,
     );
     await _localNotifications.initialize(
       initializationSettings,
@@ -148,12 +195,7 @@ class PushNotificationService {
     );
 
     if (Platform.isAndroid) {
-      const channel = AndroidNotificationChannel(
-        'koom_default',
-        'Koom notifications',
-        description: 'Notifications about new posts and comments in Koom.',
-        importance: Importance.high,
-      );
+      final channel = androidChannel(await notificationText());
       await _localNotifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
@@ -232,6 +274,11 @@ class PushNotificationService {
     return data;
   }
 
+  static String? _nonEmpty(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   static String? _firstNonEmpty(List<String?> values) {
     for (final value in values) {
       final normalized = value?.trim() ?? '';
@@ -260,45 +307,40 @@ class PushNotificationService {
     RemoteMessage message,
   ) async {
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwinSettings = DarwinInitializationSettings();
+    final text = await notificationText();
     const initializationSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: darwinSettings,
+      android: AndroidInitializationSettings(androidSmallIcon),
+      iOS: _darwinInitializationSettings,
     );
     await plugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
     );
 
+    final channel = androidChannel(text);
     if (Platform.isAndroid) {
-      const channel = AndroidNotificationChannel(
-        'koom_default',
-        'Koom notifications',
-        description: 'Notifications about new posts and comments in Koom.',
-        importance: Importance.high,
-      );
       await plugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
     }
 
-    final title =
-        message.notification?.title ?? message.data['title'] ?? 'Коом';
-    final body = message.notification?.body ??
-        message.data['body'] ??
-        'Откройте приложение, чтобы посмотреть обновление.';
-    const details = NotificationDetails(
+    final title = _nonEmpty(message.notification?.title) ??
+        _nonEmpty(message.data['title']) ??
+        text.notificationFallbackTitle;
+    final body = _nonEmpty(message.notification?.body) ??
+        _nonEmpty(message.data['body']) ??
+        text.notificationFallbackBody;
+    final details = NotificationDetails(
+      iOS: darwinDetails,
       android: AndroidNotificationDetails(
-        'koom_default',
-        'Koom notifications',
-        channelDescription:
-            'Notifications about new posts and comments in Koom.',
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
         importance: Importance.high,
         priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
+        icon: androidSmallIcon,
+        color: const Color(0xFF0878F9),
         // Hide group content on a secure lock screen. The system replaces the
         // text with its generic "contents hidden" placeholder.
         visibility: NotificationVisibility.private,

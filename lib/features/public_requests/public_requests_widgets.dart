@@ -16,6 +16,7 @@ import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../services/group_realtime_service.dart';
 import '../../shared/koom_ui.dart';
+import '../../shared/phone_input.dart';
 import '../../shared/ui_helpers.dart';
 import '../safety/safety_ui.dart';
 import 'public_request_media_screens.dart';
@@ -44,21 +45,78 @@ class EmptyPostsView extends StatelessWidget {
   }
 }
 
-class GroupAccessSheet extends StatelessWidget {
+class GroupAccessSheet extends StatefulWidget {
   const GroupAccessSheet({
     super.key,
     required this.groupTitle,
     required this.code,
     String? qrValue,
+    this.onRotate,
   }) : qrValue = qrValue ?? code;
   final String groupTitle;
   final String code;
   final String qrValue;
 
+  /// Owner/admin only: issues a new code and returns the new (code, QR).
+  final Future<(String, String)> Function()? onRotate;
+
+  @override
+  State<GroupAccessSheet> createState() => _GroupAccessSheetState();
+}
+
+class _GroupAccessSheetState extends State<GroupAccessSheet> {
+  late String code = widget.code;
+  late String qrValue = widget.qrValue;
+  bool rotating = false;
+
+  Future<void> rotate() async {
+    final onRotate = widget.onRotate;
+    if (onRotate == null || rotating) return;
+    final text = AppLanguageScope.textOf(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(text.rotateInviteCodeConfirmTitle),
+        content: Text(text.rotateInviteCodeConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(text.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm_rotate_invite_code'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(text.rotateInviteCode),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => rotating = true);
+    try {
+      final (newCode, newQr) = await onRotate();
+      if (!mounted) return;
+      setState(() {
+        if (newCode.isNotEmpty) {
+          code = newCode;
+          qrValue = newQr.isEmpty ? newCode : newQr;
+        }
+      });
+      showAppSnack(context, text.inviteCodeRotated);
+    } catch (error) {
+      if (mounted) {
+        showAppSnack(context, localizedMessage(context, error.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => rotating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final groupTitle = widget.groupTitle;
     return SafeArea(
       top: false,
       child: Container(
@@ -130,6 +188,21 @@ class GroupAccessSheet extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (widget.onRotate != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const ValueKey('rotate_invite_code_button'),
+                onPressed: rotating ? null : rotate,
+                icon: rotating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.autorenew_rounded),
+                label: Text(text.rotateInviteCode),
+              ),
+            ],
           ],
         ),
       ),
@@ -165,7 +238,7 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
     try {
       await widget.api.inviteUserByPhone(
         groupId: widget.group.id,
-        mobile: '+996${phoneController.text.trim()}',
+        mobile: '+996${normalizeKgMobileInput(phoneController.text)}',
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -205,8 +278,8 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
           TextField(
             controller: phoneController,
             keyboardType: TextInputType.phone,
-            maxLength: 9,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            maxLength: kgMobileDigits,
+            inputFormatters: const [KgMobileInputFormatter()],
             decoration: InputDecoration(
               labelText: text.mobileNumber,
               hintText: '700123456',

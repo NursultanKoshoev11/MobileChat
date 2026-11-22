@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../data/api_client.dart';
 import '../data/blocked_users.dart';
@@ -38,6 +39,7 @@ class _KoomAppState extends State<KoomApp>
   late final PushNotificationService pushNotifications =
       PushNotificationService(api: api);
   late Future<AppSession?> bootFuture;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -112,23 +114,55 @@ class _KoomAppState extends State<KoomApp>
     });
   }
 
+  /// Signs out on this device. Every step is best effort and bounded, so a
+  /// missing network or a failing server can never leave the UI stuck on the
+  /// signed-in screens.
   Future<void> logout() async {
-    await pushNotifications.unregisterDevice();
-    await pushNotifications.forgetDeviceToken();
-    BlockedUsersController.instance.clear();
-    await api.logout();
-    if (!mounted) return;
-    setState(() {
-      bootFuture = Future.value(null);
-    });
+    await runLogoutSteps([
+      pushNotifications.unregisterDevice,
+      pushNotifications.forgetDeviceToken,
+      () async => BlockedUsersController.instance.clear(),
+      api.logout,
+    ]);
+    // ApiClient.logout already clears the session; clear again in case a
+    // step above threw before reaching it.
+    await api.clearLocalSession();
+    _resetToSignIn();
+  }
+
+  /// Revokes all sessions on the server, then signs out locally. Throws (and
+  /// keeps the user signed in) when the server call fails.
+  Future<void> logoutAllDevices() async {
+    // Deleting this device's push token needs a valid access token, so do it
+    // before the server revokes every session.
+    await runLogoutSteps([pushNotifications.unregisterDevice]);
+    try {
+      await api.logoutAllDevices();
+    } catch (_) {
+      unawaited(pushNotifications.registerDevice());
+      rethrow;
+    }
+    await runLogoutSteps([
+      pushNotifications.forgetDeviceToken,
+      () async => BlockedUsersController.instance.clear(),
+    ]);
+    _resetToSignIn();
   }
 
   Future<void> accountDeleted() async {
     // The server removes the account's push tokens with the account; also
     // invalidate the token on the device.
-    await pushNotifications.forgetDeviceToken();
-    BlockedUsersController.instance.clear();
+    await runLogoutSteps([
+      pushNotifications.forgetDeviceToken,
+      () async => BlockedUsersController.instance.clear(),
+    ]);
+    _resetToSignIn();
+  }
+
+  void _resetToSignIn() {
     if (!mounted) return;
+    // Close any screens pushed above the home route (profile, group, sheets).
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() {
       bootFuture = Future.value(null);
     });
@@ -152,7 +186,11 @@ class _KoomAppState extends State<KoomApp>
               vertical: densityAdjustment,
             );
             return MaterialApp(
+              navigatorKey: _navigatorKey,
               debugShowCheckedModeBanner: false,
+              locale: materialLocaleFor(languageController.language),
+              supportedLocales: kSupportedLocales,
+              localizationsDelegates: kLocalizationsDelegates,
               title: text.appTitle,
               theme: KoomTheme.light.copyWith(
                 visualDensity: visualDensity,
@@ -165,7 +203,10 @@ class _KoomAppState extends State<KoomApp>
                 final mediaQuery = MediaQuery.of(context);
                 return MediaQuery(
                   data: mediaQuery.copyWith(
-                    textScaler: TextScaler.linear(scale),
+                    textScaler: combineTextScalers(
+                      mediaQuery.textScaler,
+                      scale,
+                    ),
                   ),
                   child: child ?? const SizedBox.shrink(),
                 );
@@ -188,6 +229,7 @@ class _KoomAppState extends State<KoomApp>
                     session: session,
                     onSessionChanged: updateSessionLocally,
                     onLogout: logout,
+                    onLogoutAllDevices: logoutAllDevices,
                     onAccountDeleted: accountDeleted,
                   );
                 },
@@ -232,5 +274,42 @@ class _KoomSplashScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Locales the app ships UI strings for. Material/Cupertino widgets use the
+/// matching Flutter localizations (date pickers, tooltips, text selection).
+const kSupportedLocales = <Locale>[Locale('ru'), Locale('ky')];
+
+const kLocalizationsDelegates = <LocalizationsDelegate<dynamic>>[
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
+
+Locale materialLocaleFor(AppLanguage language) =>
+    language == AppLanguage.ky ? const Locale('ky') : const Locale('ru');
+
+/// Upper bound for the combined text scale so layouts stay usable.
+const kMaxTextScale = 2.0;
+
+/// Applies the in-app display scale on top of the system (accessibility) text
+/// scale instead of replacing it, clamped to [kMaxTextScale].
+TextScaler combineTextScalers(TextScaler system, double appScale) {
+  final systemFactor = system.scale(100) / 100;
+  final combined = (systemFactor * appScale).clamp(0.5, kMaxTextScale);
+  return TextScaler.linear(combined.toDouble());
+}
+
+/// Runs each logout step, bounding its duration and ignoring its failure, so
+/// one failing step (e.g. no network) cannot block the rest.
+Future<void> runLogoutSteps(
+  List<Future<void> Function()> steps, {
+  Duration timeout = const Duration(seconds: 10),
+}) async {
+  for (final step in steps) {
+    try {
+      await step().timeout(timeout);
+    } catch (_) {}
   }
 }

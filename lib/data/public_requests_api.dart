@@ -249,6 +249,28 @@ class PublicRequestsApi with SafetyEndpoints {
     return ChatGroup.fromJson(response as Map<String, dynamic>);
   }
 
+  /// Issues a new invite code; the previous code and QR stop working.
+  /// Owner/admin only. Throws [FeatureUnavailableException] on servers that
+  /// do not support rotation yet.
+  Future<ChatGroup> rotateGroupInviteCode(String groupId) async {
+    final response = await guardNewEndpoint(
+      () => _send('POST', '/api/groups/$groupId/invite-code/rotate'),
+    );
+    return ChatGroup.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Removes [userId] from the group (204). See [canRemoveGroupMember] for
+  /// who may remove whom. Throws [FeatureUnavailableException] on servers
+  /// that do not support member removal yet.
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    await guardNewEndpoint(
+      () => _send('DELETE', '/api/groups/$groupId/members/$userId'),
+    );
+  }
+
   Future<List<GroupMember>> listGroupMembers(String groupId) async {
     final response = await _send('GET', '/api/groups/$groupId/members');
     return (response as List)

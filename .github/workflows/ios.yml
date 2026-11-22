@@ -45,6 +45,14 @@ jobs:
       - name: Ensure iOS platform files exist
         run: flutter create --platforms=ios --project-name koom .
 
+      - name: Add privacy manifest to Runner target
+        run: |
+          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
+            gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
+          fi
+          ruby scripts/ios_add_privacy_manifest.rb ios/Runner.xcodeproj
+          grep -q "PrivacyInfo.xcprivacy in Resources" ios/Runner.xcodeproj/project.pbxproj
+
       - name: Configure iOS bundle identifier
         env:
           IOS_BUNDLE_ID_INPUT: ${{ github.event.inputs.ios_bundle_id }}
@@ -75,6 +83,9 @@ jobs:
           fi
           echo "Building iOS simulator app with API_BASE_URL=$API_BASE_URL"
           flutter build ios --debug --simulator -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Verify privacy manifest is bundled
+        run: test -f build/ios/iphonesimulator/Runner.app/PrivacyInfo.xcprivacy
 
       - name: Prepare simulator artifact
         run: |
@@ -116,6 +127,14 @@ jobs:
       - name: Ensure iOS platform files exist
         run: flutter create --platforms=ios --project-name koom .
 
+      - name: Add privacy manifest to Runner target
+        run: |
+          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
+            gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
+          fi
+          ruby scripts/ios_add_privacy_manifest.rb ios/Runner.xcodeproj
+          grep -q "PrivacyInfo.xcprivacy in Resources" ios/Runner.xcodeproj/project.pbxproj
+
       - name: Configure iOS bundle identifier
         env:
           IOS_BUNDLE_ID_INPUT: ${{ github.event.inputs.ios_bundle_id }}
@@ -146,6 +165,9 @@ jobs:
           fi
           echo "Building unsigned iPhone app with API_BASE_URL=$API_BASE_URL"
           flutter build ios --release --no-codesign -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
+
+      - name: Verify privacy manifest is bundled
+        run: test -f build/ios/iphoneos/Runner.app/PrivacyInfo.xcprivacy
 
       - name: Package unsigned IPA artifact
         run: |
@@ -238,6 +260,15 @@ jobs:
       - name: Ensure iOS platform files exist
         if: steps.signing.outputs.ready == 'true'
         run: flutter create --platforms=ios --project-name koom .
+
+      - name: Add privacy manifest to Runner target
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
+            gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
+          fi
+          ruby scripts/ios_add_privacy_manifest.rb ios/Runner.xcodeproj
+          grep -q "PrivacyInfo.xcprivacy in Resources" ios/Runner.xcodeproj/project.pbxproj
 
       - name: Configure iOS bundle identifier
         if: steps.signing.outputs.ready == 'true'
@@ -390,6 +421,14 @@ jobs:
         if: steps.signing.outputs.ready == 'true'
         run: flutter pub get
 
+      - name: Analyze Dart code
+        if: steps.signing.outputs.ready == 'true'
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        if: steps.signing.outputs.ready == 'true'
+        run: flutter test
+
       - name: Generate launcher icons
         if: steps.signing.outputs.ready == 'true'
         run: dart run flutter_launcher_icons
@@ -427,6 +466,10 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             "${FIREBASE_DEFINES[@]}" \
             --export-options-plist=ios/ExportOptions.plist
+
+      - name: Verify privacy manifest is bundled
+        if: steps.signing.outputs.ready == 'true'
+        run: test -f build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/PrivacyInfo.xcprivacy
 
       - name: Prepare IPA artifact
         if: steps.signing.outputs.ready == 'true'

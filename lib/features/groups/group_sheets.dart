@@ -259,7 +259,7 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
                   inputFormatters: [GroupInviteCodeFormatter()],
                   decoration: InputDecoration(
                     labelText: text.isKy ? 'Чакыруу коду' : 'Код приглашения',
-                    hintText: 'AAA-666',
+                    hintText: 'XXXXX-XXXXX',
                   ),
                 ),
                 if (error != null) ...[
@@ -294,23 +294,27 @@ class _JoinByCodeSheetState extends State<JoinByCodeSheet> {
   }
 }
 
-/// Maximum invite code length (letters/digits). Current codes have 6
-/// characters; up to 12 are accepted for forward compatibility.
-const maxGroupInviteCodeLength = 12;
+/// Maximum invite code length (letters/digits, without the hyphen).
+/// Legacy codes look like `AAA-999` (6), current codes like `XXXXX-XXXXX`
+/// (10).
+const maxGroupInviteCodeLength = 10;
 
-/// Formats an invite code in dash-separated groups of three characters:
-/// `ABC234` -> `ABC-234`, `ABCDEF234567` -> `ABC-DEF-234-567`.
+/// Longest formatted code including the hyphen (`XXXXX-XXXXX`).
+const maxFormattedGroupInviteCodeLength = maxGroupInviteCodeLength + 1;
+
+/// Upper-cases an invite code, drops spaces/hyphens and other separators and
+/// formats it: up to 6 characters as the legacy `AAA-999`, longer codes as
+/// `XXXXX-XXXXX`.
 String formatGroupInviteCode(String input) {
   final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   final shortened = compact.length > maxGroupInviteCodeLength
       ? compact.substring(0, maxGroupInviteCodeLength)
       : compact;
-  final groups = <String>[];
-  for (var i = 0; i < shortened.length; i += 3) {
-    final end = i + 3 > shortened.length ? shortened.length : i + 3;
-    groups.add(shortened.substring(i, end));
+  if (shortened.length <= 6) {
+    if (shortened.length <= 3) return shortened;
+    return '${shortened.substring(0, 3)}-${shortened.substring(3)}';
   }
-  return groups.join('-');
+  return '${shortened.substring(0, 5)}-${shortened.substring(5)}';
 }
 
 class GroupInviteCodeFormatter extends TextInputFormatter {

@@ -25,6 +25,9 @@ dependencies:
   path_provider: ^2.1.5
   video_player: ^2.9.2
   url_launcher: ^6.3.3
+  firebase_crashlytics: ^4.3.10
+  flutter_localizations:
+    sdk: flutter
 
 dependency_overrides:
   # 2.12.4 requires newer Swift APIs than the Xcode 16.4 CI runner provides.

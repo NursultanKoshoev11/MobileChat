@@ -4,6 +4,9 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    // Injects the Crashlytics build ID (the SDK refuses to start without it)
+    // and uploads R8 mapping files for minified release builds.
+    id "com.google.firebase.crashlytics"
 }
 
 def googleServicesFile = file("google-services.json")

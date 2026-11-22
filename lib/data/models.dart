@@ -208,6 +208,26 @@ class ChatGroup {
   }
 }
 
+/// Mirrors the server rule for DELETE /api/groups/{id}/members/{userId}:
+/// the owner may remove anyone except themselves; an admin may remove plain
+/// members only; everyone else may remove nobody.
+bool canRemoveGroupMember({
+  required String? myRole,
+  required String myUserId,
+  required GroupMember member,
+}) {
+  if (member.userId == myUserId) return false;
+  if (member.role == 'owner') return false;
+  switch (myRole) {
+    case 'owner':
+      return true;
+    case 'admin':
+      return member.role == 'member';
+    default:
+      return false;
+  }
+}
+
 class GroupMember {
   const GroupMember({
     required this.userId,
