@@ -9,6 +9,7 @@ import '../../data/api_client.dart';
 import '../../data/models.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/legal_links.dart';
+import '../../shared/phone_input.dart';
 import '../../shared/ui_helpers.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
@@ -74,8 +75,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
-  String get _mobileDigits =>
-      mobileController.text.replaceAll(RegExp(r'[^0-9]'), '');
+  String get _mobileDigits => normalizeKgMobileInput(mobileController.text);
   String get _fullMobileNumber => '$_kgPhonePrefix$_mobileDigits';
 
   Future<void> requestCode() async {
@@ -322,14 +322,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                             controller: mobileController,
                                             enabled: !loading,
                                             keyboardType: TextInputType.phone,
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter
-                                                  .digitsOnly,
-                                              LengthLimitingTextInputFormatter(
-                                                9,
-                                              ),
+                                            inputFormatters: const [
+                                              KgMobileInputFormatter(),
                                             ],
-                                            maxLength: 9,
+                                            maxLength: kgMobileDigits,
                                             onChanged: (_) {
                                               if (mounted) {
                                                 setState(() => error = null);

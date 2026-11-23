@@ -22,6 +22,28 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// True when [error] is a 404/405 that came from the router rather than from
+/// an API handler (handlers always answer with a JSON `error`).
+bool isMissingRouteError(Object error) {
+  if (error is FeatureUnavailableException) return true;
+  return error is ApiException &&
+      (error.statusCode == 404 || error.statusCode == 405) &&
+      error.message.startsWith('Server error');
+}
+
+/// Runs [call] and converts a missing-route error (older server without the
+/// endpoint) into [FeatureUnavailableException].
+Future<T> guardNewEndpoint<T>(Future<T> Function() call) async {
+  try {
+    return await call();
+  } on ApiException catch (error) {
+    if (isMissingRouteError(error)) {
+      throw const FeatureUnavailableException();
+    }
+    rethrow;
+  }
+}
+
 enum RefreshSessionResult {
   refreshed,
   noSession,
@@ -38,6 +60,7 @@ class ApiClient with SafetyEndpoints {
   final SessionStore sessionStore;
   static const Duration _timeout = Duration(seconds: 15);
   static const int _maxAttempts = 3;
+  static const Duration _logoutTimeout = Duration(seconds: 8);
   static const Duration _resumeRefreshBeforeExpiry = Duration(minutes: 1);
   final NetworkGuard _networkGuard = NetworkGuard();
   Timer? _proactiveRefreshTimer;
@@ -65,18 +88,41 @@ class ApiClient with SafetyEndpoints {
     return session;
   }
 
+  /// Signs out on this device. The server call is best effort: when it fails
+  /// (offline, server error) the local session is still cleared, and this
+  /// method never throws, so the UI can always return to the sign-in screen.
   Future<void> logout() async {
-    final session = await sessionStore.read();
     try {
+      final session = await sessionStore.read();
       if (session != null && session.refreshToken.isNotEmpty) {
-        await _post('/api/auth/logout', {'refresh_token': session.refreshToken}, auth: false);
+        await _post('/api/auth/logout', {'refresh_token': session.refreshToken}, auth: false)
+            .timeout(_logoutTimeout);
       }
+    } catch (_) {
+      // The refresh token expires on its own; never keep the user signed in
+      // locally because the server could not be reached.
     } finally {
-      await sessionStore.clear();
-      _proactiveRefreshTimer?.cancel();
-      _proactiveRefreshTimer = null;
-      _proactiveRefreshRetryAttempt = 0;
+      await clearLocalSession();
     }
+  }
+
+  /// Revokes every session of the account on all devices, then clears the
+  /// local session. Unlike [logout] this throws when the server call fails,
+  /// because the user explicitly asked for a server-side action; the local
+  /// session is kept in that case so the user can retry.
+  Future<void> logoutAllDevices() async {
+    await guardNewEndpoint(() => _post('/api/auth/logout-all', {}));
+    await clearLocalSession();
+  }
+
+  /// Removes the stored session and stops background token refresh.
+  Future<void> clearLocalSession() async {
+    _proactiveRefreshTimer?.cancel();
+    _proactiveRefreshTimer = null;
+    _proactiveRefreshRetryAttempt = 0;
+    try {
+      await sessionStore.clear();
+    } catch (_) {}
   }
 
   Future<void> handleAppResumed({bool forceRefresh = false}) async {

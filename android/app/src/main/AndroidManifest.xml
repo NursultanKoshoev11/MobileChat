@@ -32,6 +32,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM notifications shown by the system while the app is in the
+             background use the monochrome KOOM icon and the app channel. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_koom" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/koom_notification_accent" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="koom_default" />
     </application>
 
     <!-- url_launcher: allow resolving browsers for the Terms/Privacy links (Android 11+). -->
