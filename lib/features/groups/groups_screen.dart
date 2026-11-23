@@ -19,6 +19,7 @@ import '../invitations/invitations_screen.dart';
 import '../profile/profile_screen.dart';
 import '../public_requests/public_requests_screen.dart';
 import 'group_qr_scan_screen.dart';
+import 'public_groups_sheet.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({
@@ -414,6 +415,23 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
+  Future<void> discoverPublicGroups() async {
+    final group = await showModalBottomSheet<ChatGroup>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).cardColor,
+      builder: (_) => PublicGroupsSheet(
+        api: widget.api,
+        joinedGroups: currentGroups,
+      ),
+    );
+    if (group != null) {
+      upsertGroup(group);
+      if (mounted) await openGroup(group);
+    }
+  }
+
   Future<void> scanGroupQr() async {
     final inviteCode = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const GroupQrScanScreen()),
@@ -638,6 +656,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       adminRequestsCountFuture: adminRequestsCountFuture,
                       invitationsCountFuture: invitationsCountFuture,
                       onJoinByCode: joinByCode,
+                      onDiscoverPublicGroups: discoverPublicGroups,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
                       onRequests: canReviewGroupCreationRequests
@@ -665,6 +684,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       adminRequestsCountFuture: adminRequestsCountFuture,
                       invitationsCountFuture: invitationsCountFuture,
                       onJoinByCode: joinByCode,
+                      onDiscoverPublicGroups: discoverPublicGroups,
                       onScanQr: scanGroupQr,
                       onInvitations: openInvitations,
                       onRequests: canReviewGroupCreationRequests
@@ -677,13 +697,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
                       child: KoomSectionTitle(
                         title: text.groups,
-                        subtitle: groups.isEmpty
-                            ? (text.isKy
-                                  ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
-                                  : 'Ваши сообщества появятся здесь')
-                            : (text.isKy
-                                  ? '${groups.length} коомчулук'
-                                  : '${groups.length} сообществ'),
+                            subtitle: groups.isEmpty
+                                ? (text.isKy
+                                      ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
+                                      : 'Ваши сообщества появятся здесь')
+                                : (text.isKy
+                                      ? '${groups.length} коомчулук'
+                                      : '${groups.length} сообществ'),
                       ),
                     );
                   }
@@ -720,6 +740,7 @@ class _GroupsOverview extends StatelessWidget {
     required this.adminRequestsCountFuture,
     required this.invitationsCountFuture,
     required this.onJoinByCode,
+    required this.onDiscoverPublicGroups,
     required this.onScanQr,
     required this.onInvitations,
     required this.onRequests,
@@ -732,6 +753,7 @@ class _GroupsOverview extends StatelessWidget {
   final Future<int> adminRequestsCountFuture;
   final Future<int> invitationsCountFuture;
   final VoidCallback onJoinByCode;
+  final VoidCallback onDiscoverPublicGroups;
   final VoidCallback onScanQr;
   final VoidCallback onInvitations;
   final VoidCallback onRequests;
@@ -818,6 +840,12 @@ class _GroupsOverview extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
+              KoomIconTile(
+                compact: true,
+                icon: Icons.public_rounded,
+                label: text.isKy ? 'Ачык топтор' : 'Открытые группы',
+                onTap: onDiscoverPublicGroups,
+              ),
               KoomIconTile(
                 compact: true,
                 icon: Icons.key_rounded,
