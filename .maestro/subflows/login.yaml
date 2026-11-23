@@ -8,6 +8,12 @@ appId: com.nursultankoshoev.mobilechat.debug
       visible: ".*isn't responding.*"
     commands:
       - tapOn: "Wait"
+# A previous Monkey round can leave Android quick settings expanded over the app.
+- runFlow:
+    when:
+      visible: "Internet"
+    commands:
+      - pressKey: BACK
 - extendedWaitUntil:
     visible:
       id: auth_mobile_field

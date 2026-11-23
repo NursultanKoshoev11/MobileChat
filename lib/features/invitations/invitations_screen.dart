@@ -42,7 +42,9 @@ class _InvitationsScreenState extends State<InvitationsScreen> {
 
   Future<void> refresh() async {
     final nextFuture = loadInvitations();
-    setState(() => invitationsFuture = nextFuture);
+    setState(() {
+      invitationsFuture = nextFuture;
+    });
     await nextFuture;
   }
 
