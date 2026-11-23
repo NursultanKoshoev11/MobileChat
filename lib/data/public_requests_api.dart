@@ -71,7 +71,7 @@ class PublicRequestsApi with SafetyEndpoints {
     final streamed = await request.send().timeout(const Duration(seconds: 60));
     final response = await http.Response.fromStream(streamed).timeout(_timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException('Upload failed: ${response.statusCode}');
+      throw uploadErrorFromResponse(response);
     }
     final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     decoded['url'] = normalizeUploadedFileUrl(
@@ -247,6 +247,28 @@ class PublicRequestsApi with SafetyEndpoints {
   Future<ChatGroup> ensureGroupInviteCode(String groupId) async {
     final response = await _send('POST', '/api/groups/$groupId/invite-code');
     return ChatGroup.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Issues a new invite code; the previous code and QR stop working.
+  /// Owner/admin only. Throws [FeatureUnavailableException] on servers that
+  /// do not support rotation yet.
+  Future<ChatGroup> rotateGroupInviteCode(String groupId) async {
+    final response = await guardNewEndpoint(
+      () => _send('POST', '/api/groups/$groupId/invite-code/rotate'),
+    );
+    return ChatGroup.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Removes [userId] from the group (204). See [canRemoveGroupMember] for
+  /// who may remove whom. Throws [FeatureUnavailableException] on servers
+  /// that do not support member removal yet.
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    await guardNewEndpoint(
+      () => _send('DELETE', '/api/groups/$groupId/members/$userId'),
+    );
   }
 
   Future<List<GroupMember>> listGroupMembers(String groupId) async {
@@ -517,6 +539,28 @@ class PublicRequestsApi with SafetyEndpoints {
     throw ApiException('Server error ${response.statusCode}',
         statusCode: response.statusCode);
   }
+}
+
+/// Builds the error for a failed upload. Keeps the server's `code` (e.g.
+/// `upload_quota_exceeded` on 429) so the UI can show a localized message.
+ApiException uploadErrorFromResponse(http.Response response) {
+  try {
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is Map<String, dynamic>) {
+      final code = decoded['code'];
+      if (code is String && code.trim().isNotEmpty) {
+        return ApiException(code.trim(), statusCode: response.statusCode);
+      }
+      final error = decoded['error'];
+      if (error is String && error.trim().isNotEmpty) {
+        return ApiException(error.trim(), statusCode: response.statusCode);
+      }
+    }
+  } catch (_) {}
+  return ApiException(
+    'Upload failed: ${response.statusCode}',
+    statusCode: response.statusCode,
+  );
 }
 
 /// Normalizes the `url` returned by the upload endpoint. Relative paths are

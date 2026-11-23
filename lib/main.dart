@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
+import 'app/crash_reporting.dart';
 import 'app/firebase_config.dart';
 import 'services/push_notification_service.dart';
 
@@ -40,6 +41,11 @@ Future<bool> initializeFirebaseSafely({
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeFirebaseSafely();
+  final firebaseReady = await initializeFirebaseSafely();
+  // FlutterError.onError + PlatformDispatcher.onError cover framework and
+  // uncaught async errors, so no runZonedGuarded is needed.
+  try {
+    await CrashReporting.install(firebaseReady: firebaseReady);
+  } catch (_) {}
   runApp(const KoomApp());
 }

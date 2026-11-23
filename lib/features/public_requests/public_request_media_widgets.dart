@@ -170,9 +170,67 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          // The file may be gone (e.g. removed with a deleted account):
+          // show a neutral placeholder instead of an error.
+          errorBuilder: (_, __, ___) =>
+              MediaUnavailablePlaceholder(width: width, height: height),
         );
       },
+    );
+  }
+}
+
+/// True for the server's 429 `upload_quota_exceeded` response.
+bool isUploadQuotaError(Object error) =>
+    error is ApiException &&
+    (error.statusCode == 429 ||
+        error.message.contains('upload_quota_exceeded') ||
+        error.message.contains('upload quota exceeded'));
+
+/// Neutral placeholder for media that can no longer be loaded (404 after the
+/// owner's account and files were deleted, network errors, corrupt data).
+class MediaUnavailablePlaceholder extends StatelessWidget {
+  const MediaUnavailablePlaceholder({
+    super.key,
+    this.width,
+    this.height,
+    this.showLabel = false,
+    this.dark = false,
+  });
+
+  final double? width;
+  final double? height;
+  final bool showLabel;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = dark ? Colors.white70 : scheme.onSurfaceVariant;
+    final label = text.isKy ? 'Медиа жеткиликсиз' : 'Медиа недоступно';
+    return Semantics(
+      label: label,
+      child: Container(
+        width: width,
+        height: height,
+        color: dark ? Colors.transparent : scheme.surfaceContainerHighest,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported_outlined, color: foreground),
+            if (showLabel) ...[
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: foreground),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -230,13 +288,9 @@ class _PublicRequestPhotoViewer extends StatelessWidget {
             loadingBuilder: (context, child, progress) => progress == null
                 ? child
                 : const Center(child: CircularProgressIndicator()),
-            errorBuilder: (_, __, ___) => Center(
-              child: Text(
-                AppLanguageScope.textOf(context).isKy
-                    ? 'Сүрөт ачылган жок'
-                    : 'Не удалось открыть изображение',
-                style: const TextStyle(color: Colors.white),
-              ),
+            errorBuilder: (_, __, ___) => const MediaUnavailablePlaceholder(
+              showLabel: true,
+              dark: true,
             ),
           );
 
@@ -416,15 +470,10 @@ class _VideoViewerState extends State<_VideoViewer> {
                   if (snapshot.hasError ||
                       current == null ||
                       !current.value.isInitialized) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          snapshot.error?.toString() ?? 'Видео не открывается',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
+                    // Missing (404) or broken video: neutral placeholder.
+                    return const MediaUnavailablePlaceholder(
+                      showLabel: true,
+                      dark: true,
                     );
                   }
                   final videoSize = current.value.size;
@@ -560,7 +609,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => error = text.isKy ? 'Сүрөт тандалган жок: $e' : 'Не удалось выбрать фото: $e');
+      if (mounted) setState(() => error = isUploadQuotaError(e) ? text.uploadQuotaExceeded : (text.isKy ? 'Сүрөт тандалган жок: $e' : 'Не удалось выбрать фото: $e'));
     }
   }
 
@@ -594,7 +643,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
         error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => error = text.isKy ? 'Видео тандалган жок: $e' : 'Не удалось выбрать видео: $e');
+      if (mounted) setState(() => error = isUploadQuotaError(e) ? text.uploadQuotaExceeded : (text.isKy ? 'Видео тандалган жок: $e' : 'Не удалось выбрать видео: $e'));
     }
   }
 

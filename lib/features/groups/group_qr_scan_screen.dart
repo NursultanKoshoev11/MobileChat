@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -160,14 +162,15 @@ Set<String> trustedInviteHosts({String baseUrl = kApiBaseUrl}) {
 
 final RegExp _signedInvitePattern = RegExp(r'^INV1\.[A-Za-z0-9._~-]{1,512}$');
 final RegExp _plainInviteCodePattern =
-    RegExp(r'^(?:[A-Za-z0-9]{6}|[A-Za-z0-9]{12})$');
+    RegExp(r'^(?:[A-Za-z0-9]{6}|[A-Za-z0-9]{10})$');
 const _inviteQueryKeys = ['invite_code', 'inviteCode', 'code', 'group_code'];
 
 /// Extracts a group invite code from a scanned QR payload. Accepts only:
 /// * signed invite tokens starting with `INV1.`;
 /// * http(s) links on koom.com.kg or the configured API host that carry the
 ///   code in a query parameter or as the last path segment;
-/// * plain invite codes: 6 or 12 letters/digits once dashes are removed.
+/// * plain invite codes: 6 (legacy `AAA-999`) or 10 (`XXXXX-XXXXX`)
+///   letters/digits once dashes are removed.
 /// Anything else returns null.
 String? extractInviteCode(String rawValue, {String baseUrl = kApiBaseUrl}) {
   final value = rawValue.trim();
@@ -204,4 +207,39 @@ String? _normalizeInviteCandidate(String value) {
   final compact = trimmed.replaceAll('-', '');
   if (!_plainInviteCodePattern.hasMatch(compact)) return null;
   return compact.toUpperCase();
+}
+
+/// Unverified claims of a signed `INV1.<payload>.<signature>` invite. Used
+/// only to show the user what they are joining; the server verifies the
+/// signature when joining.
+class SignedInviteClaims {
+  const SignedInviteClaims({this.groupId, this.inviteCode, this.groupTitle});
+
+  final String? groupId;
+  final String? inviteCode;
+  final String? groupTitle;
+}
+
+SignedInviteClaims? decodeSignedInviteClaims(String token) {
+  final parts = token.trim().split('.');
+  if (parts.length != 3 || parts[0] != 'INV1') return null;
+  try {
+    final payload = base64Url.normalize(parts[1]);
+    final decoded = jsonDecode(utf8.decode(base64Url.decode(payload)));
+    if (decoded is! Map) return null;
+    String? read(String key) {
+      final value = decoded[key];
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    return SignedInviteClaims(
+      groupId: read('group_id'),
+      inviteCode: read('invite_code'),
+      groupTitle: read('group_title') ?? read('title'),
+    );
+  } catch (_) {
+    return null;
+  }
 }

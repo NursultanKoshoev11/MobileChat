@@ -518,6 +518,14 @@ String localizedMessage(BuildContext context, String message) {
   final validationMessage = _localizedValidationMessage(text, repairedMessage);
   if (validationMessage != null) return validationMessage;
 
+  if (lower == 'feature is not available yet.') {
+    return text.featureNotAvailableYet;
+  }
+  if (lower.contains('upload quota exceeded') ||
+      lower.contains('upload_quota_exceeded')) {
+    return text.uploadQuotaExceeded;
+  }
+
   if (lower.contains('comments are blocked until')) {
     final raw = repairedMessage
         .replaceFirst(

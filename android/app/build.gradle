@@ -4,6 +4,8 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    // Injects the Crashlytics build ID (the SDK refuses to start without it).
+    id "com.google.firebase.crashlytics"
 }
 
 def googleServicesFile = file("google-services.json")
@@ -116,6 +118,12 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            // Dart stack traces are not affected by R8. Uploading the R8
+            // mapping needs network access to Firebase during the build, so
+            // it is opt-in: -PkoomCrashlyticsMappingUpload=true.
+            firebaseCrashlytics {
+                mappingFileUploadEnabled((findProperty("koomCrashlyticsMappingUpload") ?: "false").toString() == "true")
+            }
         }
     }
 }

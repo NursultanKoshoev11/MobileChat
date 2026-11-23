@@ -22,12 +22,17 @@ class ProfileScreen extends StatefulWidget {
     required this.user,
     required this.onAccountDeleted,
     this.onUserChanged,
+    this.onLogoutAllDevices,
   });
 
   final ApiClient api;
   final UserProfile user;
   final Future<void> Function() onAccountDeleted;
   final Future<void> Function(UserProfile user)? onUserChanged;
+
+  /// Revokes every session on the server and signs out locally. Throws when
+  /// the server call fails (the user stays signed in).
+  final Future<void> Function()? onLogoutAllDevices;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -40,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late UserProfile user;
   bool updatingPhoto = false;
   bool deletingAccount = false;
+  bool loggingOutEverywhere = false;
 
   @override
   void initState() {
@@ -111,6 +117,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => updatingPhoto = false);
       showAppSnack(context, localizedMessage(context, error.toString()));
+    }
+  }
+
+  Future<void> logoutAllDevices() async {
+    final action = widget.onLogoutAllDevices;
+    if (action == null || loggingOutEverywhere) return;
+    final text = AppLanguageScope.textOf(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(text.logoutAllDevicesConfirmTitle),
+        content: Text(text.logoutAllDevicesConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(text.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm_logout_all_devices'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(text.logoutAllDevices),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => loggingOutEverywhere = true);
+    try {
+      await action();
+    } catch (error) {
+      if (mounted) {
+        showAppSnack(context, localizedMessage(context, error.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => loggingOutEverywhere = false);
     }
   }
 
@@ -384,6 +425,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            if (widget.onLogoutAllDevices != null) ...[
+              const SizedBox(height: 20),
+              KoomSectionTitle(
+                title: text.logoutAllDevices,
+                subtitle: text.logoutAllDevicesDescription,
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const ValueKey('profile_logout_all_devices'),
+                onPressed: loggingOutEverywhere ? null : logoutAllDevices,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: loggingOutEverywhere
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.devices_other_rounded),
+                label: Text(
+                  loggingOutEverywhere
+                      ? text.pleaseWait
+                      : text.logoutAllDevices,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             KoomSectionTitle(
               title: text.accountDeletion,

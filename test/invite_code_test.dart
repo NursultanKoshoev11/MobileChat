@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koom/app/localization.dart';
@@ -19,11 +21,15 @@ void main() {
       expect(extractInviteCode('INV1.<script>', baseUrl: base), isNull);
     });
 
-    test('accepts plain 6 and 12 character codes', () {
+    test('accepts legacy 6 and current 10 character codes', () {
       expect(extractInviteCode('abc234', baseUrl: base), 'ABC234');
       expect(extractInviteCode('ABC-234', baseUrl: base), 'ABC234');
-      expect(extractInviteCode('abc-def-234-567', baseUrl: base),
-          'ABCDEF234567');
+      expect(extractInviteCode('K7M2P-QX9ZT', baseUrl: base), 'K7M2PQX9ZT');
+      expect(extractInviteCode('k7m2pqx9zt', baseUrl: base), 'K7M2PQX9ZT');
+      expect(
+          extractInviteCode('https://koom.com.kg/join?code=K7M2P-QX9ZT',
+              baseUrl: base),
+          'K7M2PQX9ZT');
     });
 
     test('rejects plain codes of other shapes', () {
@@ -31,6 +37,7 @@ void main() {
         'ABC23',
         'ABC2345',
         'ABCDEFGHIJK',
+        'ABCDEFGHIJKL',
         'ABCDEFGHIJKLM',
         'ABC 234',
         'ABC_234',
@@ -80,21 +87,94 @@ void main() {
       expect(formatGroupInviteCode('abcd'), 'ABC-D');
     });
 
-    test('formats up to 12 characters in groups of three', () {
-      expect(formatGroupInviteCode('abcdefg'), 'ABC-DEF-G');
-      expect(formatGroupInviteCode('abcdef234567'), 'ABC-DEF-234-567');
-      expect(formatGroupInviteCode('abcdef2345678999'), 'ABC-DEF-234-567');
+    test('formats new 10-character codes as XXXXX-XXXXX', () {
+      expect(formatGroupInviteCode('k7m2pqx9zt'), 'K7M2P-QX9ZT');
+      expect(formatGroupInviteCode('K7M2P-QX9ZT'), 'K7M2P-QX9ZT');
+      expect(formatGroupInviteCode(' k7m2p qx9zt '), 'K7M2P-QX9ZT');
+      expect(formatGroupInviteCode('k7m2p--qx9zt'), 'K7M2P-QX9ZT');
+      expect(formatGroupInviteCode('abcdefg'), 'ABCDE-FG');
+      expect(formatGroupInviteCode('K7M2PQX9ZTEXTRA'), 'K7M2P-QX9ZT');
+      expect(formatGroupInviteCode('K7M2PQX9ZT').length,
+          maxFormattedGroupInviteCodeLength);
     });
 
-    test('formatter allows typing a 12-character code', () {
+    test('formatter allows typing or pasting a new 10-character code', () {
       final formatter = GroupInviteCodeFormatter();
-      final result = formatter.formatEditUpdate(
+      final pasted = formatter.formatEditUpdate(
         TextEditingValue.empty,
-        const TextEditingValue(text: 'abcdef234567'),
+        const TextEditingValue(text: 'k7m2p qx9zt'),
       );
-      expect(result.text, 'ABC-DEF-234-567');
-      expect(result.selection.baseOffset, result.text.length);
+      expect(pasted.text, 'K7M2P-QX9ZT');
+      expect(pasted.selection.baseOffset, pasted.text.length);
+
+      var typed = TextEditingValue.empty;
+      for (final char in 'k7m2pqx9zt'.split('')) {
+        typed = formatter.formatEditUpdate(
+          typed,
+          TextEditingValue(text: typed.text + char),
+        );
+      }
+      expect(typed.text, 'K7M2P-QX9ZT');
     });
+
+    test('old codes still format as AAA-999', () {
+      final formatter = GroupInviteCodeFormatter();
+      var typed = TextEditingValue.empty;
+      for (final char in 'abc234'.split('')) {
+        typed = formatter.formatEditUpdate(
+          typed,
+          TextEditingValue(text: typed.text + char),
+        );
+      }
+      expect(typed.text, 'ABC-234');
+    });
+  });
+
+  group('decodeSignedInviteClaims', () {
+    String token(Map<String, Object?> claims) {
+      final payload =
+          base64Url.encode(utf8.encode(jsonEncode(claims))).replaceAll('=', '');
+      return 'INV1.$payload.signature';
+    }
+
+    test('reads group id, code and optional title', () {
+      final claims = decodeSignedInviteClaims(token({
+        'group_id': 'G-1',
+        'invite_code': 'K7M2P-QX9ZT',
+        'exp': 1,
+        'group_title': 'Айыл кеңеши',
+      }));
+      expect(claims?.groupId, 'G-1');
+      expect(claims?.inviteCode, 'K7M2P-QX9ZT');
+      expect(claims?.groupTitle, 'Айыл кеңеши');
+    });
+
+    test('returns null for malformed tokens', () {
+      expect(decodeSignedInviteClaims('INV1.%%%.sig'), isNull);
+      expect(decodeSignedInviteClaims('ABC234'), isNull);
+    });
+  });
+
+  testWidgets('scanned invite confirmation shows the group name',
+      (tester) async {
+    await tester.pumpWidget(
+      AppLanguageScope(
+        controller: AppLanguageController(),
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => confirmJoinScannedInvite(context,
+                  displayCode: 'K7M2P-QX9ZT', groupName: 'Наш двор'),
+              child: const Text('scan'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('scan'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('«Наш двор»'), findsOneWidget);
+    expect(find.textContaining('K7M2P-QX9ZT'), findsOneWidget);
   });
 
   testWidgets('scanned invite requires confirmation before joining',
