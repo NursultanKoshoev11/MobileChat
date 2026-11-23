@@ -964,10 +964,16 @@ class _PublicRequestDetailsScreenState
     final next = loadComments();
     if (silent) {
       final comments = await next;
-      if (mounted) setState(() => commentsFuture = Future.value(comments));
+      if (mounted) {
+        setState(() {
+          commentsFuture = Future.value(comments);
+        });
+      }
       return;
     }
-    setState(() => commentsFuture = next);
+    setState(() {
+      commentsFuture = next;
+    });
     await next;
   }
 

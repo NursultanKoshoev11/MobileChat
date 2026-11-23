@@ -167,7 +167,9 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
 
   Future<void> refresh() async {
     final next = loadItems();
-    setState(() => itemsFuture = next);
+    setState(() {
+      itemsFuture = next;
+    });
     await next;
   }
 

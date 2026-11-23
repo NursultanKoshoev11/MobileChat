@@ -244,7 +244,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void setGroups(List<ChatGroup> groups) {
     if (!mounted) return;
     currentGroups = groups;
-    setState(() => groupsFuture = Future.value(groups));
+    setState(() {
+      groupsFuture = Future.value(groups);
+    });
   }
 
   void _scheduleInvitationsCountRefresh() {
@@ -265,13 +267,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Future<void> _refreshInvitationsCount() async {
     final count = await loadInvitationsCount();
     if (!mounted) return;
-    setState(() => invitationsCountFuture = Future.value(count));
+    setState(() {
+      invitationsCountFuture = Future.value(count);
+    });
   }
 
   Future<void> _refreshAdminCount() async {
     final count = await loadAdminRequestsCount();
     if (!mounted) return;
-    setState(() => adminRequestsCountFuture = Future.value(count));
+    setState(() {
+      adminRequestsCountFuture = Future.value(count);
+    });
   }
 
   /// Title of an already known group, e.g. to name the group of a scanned
