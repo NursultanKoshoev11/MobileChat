@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 
-import '../../app/appearance.dart';
 import '../../app/localization.dart';
+import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
-class GroupModerationScreen extends StatefulWidget {
-  const GroupModerationScreen({
+/// Content moderation queue, embedded as the moderation tab of a group.
+class GroupModerationView extends StatefulWidget {
+  const GroupModerationView({
     super.key,
     required this.api,
     required this.group,
+    this.onPendingCountChanged,
   });
 
   final PublicRequestsApi api;
   final ChatGroup group;
 
+  /// Reports the queue length so the tab badge stays in step with the list.
+  final ValueChanged<int>? onPendingCountChanged;
+
   @override
-  State<GroupModerationScreen> createState() => _GroupModerationScreenState();
+  State<GroupModerationView> createState() => _GroupModerationViewState();
 }
 
-class _GroupModerationScreenState extends State<GroupModerationScreen> {
+class _GroupModerationViewState extends State<GroupModerationView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late Future<List<ContentModerationItem>> itemsFuture;
   final Set<String> busyItemIds = <String>{};
   List<ContentModerationItem> cachedItems = const <ContentModerationItem>[];
@@ -42,6 +51,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
     });
     cachedItems = items;
     itemsLoaded = true;
+    widget.onPendingCountChanged?.call(items.length);
     return items;
   }
 
@@ -68,6 +78,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
             cachedItems.where((value) => value.id != item.id).toList();
         itemsLoaded = true;
       });
+      widget.onPendingCountChanged?.call(cachedItems.length);
       final text = AppLanguageScope.textOf(context);
       showAppSnack(
         context,
@@ -82,33 +93,66 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final text = AppLanguageScope.textOf(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(text.moderationQueueTitle),
-        actions: [
-          IconButton(
-            onPressed: refresh,
-            tooltip: text.refresh,
-            icon: const Icon(Icons.refresh_rounded),
+    return KoomPageBackground(
+      key: const ValueKey('group_moderation_view'),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KoomSpacing.lg,
+              KoomSpacing.md,
+              KoomSpacing.sm,
+              0,
+            ),
+            child: KoomSectionTitle(
+              title: text.moderationQueueTitle,
+              trailing: IconButton(
+                key: const ValueKey('moderation_refresh'),
+                onPressed: refresh,
+                tooltip: text.refresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
           ),
-          const AppSettingsButton(),
-        ],
-      ),
-      body: KoomPageBackground(
-        child: RefreshIndicator(
+          Expanded(
+            child: RefreshIndicator(
           onRefresh: refresh,
           child: FutureBuilder<List<ContentModerationItem>>(
             future: itemsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.xl,
+                  ),
+                  children: const [
+                    KoomSkeletonList(
+                      itemCount: 3,
+                      itemHeight: 188,
+                      radius: KoomRadii.lg,
+                    ),
+                  ],
+                );
               }
               if (snapshot.hasError) {
                 return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [ErrorBanner(message: snapshot.error.toString())],
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
+                  children: [
+                    ErrorBanner(
+                      message: localizedMessage(
+                        context,
+                        snapshot.error.toString(),
+                      ),
+                    ),
+                  ],
                 );
               }
               final items = itemsLoaded
@@ -117,7 +161,7 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
               if (items.isEmpty) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
                   children: [
                     KoomCard(
                       showShadow: false,
@@ -132,9 +176,15 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
               }
               return ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.md,
+                  KoomSpacing.lg,
+                  KoomSpacing.xl,
+                ),
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: KoomSpacing.md),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   return _ModerationItemCard(
@@ -147,7 +197,9 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
               );
             },
           ),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

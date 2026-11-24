@@ -80,34 +80,72 @@ env:
     timeout: 15000
 - takeScreenshot: 08_invite_qr
 - back
+
+# Tabs inside the group: members and statistics.
+- extendedWaitUntil:
+    visible: "(?s).*Участники.*"
+    timeout: 15000
+- tapOn: "(?s).*Участники.*"
+- extendedWaitUntil:
+    visible: "(?s).*${DISPLAY_NAME}.*"
+    timeout: 20000
+- takeScreenshot: 09_group_members
+- tapOn: "(?s).*Статистика.*"
+- extendedWaitUntil:
+    visible: "(?s).*Месяц.*"
+    timeout: 30000
+- takeScreenshot: 10_group_statistics
+- tapOn: "(?s).*Лента.*"
+- extendedWaitUntil:
+    visible: "Новая публикация"
+    timeout: 15000
 - back
 
-# Profile.
+# Notifications tab of the bottom navigation.
 - extendedWaitUntil:
-    visible: "(?s).*Maestro QA Group.*"
+    visible: "(?s).*${GROUP_TITLE}.*"
     timeout: 15000
-- tapOn: "Меню"
-- tapOn: "Профиль"
+- tapOn: "(?s).*Уведомления.*"
+- extendedWaitUntil:
+    visible: "(?s).*Приглашения.*"
+    timeout: 20000
+- takeScreenshot: 11_notifications
+
+# Profile tab of the bottom navigation.
+- tapOn: "(?s).*Профиль.*"
 - extendedWaitUntil:
     visible: "(?s).*Аккаунт.*"
     timeout: 15000
 - assertVisible: "(?s).*${DISPLAY_NAME}.*"
-- takeScreenshot: 09_profile
-- back
+- takeScreenshot: 12_profile
 
-# App settings.
+# App settings, reached from the groups tab.
+- tapOn: "(?s).*Группы.*"
+- extendedWaitUntil:
+    visible: "(?s).*${GROUP_TITLE}.*"
+    timeout: 15000
 - tapOn: "Настройки"
 - extendedWaitUntil:
     visible: "(?s).*Тема.*"
     timeout: 15000
-- takeScreenshot: 10_settings
+- takeScreenshot: 13_settings
 - tapOn: "Закрыть"
 
-# Sign out.
-- tapOn: "Меню"
+# Sign out, now an action near the bottom of the profile tab. The exact text
+# matters here: the substring form would also match the button right below it,
+# "Выйти на всех устройствах".
+- tapOn: "(?s).*Профиль.*"
+- extendedWaitUntil:
+    visible: "(?s).*Аккаунт.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Выйти"
+    direction: DOWN
+    timeout: 20000
 - tapOn: "Выйти"
 - extendedWaitUntil:
     visible:
       id: auth_mobile_field
     timeout: 30000
-- takeScreenshot: 11_signed_out
+- takeScreenshot: 14_signed_out

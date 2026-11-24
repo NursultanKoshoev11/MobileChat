@@ -379,4 +379,104 @@ class AppText {
   String get emptyBodyText => isKy ? 'Текст бош' : 'Текст пустой';
   String get reject => isKy ? 'Четке кагуу' : 'Отклонить';
   String get approve => isKy ? 'Бекитүү' : 'Одобрить';
+
+  // --- Post card, voting, media and comments -------------------------------
+  String get unnamedUser => isKy ? 'Колдонуучу' : 'Пользователь';
+  String get voting => isKy ? 'Добуш берүү' : 'Голосование';
+  String get votesLabel => isKy ? 'Добуш' : 'Голосов';
+  String get voteSupport => isKy ? 'Колдойм' : 'Поддерживаю';
+  String get voteOppose => isKy ? 'Колдобойм' : 'Не поддерживаю';
+  String get voteToggleHint => isKy
+      ? 'Тандалган вариантты кайра бассаңыз, добуш өчүрүлөт.'
+      : 'Нажмите выбранный вариант ещё раз, чтобы убрать голос.';
+  String get justNow => isKy ? 'азыр эле' : 'только что';
+  String get minuteShort => isKy ? 'мүн' : 'мин';
+  String get hourShort => isKy ? 'саат' : 'ч';
+  String get dayShort => isKy ? 'күн' : 'дн';
+  String get moreActions => isKy ? 'Дагы' : 'Ещё';
+  String get deleteItem => isKy ? 'Өчүрүү' : 'Удалить';
+  String get sendComment => isKy ? 'Жөнөтүү' : 'Отправить';
+  String get beFirstToComment => isKy
+      ? 'Биринчи болуп пикириңизди жазыңыз.'
+      : 'Напишите первый комментарий.';
+  String get photosLabel => isKy ? 'Сүрөттөр' : 'Фото';
+  String get videosLabel => isKy ? 'Видеолор' : 'Видео';
+  String get mediaUnavailable =>
+      isKy ? 'Медиа жеткиликсиз' : 'Медиа недоступно';
+  String get photoTooLarge => isKy
+      ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.'
+      : 'Фото слишком большое. Выберите другое фото.';
+  String get videoTooLarge => isKy
+      ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.'
+      : 'Видео слишком большое. Выберите видео до 12 MB.';
+  String get mediaLimitsHint => isKy
+      ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.'
+      : 'Максимум 3 фото. Видео до 12 MB.';
+  String get addTextOrMedia => isKy
+      ? 'Текст, сүрөт же видео кошуңуз.'
+      : 'Добавьте текст, фото или видео.';
+  String get addVideo => isKy ? 'Видео кошуу' : 'Добавить видео';
+  String get videoAdded => isKy ? 'Видео кошулду' : 'Видео добавлено';
+  String get photoLabel => isKy ? 'Сүрөт' : 'Фото';
+  // Root bottom navigation.
+  String get notifications => isKy ? 'Билдирүүлөр' : 'Уведомления';
+
+  // Groups tab.
+  String get searchGroupsHint => isKy ? 'Топтордон издөө' : 'Поиск по группам';
+  String get clearSearch => isKy ? 'Издөөнү тазалоо' : 'Очистить поиск';
+  String get groupsSearchEmptyTitle =>
+      isKy ? 'Топ табылган жок' : 'Группы не найдены';
+  String get groupsSearchEmptyMessage => isKy
+      ? 'Издөө сөзүн өзгөртүп көрүңүз.'
+      : 'Попробуйте изменить поисковый запрос.';
+
+  // Notifications tab.
+  String get allFilter => isKy ? 'Баары' : 'Все';
+  String get noNotificationsTitle => isKy ? 'Билдирүү жок' : 'Уведомлений нет';
+  String get noNotificationsMessage => isKy
+      ? 'Топко чакыруулар жана топтордогу жаңы жарыялар ушул жерде чыгат.'
+      : 'Приглашения в группы и новые публикации в ваших группах появятся здесь.';
+  String get noInvitationsTitle => isKy ? 'Чакыруу жок' : 'Приглашений нет';
+  String get noInvitationsMessage => isKy
+      ? 'Топко чакыруулар ушул жерде чыгат.'
+      : 'Приглашения в группы появятся здесь.';
+  String get newPostsSectionTitle =>
+      isKy ? 'Жаңы жарыялар' : 'Новые публикации';
+  String newPostsInGroup(String group) => isKy
+      ? '«$group» тобунда жаңы жарыялар'
+      : 'Новые публикации в «$group»';
+  String newPostsCount(int count) => isKy
+      ? '$count жаңы жарыя'
+      : '$count ${_ruPlural(count, 'новая публикация', 'новые публикации', 'новых публикаций')}';
+  String invitationsCountLabel(int count) => isKy
+      ? '$count жаңы чакыруу'
+      : '$count ${_ruPlural(count, 'новое приглашение', 'новых приглашения', 'новых приглашений')}';
+  String get invitedBy => isKy ? 'Чакырган' : 'Пригласил';
+  String get invitationNew => isKy ? 'Жаңы' : 'Новое';
+  String get acceptInvitation => isKy ? 'Кабыл алуу' : 'Принять';
+  String get declineInvitation => isKy ? 'Баш тартуу' : 'Отклонить';
+  String get invitationAccepted =>
+      isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.';
+  String get invitationDeclined =>
+      isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.';
+
+  // Tabs inside a group.
+  String get groupFeed => isKy ? 'Агым' : 'Лента';
+  String get groupModeration => isKy ? 'Текшерүү' : 'Модерация';
+
+  // Rare group actions that stay in the group overflow menu.
+  String get reports => isKy ? 'Даттануулар' : 'Жалобы';
+  String get changeGroupPhoto =>
+      isKy ? 'Топтун сүрөтүн өзгөртүү' : 'Изменить фото группы';
+  String get uploading => isKy ? 'Жүктөлүүдө...' : 'Загрузка...';
+}
+
+/// Picks the Russian plural form for [count] (1 / 2-4 / 5+), so counted
+/// labels read naturally instead of always using the genitive plural.
+String _ruPlural(int count, String one, String few, String many) {
+  final mod10 = count % 10;
+  final mod100 = count % 100;
+  if (mod10 == 1 && mod100 != 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
 }

@@ -807,3 +807,119 @@ class KoomSkeletonList extends StatelessWidget {
     );
   }
 }
+
+/// A status shown as a small coloured dot plus a quiet label.
+///
+/// Use this for the secondary state of an item (a publication's moderation
+/// status, a job's result) when a second [KoomStatusPill] next to the first one
+/// would shout. The dot carries the colour, the label stays muted text.
+class KoomStatusDot extends StatelessWidget {
+  const KoomStatusDot({
+    super.key,
+    required this.color,
+    required this.label,
+    this.size = 8,
+  });
+
+  /// Colour of the dot. The label is always muted text so that the dot alone
+  /// carries the state.
+  final Color color;
+  final String label;
+
+  /// Diameter of the dot.
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+        ),
+        const SizedBox(width: KoomSpacing.sm),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: colors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Single-line search box used above a list. Shows a clear button as soon as
+/// the field has text.
+class KoomSearchField extends StatelessWidget {
+  const KoomSearchField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    this.clearTooltip,
+    this.textInputAction = TextInputAction.search,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final String? clearTooltip;
+  final TextInputAction textInputAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) => TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: textInputAction,
+        style: TextStyle(color: colors.textStrong),
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded),
+          suffixIcon: value.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: clearTooltip,
+                  icon: const Icon(Icons.close_rounded),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                  ),
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                ),
+          border: const OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+            borderSide: BorderSide(color: colors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1.7,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -121,6 +121,32 @@ void main() {
         text.emptyBodyText,
         text.reject,
         text.approve,
+        // Navigation rebuild.
+        text.notifications,
+        text.searchGroupsHint,
+        text.clearSearch,
+        text.groupsSearchEmptyTitle,
+        text.groupsSearchEmptyMessage,
+        text.allFilter,
+        text.noNotificationsTitle,
+        text.noNotificationsMessage,
+        text.noInvitationsTitle,
+        text.noInvitationsMessage,
+        text.newPostsSectionTitle,
+        text.newPostsInGroup('A'),
+        text.newPostsCount(3),
+        text.invitationsCountLabel(2),
+        text.invitedBy,
+        text.invitationNew,
+        text.acceptInvitation,
+        text.declineInvitation,
+        text.invitationAccepted,
+        text.invitationDeclined,
+        text.groupFeed,
+        text.groupModeration,
+        text.reports,
+        text.changeGroupPhoto,
+        text.uploading,
       ];
 
   test('AppLanguage metadata and controller notify on real changes', () {
@@ -181,6 +207,52 @@ void main() {
       'emptyBodyText': [ru.emptyBodyText, ky.emptyBodyText],
       'reject': [ru.reject, ky.reject],
       'approve': [ru.approve, ky.approve],
+      'notifications': [ru.notifications, ky.notifications],
+      'searchGroupsHint': [ru.searchGroupsHint, ky.searchGroupsHint],
+      'clearSearch': [ru.clearSearch, ky.clearSearch],
+      'groupsSearchEmptyTitle': [
+        ru.groupsSearchEmptyTitle,
+        ky.groupsSearchEmptyTitle
+      ],
+      'groupsSearchEmptyMessage': [
+        ru.groupsSearchEmptyMessage,
+        ky.groupsSearchEmptyMessage
+      ],
+      'allFilter': [ru.allFilter, ky.allFilter],
+      'noNotificationsTitle': [
+        ru.noNotificationsTitle,
+        ky.noNotificationsTitle
+      ],
+      'noNotificationsMessage': [
+        ru.noNotificationsMessage,
+        ky.noNotificationsMessage
+      ],
+      'noInvitationsTitle': [ru.noInvitationsTitle, ky.noInvitationsTitle],
+      'noInvitationsMessage': [
+        ru.noInvitationsMessage,
+        ky.noInvitationsMessage
+      ],
+      'newPostsSectionTitle': [
+        ru.newPostsSectionTitle,
+        ky.newPostsSectionTitle
+      ],
+      'newPostsInGroup': [ru.newPostsInGroup('A'), ky.newPostsInGroup('A')],
+      'newPostsCount': [ru.newPostsCount(3), ky.newPostsCount(3)],
+      'invitationsCountLabel': [
+        ru.invitationsCountLabel(2),
+        ky.invitationsCountLabel(2)
+      ],
+      'invitedBy': [ru.invitedBy, ky.invitedBy],
+      'invitationNew': [ru.invitationNew, ky.invitationNew],
+      'acceptInvitation': [ru.acceptInvitation, ky.acceptInvitation],
+      'declineInvitation': [ru.declineInvitation, ky.declineInvitation],
+      'invitationAccepted': [ru.invitationAccepted, ky.invitationAccepted],
+      'invitationDeclined': [ru.invitationDeclined, ky.invitationDeclined],
+      'groupFeed': [ru.groupFeed, ky.groupFeed],
+      'groupModeration': [ru.groupModeration, ky.groupModeration],
+      'reports': [ru.reports, ky.reports],
+      'changeGroupPhoto': [ru.changeGroupPhoto, ky.changeGroupPhoto],
+      'uploading': [ru.uploading, ky.uploading],
     };
     pairs.forEach((name, values) {
       expect(values.first, isNot(values.last),
