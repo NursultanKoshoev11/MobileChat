@@ -91,7 +91,7 @@ class KoomHomeShellState extends State<KoomHomeShell> {
   /// tree, which would let screen readers and UI test runners reach controls
   /// nobody can see. Hide the semantics and pause the animations of every
   /// destination except the visible one; its state is still kept alive.
-  Widget _hiddenTabGuard(KoomHomeTab tab, Widget child) {
+  Widget _destination(KoomHomeTab tab, Widget child) {
     final visible = tab == _tab;
     return ExcludeSemantics(
       excluding: !visible,
@@ -113,40 +113,9 @@ class KoomHomeShellState extends State<KoomHomeShell> {
         body: IndexedStack(
           index: _tab.index,
           children: [
-            _hiddenTabGuard(KoomHomeTab.groups, GroupsScreen(
-              key: _groupsKey,
-              api: widget.api,
-              session: widget.session,
-              onSessionChanged: widget.onSessionChanged,
-              onLogout: widget.onLogout,
-              onAccountDeleted: widget.onAccountDeleted,
-              onLogoutAllDevices: widget.onLogoutAllDevices,
-              notifications: notifications,
-              onShowGroupsTab: () => selectTab(KoomHomeTab.groups),
-              onShowNotificationsTab: () =>
-                  selectTab(KoomHomeTab.notifications),
-              userRealtime: widget.userRealtime,
-              initialPushData: widget.initialPushData,
-            )),
-            _hiddenTabGuard(
-                KoomHomeTab.notifications,
-                NotificationsScreen(
-                  api: widget.api,
-                  controller: notifications,
-                  onOpenGroup: _openGroupFromNotification,
-                )),
-            _hiddenTabGuard(
-                KoomHomeTab.profile,
-                ProfileScreen(
-              api: widget.api,
-              user: widget.session.user,
-              onUserChanged: (user) => widget.onSessionChanged(
-                widget.session.copyWith(user: user),
-              ),
-                  onAccountDeleted: widget.onAccountDeleted,
-                  onLogout: widget.onLogout,
-                  onLogoutAllDevices: widget.onLogoutAllDevices,
-                )),
+            _destination(KoomHomeTab.groups, _groupsTab()),
+            _destination(KoomHomeTab.notifications, _notificationsTab()),
+            _destination(KoomHomeTab.profile, _profileTab()),
           ],
         ),
         bottomNavigationBar: ListenableBuilder(
@@ -187,6 +156,37 @@ class KoomHomeShellState extends State<KoomHomeShell> {
       ),
     );
   }
+
+  Widget _groupsTab() => GroupsScreen(
+        key: _groupsKey,
+        api: widget.api,
+        session: widget.session,
+        onSessionChanged: widget.onSessionChanged,
+        onLogout: widget.onLogout,
+        onAccountDeleted: widget.onAccountDeleted,
+        onLogoutAllDevices: widget.onLogoutAllDevices,
+        notifications: notifications,
+        onShowGroupsTab: () => selectTab(KoomHomeTab.groups),
+        onShowNotificationsTab: () => selectTab(KoomHomeTab.notifications),
+        userRealtime: widget.userRealtime,
+        initialPushData: widget.initialPushData,
+      );
+
+  Widget _notificationsTab() => NotificationsScreen(
+        api: widget.api,
+        controller: notifications,
+        onOpenGroup: _openGroupFromNotification,
+      );
+
+  Widget _profileTab() => ProfileScreen(
+        api: widget.api,
+        user: widget.session.user,
+        onUserChanged: (user) =>
+            widget.onSessionChanged(widget.session.copyWith(user: user)),
+        onAccountDeleted: widget.onAccountDeleted,
+        onLogout: widget.onLogout,
+        onLogoutAllDevices: widget.onLogoutAllDevices,
+      );
 }
 
 /// Bell with the unread total (pending invitations plus unread posts).
