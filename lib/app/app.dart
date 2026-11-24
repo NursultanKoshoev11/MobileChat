@@ -8,11 +8,11 @@ import '../data/blocked_users.dart';
 import '../data/models.dart';
 import '../data/session_store.dart';
 import '../features/auth/phone_auth_screen.dart';
-import '../features/groups/groups_screen.dart';
 import '../services/push_notification_service.dart';
 import '../shared/koom_ui.dart';
 import 'api_config.dart';
 import 'appearance.dart';
+import 'home_shell.dart';
 import 'localization.dart';
 import 'preferences_store.dart';
 import 'theme.dart';
@@ -161,7 +161,7 @@ class _KoomAppState extends State<KoomApp>
 
   void _resetToSignIn() {
     if (!mounted) return;
-    // Close any screens pushed above the home route (profile, group, sheets).
+    // Close any screens pushed above the home shell (group, sheets).
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() {
       bootFuture = Future.value(null);
@@ -224,7 +224,7 @@ class _KoomAppState extends State<KoomApp>
                       onAuthenticated: setSession,
                     );
                   }
-                  return GroupsScreen(
+                  return KoomHomeShell(
                     api: api,
                     session: session,
                     onSessionChanged: updateSessionLocally,
