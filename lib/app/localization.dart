@@ -418,4 +418,65 @@ class AppText {
   String get addVideo => isKy ? 'Видео кошуу' : 'Добавить видео';
   String get videoAdded => isKy ? 'Видео кошулду' : 'Видео добавлено';
   String get photoLabel => isKy ? 'Сүрөт' : 'Фото';
+  // Root bottom navigation.
+  String get notifications => isKy ? 'Билдирүүлөр' : 'Уведомления';
+
+  // Groups tab.
+  String get searchGroupsHint => isKy ? 'Топтордон издөө' : 'Поиск по группам';
+  String get clearSearch => isKy ? 'Издөөнү тазалоо' : 'Очистить поиск';
+  String get groupsSearchEmptyTitle =>
+      isKy ? 'Топ табылган жок' : 'Группы не найдены';
+  String get groupsSearchEmptyMessage => isKy
+      ? 'Издөө сөзүн өзгөртүп көрүңүз.'
+      : 'Попробуйте изменить поисковый запрос.';
+
+  // Notifications tab.
+  String get allFilter => isKy ? 'Баары' : 'Все';
+  String get noNotificationsTitle => isKy ? 'Билдирүү жок' : 'Уведомлений нет';
+  String get noNotificationsMessage => isKy
+      ? 'Топко чакыруулар жана топтордогу жаңы жарыялар ушул жерде чыгат.'
+      : 'Приглашения в группы и новые публикации в ваших группах появятся здесь.';
+  String get noInvitationsTitle => isKy ? 'Чакыруу жок' : 'Приглашений нет';
+  String get noInvitationsMessage => isKy
+      ? 'Топко чакыруулар ушул жерде чыгат.'
+      : 'Приглашения в группы появятся здесь.';
+  String get newPostsSectionTitle =>
+      isKy ? 'Жаңы жарыялар' : 'Новые публикации';
+  String newPostsInGroup(String group) => isKy
+      ? '«$group» тобунда жаңы жарыялар'
+      : 'Новые публикации в «$group»';
+  String newPostsCount(int count) => isKy
+      ? '$count жаңы жарыя'
+      : '$count ${_ruPlural(count, 'новая публикация', 'новые публикации', 'новых публикаций')}';
+  String invitationsCountLabel(int count) => isKy
+      ? '$count жаңы чакыруу'
+      : '$count ${_ruPlural(count, 'новое приглашение', 'новых приглашения', 'новых приглашений')}';
+  String get invitedBy => isKy ? 'Чакырган' : 'Пригласил';
+  String get invitationNew => isKy ? 'Жаңы' : 'Новое';
+  String get acceptInvitation => isKy ? 'Кабыл алуу' : 'Принять';
+  String get declineInvitation => isKy ? 'Баш тартуу' : 'Отклонить';
+  String get invitationAccepted =>
+      isKy ? 'Чакыруу кабыл алынды.' : 'Приглашение принято.';
+  String get invitationDeclined =>
+      isKy ? 'Чакыруу четке кагылды.' : 'Приглашение отклонено.';
+
+  // Tabs inside a group.
+  String get groupFeed => isKy ? 'Агым' : 'Лента';
+  String get groupModeration => isKy ? 'Текшерүү' : 'Модерация';
+
+  // Rare group actions that stay in the group overflow menu.
+  String get reports => isKy ? 'Даттануулар' : 'Жалобы';
+  String get changeGroupPhoto =>
+      isKy ? 'Топтун сүрөтүн өзгөртүү' : 'Изменить фото группы';
+  String get uploading => isKy ? 'Жүктөлүүдө...' : 'Загрузка...';
+}
+
+/// Picks the Russian plural form for [count] (1 / 2-4 / 5+), so counted
+/// labels read naturally instead of always using the genitive plural.
+String _ruPlural(int count, String one, String few, String many) {
+  final mod10 = count % 10;
+  final mod100 = count % 100;
+  if (mod10 == 1 && mod100 != 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
 }

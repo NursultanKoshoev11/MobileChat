@@ -858,3 +858,68 @@ class KoomStatusDot extends StatelessWidget {
     );
   }
 }
+
+/// Single-line search box used above a list. Shows a clear button as soon as
+/// the field has text.
+class KoomSearchField extends StatelessWidget {
+  const KoomSearchField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    this.clearTooltip,
+    this.textInputAction = TextInputAction.search,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final String? clearTooltip;
+  final TextInputAction textInputAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) => TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: textInputAction,
+        style: TextStyle(color: colors.textStrong),
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded),
+          suffixIcon: value.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: clearTooltip,
+                  icon: const Icon(Icons.close_rounded),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                  ),
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                ),
+          border: const OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+            borderSide: BorderSide(color: colors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: KoomRadii.pillAll,
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1.7,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

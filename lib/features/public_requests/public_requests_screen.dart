@@ -27,6 +27,9 @@ import 'public_request_media_screens.dart';
 import 'public_request_media_widgets.dart';
 import 'public_requests_widgets.dart';
 
+/// A single group: its feed, its members, its statistics and — for users who
+/// may moderate — its moderation queue, as tabs under the app bar. The
+/// overflow menu keeps only the rare actions.
 class PublicRequestsScreen extends StatefulWidget {
   const PublicRequestsScreen({
     super.key,
@@ -34,6 +37,8 @@ class PublicRequestsScreen extends StatefulWidget {
     required this.user,
     required this.group,
     this.initialRequestId,
+    @visibleForTesting this.requestsApi,
+    @visibleForTesting this.realtime,
   });
 
   final ApiClient api;
@@ -41,16 +46,29 @@ class PublicRequestsScreen extends StatefulWidget {
   final ChatGroup group;
   final String? initialRequestId;
 
+  /// Test seam: replaces the group API client.
+  final PublicRequestsApi? requestsApi;
+
+  /// Test seam: replaces the group websocket.
+  final GroupRealtimeService? realtime;
+
   @override
   State<PublicRequestsScreen> createState() => _PublicRequestsScreenState();
 }
 
-class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
+class _PublicRequestsScreenState extends State<PublicRequestsScreen>
+    with TickerProviderStateMixin {
   static const int maxGroupAvatarBytes = 512 * 1024;
   static const int requestsPageSize = 50;
 
   late final PublicRequestsApi requestsApi;
   late final GroupRealtimeService realtime;
+  TabController? _tabsController;
+  int _tabIndex = 0;
+
+  /// Tab controller for the current tab set. Recreated when the user's rights
+  /// in this group change, because that adds or removes the moderation tab.
+  TabController get _tabs => _tabsController!;
   late ChatGroup currentGroup;
   final ImagePicker imagePicker = ImagePicker();
   final ScrollController _requestsScrollController = ScrollController();
@@ -80,12 +98,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
   void initState() {
     super.initState();
     currentGroup = widget.group;
+    _syncTabController();
     _requestsScrollController.addListener(_handleRequestsScroll);
-    requestsApi = PublicRequestsApi(
-      baseUrl: widget.api.baseUrl,
-      sessionStore: widget.api.sessionStore,
-    );
-    realtime = GroupRealtimeService(api: widget.api, groupId: currentGroup.id);
+    requestsApi = widget.requestsApi ??
+        PublicRequestsApi(
+          baseUrl: widget.api.baseUrl,
+          sessionStore: widget.api.sessionStore,
+        );
+    realtime = widget.realtime ??
+        GroupRealtimeService(api: widget.api, groupId: currentGroup.id);
     final initialRequestsFuture = loadRequests();
     requestsFuture = initialRequestsFuture;
     moderationCountFuture = loadModerationCount();
@@ -114,10 +135,56 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     return false;
   }
 
+  /// Number of tabs for the current rights: feed, members, statistics and,
+  /// for users who may moderate, the moderation queue.
+  int get _tabCount => canModerate ? 4 : 3;
+
+  /// Creates the tab controller, or replaces it when [_tabCount] changed.
+  /// The replaced controller is still referenced by the TabBar and TabBarView
+  /// of the frame being built, so it is disposed after that frame.
+  void _syncTabController() {
+    final previous = _tabsController;
+    if (previous != null && previous.length == _tabCount) return;
+    final initialIndex =
+        previous == null ? 0 : previous.index.clamp(0, _tabCount - 1);
+    _tabsController = TabController(
+      length: _tabCount,
+      initialIndex: initialIndex,
+      vsync: this,
+    )..addListener(_handleTabChanged);
+    _tabIndex = initialIndex;
+    if (previous != null) {
+      previous.removeListener(_handleTabChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    }
+  }
+
+  /// Replaces the group this screen shows, keeping the tab set in step with
+  /// the rights the new payload reports.
+  void applyGroup(ChatGroup group) {
+    currentGroup = group;
+    _syncTabController();
+  }
+
+  @override
+  void didUpdateWidget(PublicRequestsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.group, widget.group)) applyGroup(widget.group);
+  }
+
+  void _handleTabChanged() {
+    // Only the selected tab matters here; a swipe also notifies on every
+    // animation tick.
+    if (!mounted || _tabs.index == _tabIndex) return;
+    setState(() => _tabIndex = _tabs.index);
+  }
+
   @override
   void dispose() {
     _refreshDebounce?.cancel();
     _markReadDebounce?.cancel();
+    _tabsController?.removeListener(_handleTabChanged);
+    _tabsController?.dispose();
     _requestsScrollController.removeListener(_handleRequestsScroll);
     _requestsScrollController.dispose();
     realtime.close();
@@ -141,7 +208,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         if (payload is Map<String, dynamic>) {
           final avatarData = payload['avatar_data'] as String? ?? '';
           setState(() {
-            currentGroup = currentGroup.copyWith(avatarData: avatarData);
+            applyGroup(currentGroup.copyWith(avatarData: avatarData));
           });
         }
         break;
@@ -392,15 +459,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-  Future<void> openStatistics() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            GroupStatisticsScreen(api: requestsApi, group: currentGroup),
-      ),
-    );
-  }
-
   Future<void> createRequest() async {
     final created = await showModalBottomSheet<PublicRequest>(
       context: context,
@@ -518,15 +576,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
-  Future<void> openModerationQueue() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            GroupModerationScreen(api: requestsApi, group: currentGroup),
-      ),
-    );
-  }
-
   String get groupAccessCode =>
       formatGroupInviteCode(ensuredInviteCode ?? currentGroup.inviteCode ?? '');
 
@@ -600,18 +649,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       });
     }
     return (code, group.qrPass ?? code);
-  }
-
-  Future<void> openMembers() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => GroupMembersScreen(
-          api: requestsApi,
-          group: currentGroup,
-          currentUserId: widget.user.id,
-        ),
-      ),
-    );
   }
 
   Future<void> inviteByPhone() async {
@@ -1007,10 +1044,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
       );
       if (!mounted) return;
       setState(() {
-        currentGroup = updated.copyWith(
+        applyGroup(updated.copyWith(
           unreadPublicRequestCount: currentGroup.unreadPublicRequestCount,
           qrPass: currentGroup.qrPass,
-        );
+          myRole: updated.myRole ?? currentGroup.myRole,
+          memberCount: updated.memberCount > 0
+              ? updated.memberCount
+              : currentGroup.memberCount,
+          inviteCode: updated.inviteCode ?? currentGroup.inviteCode,
+          ownerId: updated.ownerId.isEmpty
+              ? currentGroup.ownerId
+              : updated.ownerId,
+        ));
         updatingGroupPhoto = false;
       });
       showAppSnack(
@@ -1062,14 +1107,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
 
   Future<void> handleGroupMenuAction(String value) async {
     switch (value) {
-      case 'statistics':
-        await openStatistics();
-        break;
       case 'access':
         await showGroupAccess();
-        break;
-      case 'members':
-        await openMembers();
         break;
       case 'admins':
         await changeRoleByPhone();
@@ -1079,9 +1118,6 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
         break;
       case 'invite':
         await inviteByPhone();
-        break;
-      case 'moderation':
-        await openModerationQueue();
         break;
       case 'reports':
         await openReports();
@@ -1108,91 +1144,59 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     );
   }
 
+  /// Rare group actions. The feed, members, statistics and moderation queue
+  /// are tabs now, so they are no longer buried in here.
   Widget groupMenuButton(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return FutureBuilder<int>(
-      future: moderationCountFuture,
-      builder: (context, snapshot) {
-        final count = snapshot.data ?? 0;
-        final reviewLabel = count > 0
-            ? (text.isKy
-                  ? 'Текшерүүдөгү материалдар ($count)'
-                  : 'Материалы на проверке ($count)')
-            : (text.isKy
-                  ? 'Текшерүүдөгү материалдар'
-                  : 'Материалы на проверке');
-        return PopupMenuButton<String>(
-          tooltip: text.isKy ? 'Меню' : 'Меню',
-          icon: const Icon(Icons.more_vert_rounded),
-          onSelected: (value) {
-            handleGroupMenuAction(value);
-          },
-          itemBuilder: (_) => withGroupMenuSeparators([
-            groupMenuItem(
-              value: 'statistics',
-              icon: Icons.analytics_outlined,
-              label: text.statistics,
-            ),
-            if (canShowGroupAccess)
-              groupMenuItem(
-                value: 'access',
-                icon: Icons.qr_code_rounded,
-                label: text.codeAndQr,
-              ),
-            if (canModerate)
-              groupMenuItem(
-                value: 'members',
-                icon: Icons.people_outline_rounded,
-                label: text.groupMembers,
-              ),
-            if (canChangeRoles)
-              groupMenuItem(
-                value: 'admins',
-                icon: Icons.admin_panel_settings_outlined,
-                label: text.manageAdmins,
-              ),
-            if (canMuteComments)
-              groupMenuItem(
-                value: 'mute',
-                icon: Icons.block_rounded,
-                label: text.blockComments,
-              ),
-            if (canInvite)
-              groupMenuItem(
-                value: 'invite',
-                icon: Icons.person_add_alt_1_rounded,
-                label: text.inviteByPhone,
-              ),
-            if (canModerate)
-              groupMenuItem(
-                value: 'moderation',
-                icon: Icons.fact_check_outlined,
-                label: reviewLabel,
-              ),
-            if (canModerate)
-              groupMenuItem(
-                value: 'reports',
-                icon: Icons.flag_outlined,
-                label: text.isKy ? 'Даттануулар' : 'Жалобы',
-              ),
-            if (canModerate)
-              groupMenuItem(
-                value: 'group_photo',
-                icon: Icons.add_a_photo_outlined,
-                label: updatingGroupPhoto
-                    ? (text.isKy ? 'Жүктөлүүдө...' : 'Загрузка...')
-                    : (text.isKy
-                          ? 'Топтун сүрөтүн өзгөртүү'
-                          : 'Изменить фото группы'),
-              ),
-            groupMenuItem(
-              value: 'settings',
-              icon: Icons.settings_rounded,
-              label: text.settings,
-            ),
-          ]),
-        );
+    return PopupMenuButton<String>(
+      tooltip: 'Меню',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) {
+        handleGroupMenuAction(value);
       },
+      itemBuilder: (_) => withGroupMenuSeparators([
+        if (canShowGroupAccess)
+          groupMenuItem(
+            value: 'access',
+            icon: Icons.qr_code_rounded,
+            label: text.codeAndQr,
+          ),
+        if (canModerate)
+          groupMenuItem(
+            value: 'group_photo',
+            icon: Icons.add_a_photo_outlined,
+            label: updatingGroupPhoto ? text.uploading : text.changeGroupPhoto,
+          ),
+        if (canChangeRoles)
+          groupMenuItem(
+            value: 'admins',
+            icon: Icons.admin_panel_settings_outlined,
+            label: text.manageAdmins,
+          ),
+        if (canMuteComments)
+          groupMenuItem(
+            value: 'mute',
+            icon: Icons.block_rounded,
+            label: text.blockComments,
+          ),
+        if (canInvite)
+          groupMenuItem(
+            value: 'invite',
+            icon: Icons.person_add_alt_1_rounded,
+            label: text.inviteByPhone,
+          ),
+        if (canModerate)
+          groupMenuItem(
+            value: 'reports',
+            icon: Icons.flag_outlined,
+            label: text.reports,
+          ),
+        groupMenuItem(
+          value: 'settings',
+          icon: Icons.settings_rounded,
+          label: text.settings,
+        ),
+      ]),
     );
   }
 
@@ -1203,13 +1207,15 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
     return Scaffold(
       key: const ValueKey('public_requests_screen'),
       appBar: AppBar(
-        titleSpacing: 12,
+        titleSpacing: KoomSpacing.md,
         title: Row(
           children: [
             Tooltip(
               message: currentGroup.avatarBytes == null
                   ? currentGroup.title
-                  : (text.isKy ? 'Сүрөттү ачуу' : 'Открыть фото'),
+                  : (text.isKy
+                      ? 'Сүрөттү ачуу'
+                      : 'Открыть фото'),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: currentGroup.avatarBytes == null ? null : openGroupPhoto,
@@ -1223,7 +1229,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: KoomSpacing.md),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1248,158 +1254,279 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen> {
             ),
           ],
         ),
-        actions: [groupMenuButton(context), const SizedBox(width: 10)],
-      ),
-      floatingActionButton: KoomAdaptiveFab(
-        key: const ValueKey('public_request_create_action'),
-        onPressed: createRequest,
-        icon: Icons.add_rounded,
-        label: text.newPost,
-      ),
-      body: KoomPageBackground(
-        child: RefreshIndicator(
-          onRefresh: refresh,
-          child: FutureBuilder<List<PublicRequest>>(
-            future: requestsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !_requestsLoaded) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
-                  children: const [
-                    SizedBox(height: 180),
-                    Center(child: CircularProgressIndicator()),
-                  ],
-                );
-              }
-              if (snapshot.hasError && !_requestsLoaded) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                  children: [ErrorBanner(message: snapshot.error.toString())],
-                );
-              }
-              final allRequests = BlockedUsersController.instance.visible(
-                _requestsLoaded
-                    ? cachedRequests
-                    : snapshot.data ?? const <PublicRequest>[],
-                (request) => request.authorId,
-              );
-              final requests = switch (_requestFilter) {
-                'resolved' =>
-                  allRequests
-                      .where(
-                        (request) =>
-                            request.status == 'resolved' ||
-                            request.status == 'accepted',
-                      )
-                      .toList(),
-                'unresolved' =>
-                  allRequests
-                      .where(
-                        (request) =>
-                            request.status != 'resolved' &&
-                            request.status != 'accepted',
-                      )
-                      .toList(),
-                _ => allRequests,
-              };
-              return ListView.builder(
-                controller: _requestsScrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                itemCount: requests.length + 1 + (requests.isEmpty ? 1 : 0) + ((_hasMoreRequests || _loadingMoreRequests) ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 14),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _RequestFilterChip(
-                                label: text.isKy ? 'Баары' : 'Все',
-                                selected: _requestFilter == 'all',
-                                onTap: () =>
-                                    setState(() => _requestFilter = 'all'),
-                              ),
-                              const SizedBox(width: 8),
-                              _RequestFilterChip(
-                                label: text.isKy ? 'Чечилген' : 'Решённые',
-                                selected: _requestFilter == 'resolved',
-                                onTap: () =>
-                                    setState(() => _requestFilter = 'resolved'),
-                              ),
-                              const SizedBox(width: 8),
-                              _RequestFilterChip(
-                                label: text.isKy ? 'Чечилбеген' : 'Нерешённые',
-                                selected: _requestFilter == 'unresolved',
-                                onTap: () => setState(
-                                  () => _requestFilter = 'unresolved',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
-                          child: KoomSectionTitle(
-                            title: text.isKy ? 'Жарыялар' : 'Публикации',
-                            subtitle: requests.isEmpty
-                                ? text.postsDescription
-                                : (text.isKy
-                                      ? '${requests.length} жарыя'
-                                      : '${requests.length} публикаций'),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                  if (requests.isEmpty && index == 1) {
-                    return EmptyPostsView(onCreate: createRequest);
-                  }
-                  final requestIndex = index - 1;
-                  if (requestIndex >= requests.length) {
-                    if (_loadingMoreRequests) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    if (_hasMoreRequests) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) unawaited(_loadMoreRequests());
-                      });
-                    }
-                    return const SizedBox(height: 12);
-                  }
-                  final request = requests[requestIndex];
-                  return MediaPublicRequestCard(
-                    request: request,
-                    canModerate: canModerate,
-                    onVote: (voteType) => vote(request, voteType),
-                    onTap: () => openDetails(request),
-                    onStatus: (status) => updateStatus(request, status),
-                    safetyMenu: ContentSafetyMenuButton(
-                      api: requestsApi,
-                      target: SafetyTarget(
-                        targetType: ReportTargetType.publicRequest,
-                        targetId: request.id,
-                        authorId: request.authorId,
-                        authorName: request.authorName,
-                        currentUserId: widget.user.id,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+        actions: [groupMenuButton(context), const SizedBox(width: KoomSpacing.md)],
+        bottom: TabBar(
+          key: const ValueKey('group_tab_bar'),
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [
+            Tab(key: const ValueKey('group_tab_feed'), text: text.groupFeed),
+            Tab(
+              key: const ValueKey('group_tab_members'),
+              text: text.groupMembers,
+            ),
+            Tab(
+              key: const ValueKey('group_tab_statistics'),
+              text: text.statistics,
+            ),
+            if (canModerate)
+              Tab(
+                key: const ValueKey('group_tab_moderation'),
+                child: _ModerationTabLabel(
+                  label: text.groupModeration,
+                  countFuture: moderationCountFuture,
+                ),
+              ),
+          ],
         ),
       ),
+      floatingActionButton: _tabIndex == 0
+          ? KoomAdaptiveFab(
+              key: const ValueKey('public_request_create_action'),
+              onPressed: createRequest,
+              icon: Icons.add_rounded,
+              label: text.newPost,
+            )
+          : null,
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _buildFeed(context, text),
+          GroupMembersView(
+            api: requestsApi,
+            group: currentGroup,
+            currentUserId: widget.user.id,
+          ),
+          GroupStatisticsView(api: requestsApi, group: currentGroup),
+          if (canModerate)
+            GroupModerationView(
+              api: requestsApi,
+              group: currentGroup,
+              onPendingCountChanged: (count) {
+                if (!mounted) return;
+                setState(() {
+                  moderationCountFuture = Future.value(count);
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeed(BuildContext context, AppText text) {
+    return KoomPageBackground(
+      child: RefreshIndicator(
+        onRefresh: refresh,
+        child: FutureBuilder<List<PublicRequest>>(
+          future: requestsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !_requestsLoaded) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.lg,
+                  KoomSpacing.lg,
+                  108,
+                ),
+                children: const [
+                  KoomSkeletonList(
+                    itemCount: 4,
+                    itemHeight: 172,
+                    radius: KoomRadii.lg,
+                  ),
+                ],
+              );
+            }
+            if (snapshot.hasError && !_requestsLoaded) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.sm,
+                  KoomSpacing.lg,
+                  KoomSpacing.xxl,
+                ),
+                children: [
+                  ErrorBanner(
+                    message: localizedMessage(
+                      context,
+                      snapshot.error.toString(),
+                    ),
+                  ),
+                ],
+              );
+            }
+            final allRequests = BlockedUsersController.instance.visible(
+              _requestsLoaded
+                  ? cachedRequests
+                  : snapshot.data ?? const <PublicRequest>[],
+              (request) => request.authorId,
+            );
+            final requests = switch (_requestFilter) {
+              'resolved' =>
+                allRequests
+                    .where(
+                      (request) =>
+                          request.status == 'resolved' ||
+                          request.status == 'accepted',
+                    )
+                    .toList(),
+              'unresolved' =>
+                allRequests
+                    .where(
+                      (request) =>
+                          request.status != 'resolved' &&
+                          request.status != 'accepted',
+                    )
+                    .toList(),
+              _ => allRequests,
+            };
+            return ListView.builder(
+              controller: _requestsScrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                KoomSpacing.lg,
+                KoomSpacing.sm,
+                KoomSpacing.lg,
+                108,
+              ),
+              itemCount: requests.length +
+                  1 +
+                  (requests.isEmpty ? 1 : 0) +
+                  ((_hasMoreRequests || _loadingMoreRequests) ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: KoomSpacing.md),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _RequestFilterChip(
+                              label: text.allFilter,
+                              selected: _requestFilter == 'all',
+                              onTap: () =>
+                                  setState(() => _requestFilter = 'all'),
+                            ),
+                            const SizedBox(width: KoomSpacing.sm),
+                            _RequestFilterChip(
+                              label: text.resolved,
+                              selected: _requestFilter == 'resolved',
+                              onTap: () =>
+                                  setState(() => _requestFilter = 'resolved'),
+                            ),
+                            const SizedBox(width: KoomSpacing.sm),
+                            _RequestFilterChip(
+                              label: text.isKy
+                                  ? 'Чечилбеген'
+                                  : 'Нерешённые',
+                              selected: _requestFilter == 'unresolved',
+                              onTap: () => setState(
+                                () => _requestFilter = 'unresolved',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          KoomSpacing.xs,
+                          KoomSpacing.xl,
+                          KoomSpacing.xs,
+                          KoomSpacing.md,
+                        ),
+                        child: KoomSectionTitle(
+                          title: text.isKy ? 'Жарыялар' : 'Публикации',
+                          subtitle: requests.isEmpty
+                              ? text.postsDescription
+                              : (text.isKy
+                                  ? '${requests.length} жарыя'
+                                  : '${requests.length} публикаций'),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                if (requests.isEmpty && index == 1) {
+                  return EmptyPostsView(onCreate: createRequest);
+                }
+                final requestIndex = index - 1;
+                if (requestIndex >= requests.length) {
+                  if (_loadingMoreRequests) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: KoomSpacing.lg,
+                      ),
+                      child: KoomSkeleton(
+                        height: 172,
+                        radius: KoomRadii.lg,
+                      ),
+                    );
+                  }
+                  if (_hasMoreRequests) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) unawaited(_loadMoreRequests());
+                    });
+                  }
+                  return const SizedBox(height: KoomSpacing.md);
+                }
+                final request = requests[requestIndex];
+                return MediaPublicRequestCard(
+                  request: request,
+                  canModerate: canModerate,
+                  onVote: (voteType) => vote(request, voteType),
+                  onTap: () => openDetails(request),
+                  onStatus: (status) => updateStatus(request, status),
+                  safetyMenu: ContentSafetyMenuButton(
+                    api: requestsApi,
+                    target: SafetyTarget(
+                      targetType: ReportTargetType.publicRequest,
+                      targetId: request.id,
+                      authorId: request.authorId,
+                      authorName: request.authorName,
+                      currentUserId: widget.user.id,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Moderation tab label with the pending-review count as a badge.
+class _ModerationTabLabel extends StatelessWidget {
+  const _ModerationTabLabel({required this.label, required this.countFuture});
+
+  final String label;
+  final Future<int> countFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<int>(
+      future: countFuture,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            if (count > 0) ...[
+              const SizedBox(width: KoomSpacing.sm),
+              Badge(label: Text(count > 99 ? '99+' : '$count')),
+            ],
+          ],
+        );
+      },
     );
   }
 }
