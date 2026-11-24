@@ -253,15 +253,20 @@ class _MetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
+    // Both halves are Flexible so neither can claim its natural width: the
+    // chip has its own max width, and on a narrow phone at a large text scale
+    // that would otherwise leave the status dot no room at all.
     return Row(
       children: [
-        KoomStatusPill(
-          key: ValueKey('public_request_type_${request.id}'),
-          label: _requestTypeLabel(text, request.requestType),
-          icon: _requestTypeIcon(request.requestType),
+        Flexible(
+          child: KoomStatusPill(
+            key: ValueKey('public_request_type_${request.id}'),
+            label: _requestTypeLabel(text, request.requestType),
+            icon: _requestTypeIcon(request.requestType),
+          ),
         ),
         const SizedBox(width: KoomSpacing.md),
-        Expanded(
+        Flexible(
           child: KoomStatusDot(
             key: ValueKey('public_request_status_dot_${request.id}'),
             color: _statusColor(context, request.status),
@@ -294,36 +299,29 @@ class _FooterRow extends StatelessWidget {
     final totalVotes = request.supportCount + request.opposeCount;
     final isDiscussion = request.interactionMode == 'discussion';
 
-    // [shrink] stats sit in the row's non-flex slot, which Flutter measures
-    // with an unbounded width, so they must shrink-wrap and carry no flex.
-    Widget stat(
-      IconData icon,
-      String label, {
-      Key? labelKey,
-      bool shrink = false,
-    }) {
-      final labelStyle = textTheme.labelLarge?.copyWith(
-        color: colors.textMuted,
-      );
+    // Both halves of the footer live in a flex slot of the row below, so every
+    // label here can be Flexible and ellipsize. Narrow phones at a large text
+    // scale, and Kyrgyz labels (which run longer than the Russian), both need
+    // that: nothing in this row may claim its natural width.
+    Widget stat(IconData icon, String label, {Key? labelKey}) {
       return SizedBox(
         height: kKoomMinTapTarget,
         child: Row(
-          mainAxisSize: shrink ? MainAxisSize.min : MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 18, color: colors.textMuted),
             const SizedBox(width: KoomSpacing.sm),
-            if (shrink)
-              Text(label, key: labelKey, maxLines: 1, style: labelStyle)
-            else
-              Flexible(
-                child: Text(
-                  label,
-                  key: labelKey,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: labelStyle,
+            Flexible(
+              child: Text(
+                label,
+                key: labelKey,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelLarge?.copyWith(
+                  color: colors.textMuted,
                 ),
               ),
+            ),
           ],
         ),
       );
@@ -363,10 +361,14 @@ class _FooterRow extends StatelessWidget {
                     color: scheme.primary,
                   ),
                   const SizedBox(width: KoomSpacing.sm),
-                  Text(
-                    text.comments,
-                    style: textTheme.labelLarge?.copyWith(
-                      color: scheme.primary,
+                  Flexible(
+                    child: Text(
+                      text.comments,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: KoomSpacing.sm),
@@ -375,6 +377,7 @@ class _FooterRow extends StatelessWidget {
                     key: ValueKey(
                       'public_request_comment_count_${request.id}',
                     ),
+                    maxLines: 1,
                     style: textTheme.labelLarge?.copyWith(
                       color: colors.textMuted,
                     ),
@@ -395,18 +398,39 @@ class _FooterRow extends StatelessWidget {
         Icons.chat_bubble_outline_rounded,
         '${text.comments}: ${request.commentCount}',
         labelKey: ValueKey('public_request_comment_count_${request.id}'),
-        shrink: true,
       );
     }
 
-    return Row(
-      children: [
-        Flexible(child: leading),
-        if (trailing != null) ...[
-          const SizedBox(width: KoomSpacing.sm),
-          trailing,
-        ],
-      ],
+    final footer = trailing;
+    if (footer == null) return leading;
+
+    // Same heuristic as [KoomResponsiveActions]: on a narrow phone, or at a
+    // large text scale, the vote total and the comment link stop sharing a
+    // line. Side by side there is not enough width for both in either
+    // language, and the Kyrgyz labels are the longer pair.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaledBodySize = MediaQuery.textScalerOf(context).scale(14);
+        final stackVertically =
+            constraints.maxWidth < 340 || scaledBodySize > 17.5;
+
+        if (stackVertically) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [leading, footer],
+          );
+        }
+
+        // Expanded keeps the link pinned right; Flexible lets it give way
+        // rather than claim its natural width and push the row over the edge.
+        return Row(
+          children: [
+            Expanded(child: leading),
+            const SizedBox(width: KoomSpacing.sm),
+            Flexible(child: footer),
+          ],
+        );
+      },
     );
   }
 }

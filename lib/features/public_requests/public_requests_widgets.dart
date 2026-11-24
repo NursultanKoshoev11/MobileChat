@@ -903,10 +903,10 @@ class _CommentTile extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: colors.surface,
-                // Square-ish corner towards the avatar, so the bubble reads as
-                // belonging to it.
+                // Tighter corner towards the avatar, so the bubble reads as
+                // belonging to it. Both values are radius tokens.
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(KoomSpacing.xs),
+                  topLeft: Radius.circular(KoomRadii.sm),
                   topRight: Radius.circular(KoomRadii.md),
                   bottomLeft: Radius.circular(KoomRadii.md),
                   bottomRight: Radius.circular(KoomRadii.md),
