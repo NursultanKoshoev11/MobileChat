@@ -263,7 +263,7 @@ class _GroupRequestDetailSheet extends StatelessWidget {
               ),
               _detailRow(
                 context,
-                text.isKy ? 'Дата' : 'Дата',
+                text.isKy ? 'Күнү' : 'Дата',
                 request.createdAt?.toLocal().toString().split('.').first ?? '',
               ),
               _detailRow(
