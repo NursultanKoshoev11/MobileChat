@@ -22,92 +22,9 @@ permissions:
   contents: read
 
 jobs:
-  build-ios-simulator:
-    name: Build unsigned iOS simulator app
-    runs-on: macos-26
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          flutter-version: "3.50.0"
-          cache: true
-
-      - name: Show Xcode version
-        run: xcodebuild -version
-
-      - name: Show Flutter doctor
-        run: flutter doctor -v
-
-      - name: Ensure iOS platform files exist
-        run: flutter create --platforms=ios --project-name koom .
-
-      - name: Add privacy manifest to Runner target
-        run: |
-          if ! ruby -e 'require "xcodeproj"' 2>/dev/null; then
-            gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
-          fi
-          ruby scripts/ios_add_privacy_manifest.rb ios/Runner.xcodeproj
-          grep -q "PrivacyInfo.xcprivacy in Resources" ios/Runner.xcodeproj/project.pbxproj
-
-      - name: Configure iOS bundle identifier
-        env:
-          IOS_BUNDLE_ID_INPUT: ${{ github.event.inputs.ios_bundle_id }}
-        run: |
-          BUNDLE_ID="${IOS_BUNDLE_ID_INPUT:-com.nursultankoshoev.mobilechat}"
-          if ! [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]]; then
-            echo "iOS bundle identifier contains unsupported characters."
-            exit 1
-          fi
-          echo "Using iOS bundle id: $BUNDLE_ID"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" ios/Runner/Info.plist || true
-          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" ios/Runner.xcodeproj/project.pbxproj
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
-
-      - name: Build iOS simulator app
-        env:
-          API_BASE_URL_INPUT: ${{ github.event.inputs.api_base_url }}
-        run: |
-          API_BASE_URL="${API_BASE_URL_INPUT:-https://koom.com.kg}"
-          if ! [[ "$API_BASE_URL" =~ ^https://[^[:space:]]+$ ]]; then
-            echo "API base URL must be a non-empty HTTPS URL without whitespace."
-            exit 1
-          fi
-          echo "Building iOS simulator app with API_BASE_URL=$API_BASE_URL"
-          flutter build ios --debug --simulator -t lib/main.dart --dart-define=API_BASE_URL="$API_BASE_URL"
-
-      - name: Verify privacy manifest is bundled
-        run: test -f build/ios/iphonesimulator/Runner.app/PrivacyInfo.xcprivacy
-
-      - name: Prepare simulator artifact
-        run: |
-          mkdir -p build-artifacts
-          ditto -c -k --sequesterRsrc --keepParent build/ios/iphonesimulator/Runner.app build-artifacts/Koom-iOS-simulator-app.zip
-          shasum -a 256 build-artifacts/Koom-iOS-simulator-app.zip > build-artifacts/Koom-iOS-simulator-app.sha256.txt
-          ls -lah build-artifacts
-
-      # 60 MB per run and only useful for hands-on debugging, so it is kept
-      # for the pull request that produced it and expires quickly.
-      - name: Upload simulator app artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Koom-iOS-simulator-app
-          path: |
-            build-artifacts/Koom-iOS-simulator-app.zip
-            build-artifacts/Koom-iOS-simulator-app.sha256.txt
-          if-no-files-found: error
-          retention-days: 2
-
   build-unsigned-ipa:
     name: Build unsigned iPhone IPA
+    if: github.event_name == 'pull_request'
     runs-on: macos-15
 
     steps:
