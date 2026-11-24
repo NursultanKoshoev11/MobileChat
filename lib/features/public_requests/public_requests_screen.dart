@@ -64,6 +64,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
   late final PublicRequestsApi requestsApi;
   late final GroupRealtimeService realtime;
   late final TabController _tabs;
+  int _tabIndex = 0;
   late ChatGroup currentGroup;
   final ImagePicker imagePicker = ImagePicker();
   final ScrollController _requestsScrollController = ScrollController();
@@ -133,7 +134,10 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
   }
 
   void _handleTabChanged() {
-    if (mounted) setState(() {});
+    // Only the selected tab matters here; a swipe also notifies on every
+    // animation tick.
+    if (!mounted || _tabs.index == _tabIndex) return;
+    setState(() => _tabIndex = _tabs.index);
   }
 
   @override
@@ -1230,7 +1234,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
           ],
         ),
       ),
-      floatingActionButton: _tabs.index == 0
+      floatingActionButton: _tabIndex == 0
           ? KoomAdaptiveFab(
               key: const ValueKey('public_request_create_action'),
               onPressed: createRequest,
