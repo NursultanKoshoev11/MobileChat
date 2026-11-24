@@ -401,13 +401,13 @@ class _RatesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isKy = AppLanguageScope.textOf(context).isKy;
     return _Panel(
-        title: isKy ? 'Прогресс' : 'Прогресс',
+        title: isKy ? 'Жылыш' : 'Прогресс',
         child: Column(children: [
           _ProgressLine(
-              title: isKy ? 'Закрыто' : 'Закрыто', percent: stats.closeRate),
+              title: isKy ? 'Жабылды' : 'Закрыто', percent: stats.closeRate),
           const SizedBox(height: 12),
           _ProgressLine(
-              title: isKy ? 'Решено' : 'Решено', percent: stats.resolveRate),
+              title: isKy ? 'Чечилди' : 'Решено', percent: stats.resolveRate),
         ]));
   }
 }
@@ -554,7 +554,18 @@ class _OpenRequestsCard extends StatelessWidget {
                             style:
                                 const TextStyle(fontWeight: FontWeight.w800)),
                         subtitle: Text(request.status),
-                        trailing: Text('${request.commentCount} 💬'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${request.commentCount}'),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.mode_comment_outlined,
+                              size: 16,
+                              color: context.appColors.textMuted,
+                            ),
+                          ],
+                        ),
                       ))
                   .toList()),
     );

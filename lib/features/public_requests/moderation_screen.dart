@@ -1,131 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../app/appearance.dart';
+import '../../app/localization.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
-
-final String _titleOnReview = String.fromCharCodes(
-    [1053, 1072, 32, 1087, 1088, 1086, 1074, 1077, 1088, 1082, 1077]);
-final String _refreshLabel =
-    String.fromCharCodes([1054, 1073, 1085, 1086, 1074, 1080, 1090, 1100]);
-final String _queueEmpty = String.fromCharCodes([
-  1054,
-  1095,
-  1077,
-  1088,
-  1077,
-  1076,
-  1100,
-  32,
-  1087,
-  1091,
-  1089,
-  1090,
-  1072,
-  1103
-]);
-final String _noItems = String.fromCharCodes([
-  1053,
-  1086,
-  1074,
-  1099,
-  1093,
-  32,
-  1082,
-  1086,
-  1084,
-  1084,
-  1077,
-  1085,
-  1090,
-  1072,
-  1088,
-  1080,
-  1077,
-  1074,
-  32,
-  1080,
-  32,
-  1087,
-  1091,
-  1073,
-  1083,
-  1080,
-  1082,
-  1072,
-  1094,
-  1080,
-  1081,
-  32,
-  1085,
-  1072,
-  32,
-  1087,
-  1088,
-  1086,
-  1074,
-  1077,
-  1088,
-  1082,
-  1077,
-  32,
-  1085,
-  1077,
-  1090,
-  46
-]);
-final String _approved = String.fromCharCodes([
-  1052,
-  1072,
-  1090,
-  1077,
-  1088,
-  1080,
-  1072,
-  1083,
-  32,
-  1086,
-  1076,
-  1086,
-  1073,
-  1088,
-  1077,
-  1085,
-  46
-]);
-final String _rejected = String.fromCharCodes([
-  1052,
-  1072,
-  1090,
-  1077,
-  1088,
-  1080,
-  1072,
-  1083,
-  32,
-  1086,
-  1090,
-  1082,
-  1083,
-  1086,
-  1085,
-  1077,
-  1085,
-  46
-]);
-final String _author = String.fromCharCodes([1040, 1074, 1090, 1086, 1088]);
-final String _reason =
-    String.fromCharCodes([1055, 1088, 1080, 1095, 1080, 1085, 1072]);
-final String _check =
-    String.fromCharCodes([1055, 1088, 1086, 1074, 1077, 1088, 1082, 1072]);
-final String _emptyText = String.fromCharCodes(
-    [1058, 1077, 1082, 1089, 1090, 32, 1087, 1091, 1089, 1090, 1086, 1081]);
-final String _reject = String.fromCharCodes(
-    [1054, 1090, 1082, 1083, 1086, 1085, 1080, 1090, 1100]);
-final String _approve =
-    String.fromCharCodes([1054, 1076, 1086, 1073, 1088, 1080, 1090, 1100]);
 
 class GroupModerationScreen extends StatefulWidget {
   const GroupModerationScreen({
@@ -188,7 +68,11 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
             cachedItems.where((value) => value.id != item.id).toList();
         itemsLoaded = true;
       });
-      showAppSnack(context, approve ? _approved : _rejected);
+      final text = AppLanguageScope.textOf(context);
+      showAppSnack(
+        context,
+        approve ? text.moderationApproved : text.moderationRejected,
+      );
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString());
     } finally {
@@ -198,13 +82,14 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titleOnReview),
+        title: Text(text.moderationQueueTitle),
         actions: [
           IconButton(
             onPressed: refresh,
-            tooltip: _refreshLabel,
+            tooltip: text.refresh,
             icon: const Icon(Icons.refresh_rounded),
           ),
           const AppSettingsButton(),
@@ -238,8 +123,8 @@ class _GroupModerationScreenState extends State<GroupModerationScreen> {
                       showShadow: false,
                       child: KoomEmptyState(
                         icon: Icons.verified_user_outlined,
-                        title: _queueEmpty,
-                        message: _noItems,
+                        title: text.moderationQueueEmptyTitle,
+                        message: text.moderationQueueEmptyMessage,
                       ),
                     ),
                   ],
@@ -284,6 +169,7 @@ class _ModerationItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final text = AppLanguageScope.textOf(context);
     final created = item.createdAt == null
         ? ''
         : '${item.createdAt!.day.toString().padLeft(2, '0')}.${item.createdAt!.month.toString().padLeft(2, '0')}.${item.createdAt!.year} '
@@ -316,8 +202,8 @@ class _ModerationItemCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         item.authorName.isEmpty
-                            ? '$_author: User'
-                            : '$_author: ${item.authorName}',
+                            ? '${text.author}: User'
+                            : '${text.author}: ${item.authorName}',
                         style: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 12,
@@ -341,9 +227,9 @@ class _ModerationItemCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _InfoChip(label: '$_reason: ${item.reasonLabel}'),
+                _InfoChip(label: '${text.reason}: ${item.reasonLabel}'),
                 if (item.provider.isNotEmpty)
-                  _InfoChip(label: '$_check: ${item.provider}'),
+                  _InfoChip(label: '${text.moderationCheck}: ${item.provider}'),
               ],
             ),
             if (item.title.isNotEmpty) ...[
@@ -358,7 +244,7 @@ class _ModerationItemCard extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Text(
-              item.body.isEmpty ? _emptyText : item.body,
+              item.body.isEmpty ? text.emptyBodyText : item.body,
               style: const TextStyle(height: 1.35),
             ),
             const SizedBox(height: 14),
@@ -368,7 +254,7 @@ class _ModerationItemCard extends StatelessWidget {
                   onPressed: loading ? null : onReject,
                   icon: const Icon(Icons.close_rounded),
                   label: Text(
-                    _reject,
+                    text.reject,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -383,7 +269,7 @@ class _ModerationItemCard extends StatelessWidget {
                         )
                       : const Icon(Icons.check_rounded),
                   label: Text(
-                    _approve,
+                    text.approve,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

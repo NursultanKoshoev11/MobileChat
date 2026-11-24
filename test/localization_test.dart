@@ -108,6 +108,19 @@ void main() {
         text.sevenDays,
         text.thirtyDays,
         text.forever,
+        text.avatarTooLarge,
+        text.moderationQueueTitle,
+        text.refresh,
+        text.moderationQueueEmptyTitle,
+        text.moderationQueueEmptyMessage,
+        text.moderationApproved,
+        text.moderationRejected,
+        text.author,
+        text.reason,
+        text.moderationCheck,
+        text.emptyBodyText,
+        text.reject,
+        text.approve,
       ];
 
   test('AppLanguage metadata and controller notify on real changes', () {
@@ -129,6 +142,50 @@ void main() {
     expect(controller.language, AppLanguage.ky);
     expect(controller.text.isKy, isTrue);
     expect(notifications, 1);
+  });
+
+  test('AppText labels never leak broken placeholder characters', () {
+    for (final language in AppLanguage.values) {
+      final text = AppText(language);
+      expect(text.avatarTooLarge, isNot(contains('?')));
+      expect(text.avatarTooLarge.length, greaterThan(10));
+      for (final value in allTextValues(text)) {
+        expect(value, isNot(contains('?')),
+            reason: 'Placeholder "?" found in: $value');
+      }
+    }
+  });
+
+  test('moderation labels are really translated, not duplicated', () {
+    final ru = AppText(AppLanguage.ru);
+    final ky = AppText(AppLanguage.ky);
+    final pairs = <String, List<String>>{
+      'avatarTooLarge': [ru.avatarTooLarge, ky.avatarTooLarge],
+      'moderationQueueTitle': [
+        ru.moderationQueueTitle,
+        ky.moderationQueueTitle
+      ],
+      'refresh': [ru.refresh, ky.refresh],
+      'moderationQueueEmptyTitle': [
+        ru.moderationQueueEmptyTitle,
+        ky.moderationQueueEmptyTitle
+      ],
+      'moderationQueueEmptyMessage': [
+        ru.moderationQueueEmptyMessage,
+        ky.moderationQueueEmptyMessage
+      ],
+      'moderationApproved': [ru.moderationApproved, ky.moderationApproved],
+      'moderationRejected': [ru.moderationRejected, ky.moderationRejected],
+      'reason': [ru.reason, ky.reason],
+      'moderationCheck': [ru.moderationCheck, ky.moderationCheck],
+      'emptyBodyText': [ru.emptyBodyText, ky.emptyBodyText],
+      'reject': [ru.reject, ky.reject],
+      'approve': [ru.approve, ky.approve],
+    };
+    pairs.forEach((name, values) {
+      expect(values.first, isNot(values.last),
+          reason: '$name is identical in Russian and Kyrgyz');
+    });
   });
 
   test('AppText exposes non-empty labels for both languages', () {

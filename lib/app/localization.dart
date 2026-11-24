@@ -357,4 +357,26 @@ class AppText {
   String get uploadQuotaExceeded => isKy
       ? 'Бүгүнкү файл жүктөө лимити түгөндү. Эртең кайра аракет кылыңыз.'
       : 'Дневной лимит загрузки файлов исчерпан. Попробуйте завтра.';
+  String get avatarTooLarge => isKy
+      ? 'Сүрөт өтө чоң. Көлөмү кичирээк сүрөт тандаңыз.'
+      : 'Фото слишком большое. Выберите снимок меньшего размера.';
+
+  // Content moderation queue.
+  String get moderationQueueTitle => isKy ? 'Текшерүүдө' : 'На проверке';
+  String get refresh => isKy ? 'Жаңыртуу' : 'Обновить';
+  String get moderationQueueEmptyTitle =>
+      isKy ? 'Тизме бош' : 'Очередь пуста';
+  String get moderationQueueEmptyMessage => isKy
+      ? 'Текшерүүдө жаңы комментарий жана жарыя жок.'
+      : 'Новых комментариев и публикаций на проверке нет.';
+  String get moderationApproved =>
+      isKy ? 'Материал бекитилди.' : 'Материал одобрен.';
+  String get moderationRejected =>
+      isKy ? 'Материал четке кагылды.' : 'Материал отклонен.';
+  String get author => 'Автор';
+  String get reason => isKy ? 'Себеп' : 'Причина';
+  String get moderationCheck => isKy ? 'Текшерүү' : 'Проверка';
+  String get emptyBodyText => isKy ? 'Текст бош' : 'Текст пустой';
+  String get reject => isKy ? 'Четке кагуу' : 'Отклонить';
+  String get approve => isKy ? 'Бекитүү' : 'Одобрить';
 }
