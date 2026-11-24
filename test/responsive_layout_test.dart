@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:koom/app/appearance.dart';
 import 'package:koom/app/localization.dart';
 import 'package:koom/app/theme.dart';
+import 'package:koom/data/public_request.dart';
+import 'package:koom/features/public_requests/public_request_media_screens.dart';
 import 'package:koom/shared/koom_ui.dart';
 
 Future<void> pumpAtSize(
@@ -227,5 +229,122 @@ void main() {
     final rect = tester.getRect(find.byType(KoomStatusPill));
     expect(rect.width, lessThanOrEqualTo(280));
     expect(tester.takeException(), isNull);
+  });
+
+  // The post card footer carries the vote total next to the comment link. Both
+  // halves must give way instead of claiming their natural width: Kyrgyz
+  // labels run longer than the Russian, and these users are on small phones.
+  group('post card footer never overflows', () {
+    PublicRequest footerRequest({String interactionMode = 'discussion'}) {
+      return PublicRequest.fromJson({
+        'id': 'REQ-NARROW',
+        'group_id': 'G-1',
+        'author_id': 'U-1',
+        'author_name': 'Нурсултан Кошоев',
+        'request_type': 'announcement',
+        'interaction_mode': interactionMode,
+        'title': 'Детская площадка во дворе нашего дома',
+        'body': 'Нужна новая площадка.',
+        'status': 'under_review',
+        'support_count': 128,
+        'oppose_count': 64,
+        'comment_count': 256,
+        'created_at': '2026-11-20T00:00:00Z',
+        'updated_at': '2026-11-20T00:00:00Z',
+      });
+    }
+
+    // 360dp at scale 1.0 is the common phone for these users; the two
+    // smaller sizes at 1.35 are the accessibility worst case.
+    const probes = <(Size, double)>[
+      (Size(360, 640), 1),
+      (Size(320, 568), 1.35),
+      (Size(280, 520), 1.35),
+    ];
+    for (final (size, scale) in probes) {
+      for (final language in AppLanguage.values) {
+        // showOpenAction true is the feed card (comment link); false is the
+        // detail card, where the footer is entirely new.
+        for (final showOpenAction in const [true, false]) {
+          final label = 'card ${size.width.toInt()}dp x$scale '
+              '${language.name} '
+              '${showOpenAction ? 'feed' : 'detail'}';
+          testWidgets('$label stays inside the viewport', (tester) async {
+            final controller = AppLanguageController();
+            controller.setLanguage(language);
+            addTearDown(controller.dispose);
+
+            await pumpAtSize(
+              tester,
+              size,
+              AppLanguageScope(
+                controller: controller,
+                child: SingleChildScrollView(
+                  child: MediaPublicRequestCard(
+                    request: footerRequest(),
+                    onTap: () {},
+                    onVote: (_) {},
+                    canModerate: true,
+                    onStatus: (_) {},
+                    compact: showOpenAction,
+                    showOpenAction: showOpenAction,
+                  ),
+                ),
+              ),
+              textScale: scale,
+            );
+
+            expect(tester.takeException(), isNull);
+            final card = tester.getRect(
+              find.byType(MediaPublicRequestCard),
+            );
+            expect(card.width, lessThanOrEqualTo(size.width));
+            // Every Text on the card must fit the screen too, which catches a
+            // RenderFlex that silently clipped instead of throwing.
+            for (final element in find.byType(Text).evaluate()) {
+              final rect = tester.getRect(find.byElementPredicate(
+                (candidate) => candidate == element,
+              ));
+              expect(
+                rect.right,
+                lessThanOrEqualTo(size.width + 0.5),
+                reason: 'overflow in ${(element.widget as Text).data}',
+              );
+              expect(rect.left, greaterThanOrEqualTo(-0.5));
+            }
+          });
+        }
+
+        testWidgets(
+            'read-only card ${size.width.toInt()}dp x$scale '
+            '${language.name} stays inside the viewport', (tester) async {
+          final controller = AppLanguageController();
+          controller.setLanguage(language);
+          addTearDown(controller.dispose);
+
+          await pumpAtSize(
+            tester,
+            size,
+            AppLanguageScope(
+              controller: controller,
+              child: SingleChildScrollView(
+                child: MediaPublicRequestCard(
+                  request: footerRequest(interactionMode: 'read_only'),
+                  onTap: () {},
+                  onVote: (_) {},
+                ),
+              ),
+            ),
+            textScale: scale,
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.getRect(find.byType(MediaPublicRequestCard)).width,
+            lessThanOrEqualTo(size.width),
+          );
+        });
+      }
+    }
   });
 }

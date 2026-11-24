@@ -12,16 +12,31 @@ import 'package:video_player/video_player.dart';
 
 import '../../app/api_config.dart';
 import '../../app/localization.dart';
+import '../../app/theme.dart';
 import '../../data/api_client.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../data/session_store.dart';
+import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
-Color _surface(BuildContext context) => Theme.of(context).cardColor;
-Color _border(BuildContext context) => Theme.of(context).dividerColor;
-Color _muted(BuildContext context) => Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62);
-Color _strong(BuildContext context) => Theme.of(context).colorScheme.onSurface;
+/// How long ago [time] was, in the current language.
+///
+/// Posts and comments show their age rather than a wall-clock time, which only
+/// made sense for something published today. Anything older than a week falls
+/// back to a plain date.
+String koomRelativeTime(AppText text, DateTime time, {DateTime? now}) {
+  final difference = (now ?? DateTime.now()).difference(time);
+  if (difference.inMinutes < 1) return text.justNow;
+  if (difference.inMinutes < 60) {
+    return '${difference.inMinutes} ${text.minuteShort}';
+  }
+  if (difference.inHours < 24) return '${difference.inHours} ${text.hourShort}';
+  if (difference.inDays < 7) return '${difference.inDays} ${text.dayShort}';
+  final day = time.day.toString().padLeft(2, '0');
+  final month = time.month.toString().padLeft(2, '0');
+  return '$day.$month.${time.year}';
+}
 
 Uint8List? _decodeBase64(String value) {
   final raw = value.trim();
@@ -82,69 +97,115 @@ class PublicRequestMediaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    final photos = content.photos.where((p) => p.base64Data.trim().isNotEmpty || p.url.trim().isNotEmpty).take(3).toList(growable: false);
-    final videos = content.videos.where((v) => v.base64Data.trim().isNotEmpty || v.url.trim().isNotEmpty || v.fileId.trim().isNotEmpty).toList(growable: false);
+    final colors = context.appColors;
+    final labelStyle = Theme.of(context)
+        .textTheme
+        .labelLarge
+        ?.copyWith(color: colors.textMuted);
+    final photos = content.photos
+        .where((p) =>
+            p.base64Data.trim().isNotEmpty || p.url.trim().isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    final videos = content.videos
+        .where((v) =>
+            v.base64Data.trim().isNotEmpty ||
+            v.url.trim().isNotEmpty ||
+            v.fileId.trim().isNotEmpty)
+        .toList(growable: false);
     if (photos.isEmpty && videos.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (photos.isNotEmpty) ...[
-        Text('${text.isKy ? 'Сүрөттөр' : 'Фото'} (${photos.length}/3)', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: compact ? 92 : 116,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: photos.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final photo = photos[index];
-              final remoteUrl = photo.url.trim();
-              final bytes = remoteUrl.isEmpty ? _decodeBase64(photo.base64Data) : null;
-              if (remoteUrl.isEmpty && bytes == null) return const SizedBox.shrink();
-              final size = compact ? 92.0 : 116.0;
-              return Stack(children: [
-                GestureDetector(
-                  onTap: () {
-                    if (remoteUrl.isNotEmpty) {
-                      openPublicRequestRemotePhoto(context, remoteUrl);
-                    } else if (bytes != null) {
-                      openPublicRequestPhoto(context, bytes);
-                    }
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: remoteUrl.isNotEmpty
-                        ? _AuthenticatedNetworkImage(url: remoteUrl, width: size, height: size)
-                        : Image.memory(bytes!, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-                  ),
-                ),
-                if (onRemovePhoto != null)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: InkWell(
-                      onTap: () => onRemovePhoto!(photo),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 16),
-                      ),
+    final tileSize = compact ? 92.0 : 116.0;
+    return Column(
+      key: const ValueKey('public_request_media_view'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (photos.isNotEmpty) ...[
+          Text('${text.photosLabel} (${photos.length}/3)', style: labelStyle),
+          const SizedBox(height: KoomSpacing.sm),
+          SizedBox(
+            key: const ValueKey('public_request_media_photos'),
+            height: tileSize,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: photos.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: KoomSpacing.sm),
+              itemBuilder: (context, index) {
+                final photo = photos[index];
+                final remoteUrl = photo.url.trim();
+                final bytes =
+                    remoteUrl.isEmpty ? _decodeBase64(photo.base64Data) : null;
+                if (remoteUrl.isEmpty && bytes == null) {
+                  return const SizedBox.shrink();
+                }
+                return Stack(children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (remoteUrl.isNotEmpty) {
+                        openPublicRequestRemotePhoto(context, remoteUrl);
+                      } else if (bytes != null) {
+                        openPublicRequestPhoto(context, bytes);
+                      }
+                    },
+                    child: ClipRRect(
+                      borderRadius: KoomRadii.smAll,
+                      child: remoteUrl.isNotEmpty
+                          ? _AuthenticatedNetworkImage(
+                              url: remoteUrl,
+                              width: tileSize,
+                              height: tileSize,
+                            )
+                          : Image.memory(
+                              bytes!,
+                              width: tileSize,
+                              height: tileSize,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const SizedBox.shrink(),
+                            ),
                     ),
                   ),
-              ]);
-            },
+                  if (onRemovePhoto != null)
+                    Positioned(
+                      top: KoomSpacing.xs,
+                      right: KoomSpacing.xs,
+                      child: InkWell(
+                        onTap: () => onRemovePhoto!(photo),
+                        child: Container(
+                          padding: const EdgeInsets.all(KoomSpacing.xs),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                ]);
+              },
+            ),
           ),
-        ),
+        ],
+        if (videos.isNotEmpty) ...[
+          if (photos.isNotEmpty) const SizedBox(height: KoomSpacing.md),
+          Text(text.videosLabel, style: labelStyle),
+          const SizedBox(height: KoomSpacing.sm),
+          ...videos.map((video) => Padding(
+                padding: const EdgeInsets.only(bottom: KoomSpacing.sm),
+                child: PublicRequestVideoTile(
+                  video: video,
+                  onRemove: onRemoveVideo == null
+                      ? null
+                      : () => onRemoveVideo!(video),
+                ),
+              )),
+        ],
       ],
-      if (videos.isNotEmpty) ...[
-        if (photos.isNotEmpty) const SizedBox(height: 12),
-        Text(text.isKy ? 'Видео' : 'Видео', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800, color: _muted(context))),
-        const SizedBox(height: 8),
-        ...videos.map((video) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: PublicRequestVideoTile(video: video, onRemove: onRemoveVideo == null ? null : () => onRemoveVideo!(video)),
-            )),
-      ],
-    ]);
+    );
   }
 }
 
@@ -161,8 +222,14 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
       future: _imageAuthHeaders(url),
       builder: (context, snapshot) {
         final headers = snapshot.data;
-        if (snapshot.connectionState == ConnectionState.waiting && headers == null) {
-          return SizedBox(width: width, height: height);
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            headers == null) {
+          // Placeholder in the shape of the thumbnail it replaces.
+          return KoomSkeleton(
+            width: width,
+            height: height,
+            radius: KoomRadii.sm,
+          );
         }
         return Image.network(
           url,
@@ -170,6 +237,13 @@ class _AuthenticatedNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : KoomSkeleton(
+                  width: width,
+                  height: height,
+                  radius: KoomRadii.sm,
+                ),
           // The file may be gone (e.g. removed with a deleted account):
           // show a neutral placeholder instead of an error.
           errorBuilder: (_, __, ___) =>
@@ -208,7 +282,7 @@ class MediaUnavailablePlaceholder extends StatelessWidget {
     final text = AppLanguageScope.textOf(context);
     final scheme = Theme.of(context).colorScheme;
     final foreground = dark ? Colors.white70 : scheme.onSurfaceVariant;
-    final label = text.isKy ? 'Медиа жеткиликсиз' : 'Медиа недоступно';
+    final label = text.mediaUnavailable;
     return Semantics(
       label: label,
       child: Container(
@@ -221,7 +295,7 @@ class MediaUnavailablePlaceholder extends StatelessWidget {
           children: [
             Icon(Icons.image_not_supported_outlined, color: foreground),
             if (showLabel) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: KoomSpacing.sm),
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -229,6 +303,35 @@ class MediaUnavailablePlaceholder extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-screen placeholder while a photo or video is fetched: roughly the shape
+/// of the media it stands in for, instead of a lone spinner. Dimmed because the
+/// viewer behind it is black.
+class _FullScreenMediaSkeleton extends StatelessWidget {
+  const _FullScreenMediaSkeleton({this.aspectRatio = 3 / 4});
+
+  final double aspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(KoomSpacing.xl),
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: const Opacity(
+            opacity: 0.3,
+            child: KoomSkeleton(
+              width: double.infinity,
+              height: double.infinity,
+              radius: KoomRadii.md,
+            ),
+          ),
         ),
       ),
     );
@@ -287,7 +390,7 @@ class _PublicRequestPhotoViewer extends StatelessWidget {
             gaplessPlayback: true,
             loadingBuilder: (context, child, progress) => progress == null
                 ? child
-                : const Center(child: CircularProgressIndicator()),
+                : const _FullScreenMediaSkeleton(),
             errorBuilder: (_, __, ___) => const MediaUnavailablePlaceholder(
               showLabel: true,
               dark: true,
@@ -331,9 +434,7 @@ class _PublicRequestPhotoViewer extends StatelessWidget {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting &&
                           snapshot.data == null) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return const _FullScreenMediaSkeleton();
                       }
                       return _fullImage(
                         context,
@@ -376,20 +477,34 @@ class PublicRequestVideoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: KoomRadii.mdAll,
       onTap: () => openPublicRequestVideo(context, video),
       child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: _surface(context), borderRadius: BorderRadius.circular(16), border: Border.all(color: _border(context))),
+        padding: const EdgeInsets.all(KoomSpacing.md),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: KoomRadii.mdAll,
+          border: Border.all(color: colors.border),
+        ),
         child: Row(children: [
-          Icon(Icons.play_circle_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 40),
-          const SizedBox(width: 12),
+          Icon(
+            Icons.play_circle_outline_rounded,
+            color: Theme.of(context).colorScheme.primary,
+            size: 40,
+          ),
+          const SizedBox(width: KoomSpacing.md),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(video.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _strong(context), fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              Text(_sizeLabel(video.sizeBytes), style: TextStyle(color: _muted(context), fontSize: 12)),
+              Text(
+                video.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleSmall,
+              ),
+              Text(_sizeLabel(video.sizeBytes), style: textTheme.bodySmall),
             ]),
           ),
           if (onRemove != null) IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline_rounded)),
@@ -465,7 +580,9 @@ class _VideoViewerState extends State<_VideoViewer> {
                 builder: (context, snapshot) {
                   final current = controller;
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const _FullScreenMediaSkeleton(
+                      aspectRatio: 16 / 9,
+                    );
                   }
                   if (snapshot.hasError ||
                       current == null ||
@@ -594,7 +711,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
       if (image == null) return;
       final bytes = await _compressedPhotoBytesWithoutExif(image);
       if (bytes.length > maxPhotoBytes) {
-        setState(() => error = text.isKy ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.' : 'Фото слишком большое. Выберите другое фото.');
+        setState(() => error = text.photoTooLarge);
         return;
       }
       final fileName = image.name.isNotEmpty ? image.name : 'photo.jpg';
@@ -628,7 +745,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
       final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
       if (bytes == null || bytes.isEmpty) return;
       if (bytes.length > maxVideoBytes) {
-        setState(() => error = text.isKy ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.' : 'Видео слишком большое. Выберите видео до 12 MB.');
+        setState(() => error = text.videoTooLarge);
         return;
       }
       final fileName = file.name.isNotEmpty ? file.name : 'video.mp4';
@@ -651,7 +768,7 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     final text = AppLanguageScope.textOf(context);
     final bodyText = bodyController.text.trim();
     if (bodyText.isEmpty && photos.isEmpty && videos.isEmpty) {
-      setState(() => error = text.isKy ? 'Текст, сүрөт же видео кошуңуз.' : 'Добавьте текст, фото или видео.');
+      setState(() => error = text.addTextOrMedia);
       return;
     }
     final payload = PublicRequestContent(text: bodyText, photos: List.of(photos), videos: List.of(videos)).toPayload();
@@ -679,15 +796,15 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
     final text = AppLanguageScope.textOf(context);
     final content = PublicRequestContent(text: bodyController.text, photos: photos, videos: videos);
     return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 22),
+      padding: EdgeInsets.only(left: KoomSpacing.xl, right: KoomSpacing.xl, bottom: MediaQuery.of(context).viewInsets.bottom + KoomSpacing.xl),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text(text.newPost, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          TextField(controller: titleController, decoration: InputDecoration(labelText: text.title)),
-          const SizedBox(height: 12),
-          TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
-          const SizedBox(height: 12),
+          Text(text.newPost, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: KoomSpacing.lg),
+          TextField(key: const ValueKey('post_title_field'), controller: titleController, decoration: InputDecoration(labelText: text.title)),
+          const SizedBox(height: KoomSpacing.md),
+          TextField(key: const ValueKey('post_body_field'), controller: bodyController, minLines: 4, maxLines: 8, decoration: InputDecoration(labelText: text.description)),
+          const SizedBox(height: KoomSpacing.md),
           DropdownButtonFormField<String>(
             value: type,
             decoration: InputDecoration(labelText: text.postType),
@@ -701,31 +818,32 @@ class _CreatePublicRequestMediaSheetState extends State<CreatePublicRequestMedia
             ],
             onChanged: loading ? null : (value) => setState(() => type = value ?? 'announcement'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: KoomSpacing.md),
           DropdownButtonFormField<String>(
+            key: const ValueKey('post_mode_dropdown'),
             value: interactionMode,
             decoration: InputDecoration(labelText: text.interactionMode),
             items: [
               DropdownMenuItem(value: 'read_only', child: Text(text.textOnly)),
               DropdownMenuItem(value: 'vote_only', child: Text(text.votingOnly)),
-              DropdownMenuItem(value: 'discussion', child: Text(text.discussionWithComments)),
+              DropdownMenuItem(value: 'discussion', child: Text(text.discussionWithComments, key: const ValueKey('post_mode_discussion'))),
             ],
             onChanged: loading ? null : (value) => setState(() => interactionMode = value ?? 'read_only'),
           ),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            OutlinedButton.icon(onPressed: loading || photos.length >= maxPhotos ? null : pickPhoto, icon: const Icon(Icons.photo_library_outlined), label: Text('${text.isKy ? 'Сүрөт' : 'Фото'} ${photos.length}/$maxPhotos')),
-            OutlinedButton.icon(onPressed: loading || videos.isNotEmpty ? null : pickVideo, icon: const Icon(Icons.video_library_outlined), label: Text(videos.isEmpty ? (text.isKy ? 'Видео кошуу' : 'Добавить видео') : (text.isKy ? 'Видео кошулду' : 'Видео добавлено'))),
+          const SizedBox(height: KoomSpacing.md),
+          Wrap(spacing: KoomSpacing.sm, runSpacing: KoomSpacing.sm, children: [
+            OutlinedButton.icon(onPressed: loading || photos.length >= maxPhotos ? null : pickPhoto, icon: const Icon(Icons.photo_library_outlined), label: Text('${text.photoLabel} ${photos.length}/$maxPhotos')),
+            OutlinedButton.icon(onPressed: loading || videos.isNotEmpty ? null : pickVideo, icon: const Icon(Icons.video_library_outlined), label: Text(videos.isEmpty ? text.addVideo : text.videoAdded)),
           ]),
           if (content.hasMedia) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: KoomSpacing.md),
             PublicRequestMediaView(content: content, compact: false, onRemovePhoto: (photo) => setState(() => photos.remove(photo)), onRemoveVideo: (video) => setState(() => videos.remove(video))),
           ],
-          const SizedBox(height: 8),
-          Text(text.isKy ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.' : 'Максимум 3 фото. Видео до 12 MB.', style: TextStyle(color: _muted(context), fontSize: 12)),
-          if (error != null) ...[const SizedBox(height: 12), ErrorBanner(message: error!)],
-          const SizedBox(height: 16),
-          FilledButton(onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
+          const SizedBox(height: KoomSpacing.sm),
+          Text(text.mediaLimitsHint, style: Theme.of(context).textTheme.bodySmall),
+          if (error != null) ...[const SizedBox(height: KoomSpacing.md), ErrorBanner(message: error!)],
+          const SizedBox(height: KoomSpacing.lg),
+          FilledButton(key: const ValueKey('post_submit_button'), onPressed: loading ? null : submit, child: Text(loading ? text.publishing : text.publish)),
         ]),
       ),
     );

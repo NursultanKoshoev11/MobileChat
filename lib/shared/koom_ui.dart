@@ -808,6 +808,57 @@ class KoomSkeletonList extends StatelessWidget {
   }
 }
 
+/// A status shown as a small coloured dot plus a quiet label.
+///
+/// Use this for the secondary state of an item (a publication's moderation
+/// status, a job's result) when a second [KoomStatusPill] next to the first one
+/// would shout. The dot carries the colour, the label stays muted text.
+class KoomStatusDot extends StatelessWidget {
+  const KoomStatusDot({
+    super.key,
+    required this.color,
+    required this.label,
+    this.size = 8,
+  });
+
+  /// Colour of the dot. The label is always muted text so that the dot alone
+  /// carries the state.
+  final Color color;
+  final String label;
+
+  /// Diameter of the dot.
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ExcludeSemantics(
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+        ),
+        const SizedBox(width: KoomSpacing.sm),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: colors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Single-line search box used above a list. Shows a clear button as soon as
 /// the field has text.
 class KoomSearchField extends StatelessWidget {

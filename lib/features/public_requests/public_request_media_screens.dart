@@ -7,7 +7,6 @@ import '../../data/blocked_users.dart';
 import '../../data/public_request.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
-import '../../shared/ui_helpers.dart';
 import 'public_request_media_widgets.dart';
 import '../safety/safety_ui.dart';
 
@@ -60,6 +59,16 @@ String _statusLabel(AppText text, String value) {
   }
 }
 
+/// Minimum size of an interactive area, per the platform accessibility
+/// guidelines. Used for the menus and links on the post card.
+const double kKoomMinTapTarget = 48;
+
+/// A post card: author row, one type chip plus a status dot, title, body,
+/// media, poll and a footer with the vote count and the comment link.
+///
+/// The constructor is kept source-compatible with the previous version: the
+/// publications list, the moderation screen and the detail screens all build
+/// this widget with the same named arguments.
 class MediaPublicRequestCard extends StatelessWidget {
   const MediaPublicRequestCard({
     super.key,
@@ -86,228 +95,348 @@ class MediaPublicRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
     final content = request.content;
-    final statusColor = _statusColor(context, request.status);
     final canOpen = request.interactionMode == 'discussion';
 
     return KoomCard(
-      margin: const EdgeInsets.only(bottom: 13),
-      padding: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: KoomSpacing.md),
+      padding: const EdgeInsets.all(KoomSpacing.lg),
       onTap: canOpen && showOpenAction ? onTap : null,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                KoomAvatar(
-                  label: request.authorId.isEmpty
-                      ? text.deletedAccount
-                      : request.authorName,
-                  radius: 20,
-                  imageBytes: request.authorAvatarBytes,
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        request.authorId.isEmpty
-                            ? text.deletedAccount
-                            : request.authorName.trim().isEmpty
-                            ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
-                            : request.authorName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textStrong,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        compactTime(request.createdAt.toLocal()),
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (safetyMenu != null) safetyMenu!,
-                if (canModerate && onStatus != null)
-                  PopupMenuButton<String>(
-                    key: ValueKey('public_request_status_${request.id}'),
-                    tooltip: text.adminStatus,
-                    icon: const Icon(Icons.more_horiz_rounded),
-                    onSelected: onStatus,
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        key: const ValueKey(
-                          'public_request_status_under_review',
-                        ),
-                        value: 'under_review',
-                        child: Text(text.statusUnderReview),
-                      ),
-                      PopupMenuItem(
-                        key: const ValueKey('public_request_status_resolved'),
-                        value: 'resolved',
-                        child: Text(text.statusResolved),
-                      ),
-                      PopupMenuItem(
-                        key: const ValueKey('public_request_status_new'),
-                        value: 'new',
-                        child: Text(text.statusNew),
-                      ),
-                      PopupMenuItem(
-                        key: const ValueKey('public_request_status_rejected'),
-                        value: 'rejected',
-                        child: Text(text.statusRejected),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 13),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                KoomStatusPill(
-                  label: _requestTypeLabel(text, request.requestType),
-                  icon: _requestTypeIcon(request.requestType),
-                ),
-                KoomStatusPill(
-                  label: _statusLabel(text, request.status),
-                  icon: _statusIcon(request.status),
-                  color: statusColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _AuthorRow(
+            request: request,
+            canModerate: canModerate,
+            onStatus: onStatus,
+            safetyMenu: safetyMenu,
+          ),
+          const SizedBox(height: KoomSpacing.md),
+          _MetaRow(request: request),
+          const SizedBox(height: KoomSpacing.md),
+          Text(
+            request.title,
+            style: textTheme.titleMedium?.copyWith(height: 1.3),
+          ),
+          if (request.displayBody.isNotEmpty) ...[
+            const SizedBox(height: KoomSpacing.sm),
             Text(
-              request.title,
-              style: TextStyle(
-                color: colors.textStrong,
-                fontSize: 17,
-                height: 1.25,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.15,
-              ),
+              request.displayBody,
+              maxLines: compact ? (content.hasMedia ? 3 : 5) : null,
+              overflow:
+                  compact ? TextOverflow.ellipsis : TextOverflow.visible,
+              style: textTheme.bodyMedium,
             ),
-            if (request.displayBody.isNotEmpty) ...[
-              const SizedBox(height: 7),
-              Text(
-                request.displayBody,
-                maxLines: compact ? (content.hasMedia ? 3 : 5) : null,
-                overflow:
-                    compact ? TextOverflow.ellipsis : TextOverflow.visible,
-                style: TextStyle(
-                  color: colors.textStrong,
-                  height: 1.42,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-            if (content.hasMedia) ...[
-              const SizedBox(height: 12),
-              PublicRequestMediaView(content: content, compact: compact),
-            ],
-            if (request.interactionMode != 'read_only') ...[
-              const SizedBox(height: 14),
-              _TelegramPoll(
-                request: request,
-                onVote: onVote,
-              ),
-            ] else ...[
-              const SizedBox(height: 13),
-              Divider(color: colors.border),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 18,
-                    color: colors.textMuted,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    _interactionModeLabel(text, request.interactionMode),
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (request.interactionMode == 'discussion' && showOpenAction) ...[
-              const SizedBox(height: 10),
-              Material(
-                color: colors.page,
-                borderRadius: BorderRadius.circular(15),
-                child: InkWell(
-                  key: ValueKey('public_request_read_${request.id}'),
-                  borderRadius: BorderRadius.circular(15),
-                  onTap: onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 11,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 19,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            text.comments,
-                            style: TextStyle(
-                              color: colors.textStrong,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${request.commentCount}',
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: colors.textMuted,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
-        ),
+          if (content.hasMedia) ...[
+            const SizedBox(height: KoomSpacing.lg),
+            PublicRequestMediaView(content: content, compact: compact),
+          ],
+          if (request.interactionMode != 'read_only') ...[
+            const SizedBox(height: KoomSpacing.lg),
+            _PollBlock(request: request, onVote: onVote),
+          ],
+          const SizedBox(height: KoomSpacing.sm),
+          Divider(color: colors.border, height: 1),
+          _FooterRow(
+            request: request,
+            showOpenAction: showOpenAction,
+            onTap: onTap,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TelegramPoll extends StatelessWidget {
-  const _TelegramPoll({required this.request, required this.onVote});
+class _AuthorRow extends StatelessWidget {
+  const _AuthorRow({
+    required this.request,
+    required this.canModerate,
+    required this.onStatus,
+    required this.safetyMenu,
+  });
+
+  final PublicRequest request;
+  final bool canModerate;
+  final ValueChanged<String>? onStatus;
+  final Widget? safetyMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final textTheme = Theme.of(context).textTheme;
+    final authorName = request.authorId.isEmpty
+        ? text.deletedAccount
+        : request.authorName.trim().isEmpty
+            ? text.unnamedUser
+            : request.authorName.trim();
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: kKoomMinTapTarget),
+      child: Row(
+        children: [
+          KoomAvatar(
+            label: authorName,
+            radius: 21,
+            imageBytes: request.authorAvatarBytes,
+          ),
+          const SizedBox(width: KoomSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  authorName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall,
+                ),
+                Text(
+                  koomRelativeTime(text, request.createdAt.toLocal()),
+                  style: textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          if (safetyMenu != null) safetyMenu!,
+          if (canModerate && onStatus != null)
+            SizedBox(
+              width: kKoomMinTapTarget,
+              height: kKoomMinTapTarget,
+              child: PopupMenuButton<String>(
+                key: ValueKey('public_request_status_${request.id}'),
+                tooltip: text.adminStatus,
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.more_horiz_rounded),
+                onSelected: onStatus,
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    key: const ValueKey(
+                      'public_request_status_under_review',
+                    ),
+                    value: 'under_review',
+                    child: Text(text.statusUnderReview),
+                  ),
+                  PopupMenuItem(
+                    key: const ValueKey('public_request_status_resolved'),
+                    value: 'resolved',
+                    child: Text(text.statusResolved),
+                  ),
+                  PopupMenuItem(
+                    key: const ValueKey('public_request_status_new'),
+                    value: 'new',
+                    child: Text(text.statusNew),
+                  ),
+                  PopupMenuItem(
+                    key: const ValueKey('public_request_status_rejected'),
+                    value: 'rejected',
+                    child: Text(text.statusRejected),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One chip for the post type, and the status as a dot plus a quiet label.
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.request});
+
+  final PublicRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    // Both halves are Flexible so neither can claim its natural width: the
+    // chip has its own max width, and on a narrow phone at a large text scale
+    // that would otherwise leave the status dot no room at all.
+    return Row(
+      children: [
+        Flexible(
+          child: KoomStatusPill(
+            key: ValueKey('public_request_type_${request.id}'),
+            label: _requestTypeLabel(text, request.requestType),
+            icon: _requestTypeIcon(request.requestType),
+          ),
+        ),
+        const SizedBox(width: KoomSpacing.md),
+        Flexible(
+          child: KoomStatusDot(
+            key: ValueKey('public_request_status_dot_${request.id}'),
+            color: _statusColor(context, request.status),
+            label: _statusLabel(text, request.status),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Vote total on the left, comment link on the right.
+class _FooterRow extends StatelessWidget {
+  const _FooterRow({
+    required this.request,
+    required this.showOpenAction,
+    required this.onTap,
+  });
+
+  final PublicRequest request;
+  final bool showOpenAction;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = AppLanguageScope.textOf(context);
+    final colors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final totalVotes = request.supportCount + request.opposeCount;
+    final isDiscussion = request.interactionMode == 'discussion';
+
+    // Both halves of the footer live in a flex slot of the row below, so every
+    // label here can be Flexible and ellipsize. Narrow phones at a large text
+    // scale, and Kyrgyz labels (which run longer than the Russian), both need
+    // that: nothing in this row may claim its natural width.
+    Widget stat(IconData icon, String label, {Key? labelKey}) {
+      return SizedBox(
+        height: kKoomMinTapTarget,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: colors.textMuted),
+            const SizedBox(width: KoomSpacing.sm),
+            Flexible(
+              child: Text(
+                label,
+                key: labelKey,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelLarge?.copyWith(
+                  color: colors.textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final leading = request.interactionMode == 'read_only'
+        ? stat(
+            Icons.visibility_outlined,
+            _interactionModeLabel(text, request.interactionMode),
+          )
+        : stat(
+            Icons.how_to_vote_outlined,
+            '${text.votesLabel}: $totalVotes',
+            labelKey: ValueKey('public_request_vote_total_${request.id}'),
+          );
+
+    Widget? trailing;
+    if (isDiscussion && showOpenAction) {
+      trailing = SizedBox(
+        height: kKoomMinTapTarget,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: KoomRadii.smAll,
+          child: InkWell(
+            key: ValueKey('public_request_read_${request.id}'),
+            borderRadius: KoomRadii.smAll,
+            onTap: onTap,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: KoomSpacing.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 18,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: KoomSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      text.comments,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: KoomSpacing.sm),
+                  Text(
+                    '${request.commentCount}',
+                    key: ValueKey(
+                      'public_request_comment_count_${request.id}',
+                    ),
+                    maxLines: 1,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: colors.textMuted,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (isDiscussion) {
+      trailing = stat(
+        Icons.chat_bubble_outline_rounded,
+        '${text.comments}: ${request.commentCount}',
+        labelKey: ValueKey('public_request_comment_count_${request.id}'),
+      );
+    }
+
+    final footer = trailing;
+    if (footer == null) return leading;
+
+    // Same heuristic as [KoomResponsiveActions]: on a narrow phone, or at a
+    // large text scale, the vote total and the comment link stop sharing a
+    // line. Side by side there is not enough width for both in either
+    // language, and the Kyrgyz labels are the longer pair.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaledBodySize = MediaQuery.textScalerOf(context).scale(14);
+        final stackVertically =
+            constraints.maxWidth < 340 || scaledBodySize > 17.5;
+
+        if (stackVertically) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [leading, footer],
+          );
+        }
+
+        // Expanded keeps the link pinned right; Flexible lets it give way
+        // rather than claim its natural width and push the row over the edge.
+        return Row(
+          children: [
+            Expanded(child: leading),
+            const SizedBox(width: KoomSpacing.sm),
+            Flexible(child: footer),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PollBlock extends StatelessWidget {
+  const _PollBlock({required this.request, required this.onVote});
 
   final PublicRequest request;
   final ValueChanged<String> onVote;
@@ -316,6 +445,7 @@ class _TelegramPoll extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
     final totalVotes = request.supportCount + request.opposeCount;
     final supportPercent = totalVotes == 0
         ? 0
@@ -323,10 +453,10 @@ class _TelegramPoll extends StatelessWidget {
     final opposePercent = totalVotes == 0 ? 0 : 100 - supportPercent;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: const EdgeInsets.all(KoomSpacing.md),
       decoration: BoxDecoration(
         color: colors.page,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: KoomRadii.mdAll,
         border: Border.all(color: colors.border),
       ),
       child: Column(
@@ -336,59 +466,39 @@ class _TelegramPoll extends StatelessWidget {
             children: [
               Icon(
                 Icons.poll_outlined,
-                size: 19,
+                size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: KoomSpacing.sm),
               Expanded(
-                child: Text(
-                  text.isKy ? 'Добуш берүү' : 'Голосование',
-                  style: TextStyle(
-                    color: colors.textStrong,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Text(
-                text.isKy ? '$totalVotes добуш' : '$totalVotes голосов',
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+                child: Text(text.voting, style: textTheme.titleSmall),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _TelegramPollOption(
+          const SizedBox(height: KoomSpacing.md),
+          _PollOption(
             key: ValueKey('public_request_support_${request.id}'),
-            label: text.isKy ? 'Колдойм' : 'Поддерживаю',
+            label: text.voteSupport,
             votes: request.supportCount,
             percentage: supportPercent,
             selected: request.supportedByMe,
             onTap: () => onVote('support'),
           ),
-          const SizedBox(height: 8),
-          _TelegramPollOption(
+          const SizedBox(height: KoomSpacing.sm),
+          _PollOption(
             key: ValueKey('public_request_oppose_${request.id}'),
-            label: text.isKy ? 'Колдобойм' : 'Не поддерживаю',
+            label: text.voteOppose,
             votes: request.opposeCount,
             percentage: opposePercent,
             selected: request.opposedByMe,
             onTap: () => onVote('oppose'),
           ),
           if (request.myVote != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: KoomSpacing.sm),
             Text(
-              text.isKy
-                  ? 'Тандалган вариантты кайра бассаңыз, добуш өчүрүлөт.'
-                  : 'Нажмите выбранный вариант ещё раз, чтобы убрать голос.',
+              text.voteToggleHint,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 11,
-                height: 1.3,
-              ),
+              style: textTheme.bodySmall,
             ),
           ],
         ],
@@ -397,8 +507,8 @@ class _TelegramPoll extends StatelessWidget {
   }
 }
 
-class _TelegramPollOption extends StatelessWidget {
-  const _TelegramPollOption({
+class _PollOption extends StatelessWidget {
+  const _PollOption({
     super.key,
     required this.label,
     required this.votes,
@@ -417,6 +527,7 @@ class _TelegramPollOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final progress = (percentage / 100).clamp(0.0, 1.0).toDouble();
 
     return Semantics(
@@ -426,12 +537,12 @@ class _TelegramPollOption extends StatelessWidget {
       child: Material(
         color:
             selected ? scheme.primary.withValues(alpha: 0.09) : colors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: KoomRadii.smAll,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: KoomRadii.smAll,
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+            padding: const EdgeInsets.all(KoomSpacing.md),
             child: Column(
               children: [
                 Row(
@@ -440,38 +551,28 @@ class _TelegramPollOption extends StatelessWidget {
                       selected
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
-                      size: 21,
+                      size: 20,
                       color: selected ? scheme.primary : colors.textMuted,
                     ),
-                    const SizedBox(width: 9),
+                    const SizedBox(width: KoomSpacing.sm),
                     Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: colors.textStrong,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      child: Text(label, style: textTheme.titleSmall),
                     ),
                     Text(
                       '$percentage%',
-                      style: TextStyle(
+                      style: textTheme.labelLarge?.copyWith(
                         color: selected ? scheme.primary : colors.textMuted,
-                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: KoomSpacing.sm),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: KoomRadii.pillAll,
                   child: LayoutBuilder(
                     builder: (context, constraints) => Stack(
                       children: [
-                        Container(
-                          height: 5,
-                          color: colors.border,
-                        ),
+                        Container(height: 5, color: colors.border),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 260),
                           curve: Curves.easeOutCubic,
@@ -504,21 +605,10 @@ IconData _requestTypeIcon(String value) {
   };
 }
 
-IconData _statusIcon(String value) {
-  return switch (value) {
-    'new' => Icons.fiber_new_rounded,
-    'under_review' => Icons.hourglass_top_rounded,
-    'resolved' => Icons.task_alt_rounded,
-    'accepted' => Icons.check_circle_outline_rounded,
-    'rejected' => Icons.cancel_outlined,
-    _ => Icons.info_outline_rounded,
-  };
-}
-
 Color _statusColor(BuildContext context, String value) {
   return switch (value) {
     'resolved' || 'accepted' => const Color(0xFF16A36A),
-    'rejected' => Theme.of(context).colorScheme.error,
+    'rejected' => context.appColors.danger,
     'under_review' => const Color(0xFFF59E0B),
     _ => Theme.of(context).colorScheme.primary,
   };
@@ -549,7 +639,12 @@ class MediaPublicRequestDetailsScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: BlockedUsersController.instance,
         builder: (context, _) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            KoomSpacing.lg,
+            KoomSpacing.md,
+            KoomSpacing.lg,
+            KoomSpacing.xl,
+          ),
           children: [
             if (BlockedUsersController.instance.isBlocked(request.authorId))
               const BlockedContentNotice()

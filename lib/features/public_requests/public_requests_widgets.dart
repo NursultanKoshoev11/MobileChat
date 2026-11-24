@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/appearance.dart';
@@ -20,6 +17,7 @@ import '../../shared/phone_input.dart';
 import '../../shared/ui_helpers.dart';
 import '../safety/safety_ui.dart';
 import 'public_request_media_screens.dart';
+import 'public_request_media_widgets.dart';
 
 class EmptyPostsView extends StatelessWidget {
   const EmptyPostsView({super.key, required this.onCreate});
@@ -120,11 +118,16 @@ class _GroupAccessSheetState extends State<GroupAccessSheet> {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.all(10),
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
+        margin: const EdgeInsets.all(KoomSpacing.md),
+        padding: const EdgeInsets.fromLTRB(
+          KoomSpacing.lg,
+          KoomSpacing.lg,
+          KoomSpacing.lg,
+          KoomSpacing.xl,
+        ),
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: KoomRadii.lgAll,
           border: Border.all(color: colors.border),
         ),
         child: Column(
@@ -138,10 +141,7 @@ class _GroupAccessSheetState extends State<GroupAccessSheet> {
                     groupTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                    ),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
                 IconButton.filledTonal(
@@ -150,24 +150,22 @@ class _GroupAccessSheetState extends State<GroupAccessSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: KoomSpacing.md),
             SelectableText(
               code,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textStrong,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colors.textStrong,
+                    letterSpacing: 1.2,
+                  ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: KoomSpacing.lg),
             Center(
               child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
+                padding: const EdgeInsets.all(KoomSpacing.lg),
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: KoomRadii.mdAll,
                 ),
                 child: QrImageView(
                   data: qrValue,
@@ -177,7 +175,7 @@ class _GroupAccessSheetState extends State<GroupAccessSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: KoomSpacing.md),
             Text(
               text.isKy
                   ? 'Бул кодду же QR кодду башка колдонуучуга бериңиз.'
@@ -189,7 +187,7 @@ class _GroupAccessSheetState extends State<GroupAccessSheet> {
               ),
             ),
             if (widget.onRotate != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: KoomSpacing.md),
               OutlinedButton.icon(
                 key: const ValueKey('rotate_invite_code_button'),
                 onPressed: rotating ? null : rotate,
@@ -272,9 +270,9 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
             text.isKy ? 'Телефон менен чакыруу' : 'Пригласить по телефону',
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.titleLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: KoomSpacing.lg),
           TextField(
             controller: phoneController,
             keyboardType: TextInputType.phone,
@@ -289,10 +287,10 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
             ),
           ),
           if (error != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: KoomSpacing.md),
             ErrorBanner(message: error!),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: KoomSpacing.lg),
           FilledButton(
             onPressed: loading ? null : submit,
             child: Text(
@@ -302,579 +300,6 @@ class _InviteByPhoneSheetState extends State<InviteByPhoneSheet> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-Uint8List? _decodePostPhoto(String value) {
-  final raw = value.trim();
-  if (raw.isEmpty) return null;
-  final data = raw.contains(',') ? raw.split(',').last : raw;
-  try {
-    return base64Decode(data);
-  } catch (_) {
-    return null;
-  }
-}
-
-String _photoLabel(BuildContext context) {
-  final text = AppLanguageScope.textOf(context);
-  return text.isKy ? 'Сүрөт' : 'Фото';
-}
-
-class _PostPhotoPreview extends StatelessWidget {
-  const _PostPhotoPreview({required this.photos, this.compact = true});
-
-  final List<PublicRequestPhoto> photos;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final visiblePhotos = photos
-        .where((photo) => photo.base64Data.trim().isNotEmpty)
-        .take(3)
-        .toList(growable: false);
-    if (visiblePhotos.isEmpty) return const SizedBox.shrink();
-    final decoded = _decodePostPhoto(visiblePhotos.first.base64Data);
-    if (decoded == null) return const SizedBox.shrink();
-    final radius = BorderRadius.circular(18);
-    final image = Image.memory(
-      decoded,
-      width: double.infinity,
-      height: compact ? 170 : null,
-      fit: compact ? BoxFit.cover : BoxFit.contain,
-      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.photo_outlined, size: 16),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                '${_photoLabel(context)}${visiblePhotos.length > 1 ? ' (${visiblePhotos.length})' : ''}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: context.appColors.textMuted,
-                    ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () => _openPhotoViewer(context, decoded),
-          child: ClipRRect(borderRadius: radius, child: image),
-        ),
-      ],
-    );
-  }
-}
-
-void _openPhotoViewer(BuildContext context, Uint8List bytes) {
-  showDialog<void>(
-    context: context,
-    builder: (_) => Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      backgroundColor: Colors.black,
-      child: Stack(
-        children: [
-          InteractiveViewer(
-            minScale: 0.7,
-            maxScale: 4,
-            child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
-          ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: IconButton.filledTonal(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class PublicRequestCard extends StatelessWidget {
-  const PublicRequestCard({
-    super.key,
-    required this.request,
-    required this.onTap,
-    required this.onVote,
-    this.canModerate = false,
-    this.onStatus,
-  });
-  final PublicRequest request;
-  final VoidCallback onTap;
-  final ValueChanged<String> onVote;
-  final bool canModerate;
-  final ValueChanged<String>? onStatus;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    final colors = context.appColors;
-    final requestPhotos = request.content.photos;
-    String typeLabel(String value) {
-      switch (value) {
-        case 'announcement':
-          return text.announcement;
-        case 'suggestion':
-          return text.suggestion;
-        case 'complaint':
-          return text.complaint;
-        case 'requirement':
-          return text.requirement;
-        case 'problem':
-          return text.problem;
-        case 'idea':
-          return text.idea;
-        default:
-          return value;
-      }
-    }
-
-    String modeLabel(String value) {
-      switch (value) {
-        case 'read_only':
-          return text.textOnly;
-        case 'vote_only':
-          return text.votingOnly;
-        case 'discussion':
-          return text.discussionWithComments;
-        default:
-          return value;
-      }
-    }
-
-    String statusLabel(String value) {
-      switch (value) {
-        case 'new':
-          return text.statusNew;
-        case 'under_review':
-          return text.statusUnderReview;
-        case 'resolved':
-          return text.statusResolved;
-        case 'rejected':
-          return text.statusRejected;
-        default:
-          return value;
-      }
-    }
-
-    final statusText = [
-      typeLabel(request.requestType),
-      modeLabel(request.interactionMode),
-      statusLabel(request.status),
-      if (canModerate && onStatus != null) text.adminStatus,
-    ].join(' · ');
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
-        elevation: 2,
-        shadowColor: colors.shadow,
-        color: colors.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-          side: BorderSide(color: colors.border),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: request.interactionMode == 'discussion' ? onTap : null,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        statusText,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colors.textMuted,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ),
-                    if (canModerate && onStatus != null)
-                      _StatusButton(onChanged: onStatus!),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  request.title,
-                  style: TextStyle(
-                    color: colors.textStrong,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (request.displayBody.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    request.displayBody,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (requestPhotos.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _PostPhotoPreview(photos: requestPhotos),
-                ],
-                const SizedBox(height: 10),
-                Text(
-                  '${text.isKy ? 'Автор' : 'Автор'}: ${request.authorId.isEmpty ? text.deletedAccount : request.authorName}',
-                  style: TextStyle(color: colors.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (request.interactionMode == 'discussion')
-                      FilledButton.tonal(
-                        onPressed: onTap,
-                        child: Text(text.read),
-                      ),
-                    if (request.interactionMode != 'read_only')
-                      OutlinedButton.icon(
-                        onPressed: () => onVote('support'),
-                        icon: Icon(
-                          request.supportedByMe
-                              ? Icons.thumb_up_alt_rounded
-                              : Icons.thumb_up_alt_outlined,
-                        ),
-                        label: Text('${request.supportCount}'),
-                      ),
-                    if (request.interactionMode != 'read_only')
-                      OutlinedButton.icon(
-                        onPressed: () => onVote('oppose'),
-                        icon: Icon(
-                          request.opposedByMe
-                              ? Icons.thumb_down_alt_rounded
-                              : Icons.thumb_down_alt_outlined,
-                        ),
-                        label: Text('${request.opposeCount}'),
-                      ),
-                    if (request.interactionMode == 'discussion')
-                      Text(
-                        '${request.commentCount} ${text.comments}',
-                        style: TextStyle(color: colors.textMuted),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusButton extends StatelessWidget {
-  const _StatusButton({required this.onChanged});
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    return PopupMenuButton<String>(
-      onSelected: onChanged,
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'under_review',
-          child: Text(text.statusUnderReview),
-        ),
-        PopupMenuItem(value: 'resolved', child: Text(text.statusResolved)),
-        PopupMenuItem(value: 'new', child: Text(text.statusNew)),
-        PopupMenuItem(value: 'rejected', child: Text(text.statusRejected)),
-      ],
-      tooltip: text.adminStatus,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Icon(
-          Icons.sync_alt_rounded,
-          size: 18,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-    );
-  }
-}
-
-class CreatePublicRequestSheet extends StatefulWidget {
-  const CreatePublicRequestSheet({
-    super.key,
-    required this.api,
-    required this.group,
-  });
-  final PublicRequestsApi api;
-  final ChatGroup group;
-
-  @override
-  State<CreatePublicRequestSheet> createState() =>
-      _CreatePublicRequestSheetState();
-}
-
-class _CreatePublicRequestSheetState extends State<CreatePublicRequestSheet> {
-  final titleController = TextEditingController();
-  final bodyController = TextEditingController();
-  String type = 'announcement';
-  String interactionMode = 'read_only';
-  final ImagePicker imagePicker = ImagePicker();
-  final List<PublicRequestPhoto> photos = [];
-  bool loading = false;
-  String? error;
-
-  static const int maxPhotoBytes = 900 * 1024;
-
-  Future<void> pickPhoto() async {
-    if (loading) return;
-    try {
-      final image = await imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        imageQuality: 72,
-      );
-      if (image == null) return;
-      final bytes = await image.readAsBytes();
-      if (!mounted) return;
-      if (bytes.length > maxPhotoBytes) {
-        setState(
-          () => error = AppLanguageScope.textOf(context).isKy
-              ? 'Фото өтө чоң. Башка сүрөт тандаңыз.'
-              : 'Фото слишком большое. Выберите другое фото.',
-        );
-        return;
-      }
-      setState(() {
-        photos
-          ..clear()
-          ..add(
-            PublicRequestPhoto(
-              name: image.name.isNotEmpty ? image.name : 'photo.jpg',
-              sizeBytes: bytes.length,
-              base64Data: base64Encode(bytes),
-            ),
-          );
-        error = null;
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(
-          () => error = AppLanguageScope.textOf(context).isKy
-              ? 'Фото тандалган жок: $e'
-              : 'Не удалось выбрать фото: $e',
-        );
-      }
-    }
-  }
-
-  void removePhoto() {
-    if (loading) return;
-    setState(() => photos.clear());
-  }
-
-  @override
-  void dispose() {
-    titleController.dispose();
-    bodyController.dispose();
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    final bodyText = bodyController.text.trim();
-    if (bodyText.isEmpty && photos.isEmpty) {
-      setState(
-        () => error = AppLanguageScope.textOf(context).isKy
-            ? 'Текст же фото кошуңуз.'
-            : 'Добавьте текст или фото.',
-      );
-      return;
-    }
-    final payload = PublicRequestContent(
-      text: bodyText,
-      photos: List.of(photos),
-    ).toPayload();
-    setState(() {
-      loading = true;
-      error = null;
-    });
-    try {
-      await widget.api.createRequest(
-        groupId: widget.group.id,
-        type: type,
-        interactionMode: interactionMode,
-        title: titleController.text.trim(),
-        body: payload,
-      );
-      if (mounted) Navigator.of(context).pop(true);
-    } on ModerationPendingException catch (e) {
-      titleController.clear();
-      bodyController.clear();
-      photos.clear();
-      if (mounted) {
-        setState(() => error = null);
-        showAppSnack(context, e.message);
-        Navigator.of(context).pop(false);
-      }
-    } catch (e) {
-      if (mounted) setState(() => error = e.toString());
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = AppLanguageScope.textOf(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 22,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              text.newPost,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: type,
-              decoration: InputDecoration(labelText: text.postType),
-              items: [
-                DropdownMenuItem(
-                  value: 'announcement',
-                  child: Text(text.announcement),
-                ),
-                DropdownMenuItem(
-                  value: 'suggestion',
-                  child: Text(text.suggestion),
-                ),
-                DropdownMenuItem(
-                  value: 'complaint',
-                  child: Text(text.complaint),
-                ),
-                DropdownMenuItem(
-                  value: 'requirement',
-                  child: Text(text.requirement),
-                ),
-                DropdownMenuItem(value: 'problem', child: Text(text.problem)),
-                DropdownMenuItem(value: 'idea', child: Text(text.idea)),
-              ],
-              onChanged: loading
-                  ? null
-                  : (value) => setState(() => type = value ?? 'announcement'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              key: const ValueKey('post_mode_dropdown'),
-              value: interactionMode,
-              decoration: InputDecoration(labelText: text.interactionMode),
-              items: [
-                DropdownMenuItem(
-                  value: 'read_only',
-                  child: Text(text.textOnly),
-                ),
-                DropdownMenuItem(
-                  value: 'vote_only',
-                  child: Text(text.votingOnly),
-                ),
-                DropdownMenuItem(
-                  value: 'discussion',
-                  child: Text(
-                    text.discussionWithComments,
-                    key: const ValueKey('post_mode_discussion'),
-                  ),
-                ),
-              ],
-              onChanged: loading
-                  ? null
-                  : (value) =>
-                      setState(() => interactionMode = value ?? 'read_only'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('post_title_field'),
-              controller: titleController,
-              decoration: InputDecoration(labelText: text.title),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('post_body_field'),
-              controller: bodyController,
-              minLines: 4,
-              maxLines: 8,
-              decoration: InputDecoration(labelText: text.description),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: loading ? null : pickPhoto,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(
-                photos.isEmpty
-                    ? (text.isKy ? 'Фото кошуу' : 'Добавить фото')
-                    : (text.isKy ? 'Фото алмаштыруу' : 'Заменить фото'),
-              ),
-            ),
-            if (photos.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Stack(
-                children: [
-                  _PostPhotoPreview(photos: photos, compact: false),
-                  Positioned(
-                    top: 32,
-                    right: 8,
-                    child: IconButton.filledTonal(
-                      onPressed: removePhoto,
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      tooltip: text.isKy ? 'Фото өчүрүү' : 'Удалить фото',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${(photos.first.sizeBytes / 1024).round()} KB',
-                style: TextStyle(
-                  color: context.appColors.textMuted,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              ErrorBanner(message: error!),
-            ],
-            const SizedBox(height: 16),
-            FilledButton(
-              key: const ValueKey('post_submit_button'),
-              onPressed: loading ? null : submit,
-              child: Text(loading ? text.publishing : text.publish),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1199,7 +624,12 @@ class _PublicRequestDetailsScreenState
                 physics: const AlwaysScrollableScrollPhysics(),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.md,
+                  KoomSpacing.lg,
+                  KoomSpacing.xl,
+                ),
                 children: [
                   if (BlockedUsersController.instance
                       .isBlocked(request.authorId))
@@ -1234,7 +664,7 @@ class _PublicRequestDetailsScreenState
                       compact: false,
                       showOpenAction: false,
                     ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: KoomSpacing.xl),
                   Row(
                     children: [
                       Container(
@@ -1245,7 +675,7 @@ class _PublicRequestDetailsScreenState
                               .colorScheme
                               .primary
                               .withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: KoomRadii.smAll,
                         ),
                         child: Icon(
                           Icons.forum_outlined,
@@ -1253,59 +683,53 @@ class _PublicRequestDetailsScreenState
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: KoomSpacing.md),
                       Expanded(
                         child: Text(
                           text.comments,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
+                          horizontal: KoomSpacing.md,
+                          vertical: KoomSpacing.xs,
                         ),
                         decoration: BoxDecoration(
                           color: colors.page,
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: KoomRadii.pillAll,
                           border: Border.all(color: colors.border),
                         ),
                         child: Text(
                           '${comments.length}',
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          key: const ValueKey('request_comments_count'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(color: colors.textMuted),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: KoomSpacing.md),
                   if (error != null) ...[
                     ErrorBanner(message: error!),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: KoomSpacing.md),
                   ],
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !commentsLoaded)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 28),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
+                    const CommentListSkeleton()
                   else if (snapshot.hasError)
                     ErrorBanner(message: snapshot.error.toString())
                   else if (comments.isEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 28,
+                        horizontal: KoomSpacing.xl,
+                        vertical: KoomSpacing.xxl,
                       ),
                       decoration: BoxDecoration(
                         color: colors.surface,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: KoomRadii.lgAll,
                         border: Border.all(color: colors.border),
                       ),
                       child: Column(
@@ -1315,24 +739,17 @@ class _PublicRequestDetailsScreenState
                             size: 30,
                             color: colors.textMuted,
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: KoomSpacing.md),
                           Text(
-                            text.isKy
-                                ? 'Комментарий азырынча жок.'
-                                : 'Комментариев пока нет.',
+                            text.noCommentsYet,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colors.textStrong,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: KoomSpacing.xs),
                           Text(
-                            text.isKy
-                                ? 'Биринчи болуп пикириңизди жазыңыз.'
-                                : 'Напишите первый комментарий.',
+                            text.beFirstToComment,
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: colors.textMuted),
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),
@@ -1377,10 +794,10 @@ class _PublicRequestDetailsScreenState
                 top: false,
                 child: Material(
                   color: colors.surface,
-                  elevation: 12,
+                  elevation: KoomElevation.high,
                   shadowColor: colors.shadow,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    padding: const EdgeInsets.all(KoomSpacing.md),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1395,42 +812,26 @@ class _PublicRequestDetailsScreenState
                             onSubmitted: (_) {
                               if (canSubmitComment) submitComment();
                             },
+                            // Borders, fill and radius all come from the theme's
+                            // InputDecorationTheme (KoomRadii.sm) so the
+                            // composer matches every other field in the app.
                             decoration: InputDecoration(
-                              hintText: text.isKy
-                                  ? 'Комментарий кошуу'
-                                  : 'Добавить комментарий',
+                              hintText: text.addComment,
                               prefixIcon:
                                   const Icon(Icons.chat_bubble_outline_rounded),
-                              filled: true,
-                              fillColor: colors.page,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide(color: colors.border),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide(color: colors.border),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 1.5,
-                                ),
+                                horizontal: KoomSpacing.lg,
+                                vertical: KoomSpacing.md,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: KoomSpacing.sm),
                         SizedBox(
-                          width: 48,
-                          height: 48,
+                          width: kKoomMinTapTarget,
+                          height: kKoomMinTapTarget,
                           child: IconButton.filled(
-                            tooltip: text.isKy ? 'Жөнөтүү' : 'Отправить',
+                            tooltip: text.sendComment,
                             onPressed: canSubmitComment ? submitComment : null,
                             icon: sending
                                 ? const SizedBox(
@@ -1473,14 +874,16 @@ class _CommentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
     final colors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
     final authorName = comment.authorId.isEmpty
         ? text.deletedAccount
         : comment.authorName.trim().isEmpty
-        ? (text.isKy ? 'Колдонуучу' : 'Пользователь')
-        : comment.authorName.trim();
+            ? text.unnamedUser
+            : comment.authorName.trim();
+    final hasMenu = canDelete || safetyTarget.canReport;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: KoomSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1489,17 +892,24 @@ class _CommentTile extends StatelessWidget {
             radius: 18,
             imageBytes: comment.authorAvatarBytes,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: KoomSpacing.md),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(13, 10, 9, 11),
+              padding: EdgeInsets.fromLTRB(
+                KoomSpacing.md,
+                KoomSpacing.md,
+                hasMenu ? KoomSpacing.xs : KoomSpacing.md,
+                KoomSpacing.md,
+              ),
               decoration: BoxDecoration(
                 color: colors.surface,
+                // Tighter corner towards the avatar, so the bubble reads as
+                // belonging to it. Both values are radius tokens.
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
+                  topLeft: Radius.circular(KoomRadii.sm),
+                  topRight: Radius.circular(KoomRadii.md),
+                  bottomLeft: Radius.circular(KoomRadii.md),
+                  bottomRight: Radius.circular(KoomRadii.md),
                 ),
                 border: Border.all(color: colors.border),
               ),
@@ -1513,70 +923,105 @@ class _CommentTile extends StatelessWidget {
                           authorName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.textStrong,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style: textTheme.titleSmall,
                         ),
                       ),
+                      const SizedBox(width: KoomSpacing.sm),
                       Text(
-                        compactTime(comment.createdAt.toLocal()),
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        koomRelativeTime(text, comment.createdAt.toLocal()),
+                        style: textTheme.bodySmall,
                       ),
-                      if (canDelete || safetyTarget.canReport)
-                        PopupMenuButton<String>(
-                          key: ValueKey('comment_menu_${comment.id}'),
-                          tooltip: text.isKy ? 'Меню' : 'Меню',
-                          padding: EdgeInsets.zero,
-                          iconSize: 19,
-                          icon: Icon(
-                            Icons.more_vert_rounded,
-                            color: colors.textMuted,
-                          ),
-                          onSelected: (value) {
-                            if (value == 'delete') {
-                              onDelete();
-                            } else if (SafetyMenuAction.isSafetyAction(value)) {
-                              onSafetyAction(value, safetyTarget);
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            if (canDelete)
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.delete_outline_rounded),
-                                    const SizedBox(width: 10),
-                                    Text(text.isKy ? 'Өчүрүү' : 'Удалить'),
-                                  ],
+                      if (hasMenu)
+                        SizedBox(
+                          width: kKoomMinTapTarget,
+                          height: kKoomMinTapTarget,
+                          child: PopupMenuButton<String>(
+                            key: ValueKey('comment_menu_${comment.id}'),
+                            tooltip: text.moreActions,
+                            padding: EdgeInsets.zero,
+                            iconSize: 20,
+                            icon: Icon(
+                              Icons.more_vert_rounded,
+                              color: colors.textMuted,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'delete') {
+                                onDelete();
+                              } else if (SafetyMenuAction.isSafetyAction(
+                                value,
+                              )) {
+                                onSafetyAction(value, safetyTarget);
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              if (canDelete)
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.delete_outline_rounded),
+                                      const SizedBox(width: KoomSpacing.md),
+                                      Text(text.deleteItem),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ...safetyMenuEntries(text, safetyTarget),
-                          ],
+                              ...safetyMenuEntries(text, safetyTarget),
+                            ],
+                          ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    comment.body,
-                    style: TextStyle(
-                      color: colors.textStrong,
-                      height: 1.38,
-                      fontSize: 14,
-                    ),
-                  ),
+                  const SizedBox(height: KoomSpacing.xs),
+                  Text(comment.body, style: textTheme.bodyMedium),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Placeholder rows for the comment list, shown while the first page loads.
+///
+/// Mirrors [_CommentTile]: a round avatar next to a name line and two lines of
+/// body text, so the list does not jump when the real comments arrive.
+class CommentListSkeleton extends StatelessWidget {
+  const CommentListSkeleton({super.key, this.itemCount = 3});
+
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (itemCount <= 0) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < itemCount; index++)
+          const Padding(
+            padding: EdgeInsets.only(bottom: KoomSpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KoomSkeleton.circle(size: 36),
+                SizedBox(width: KoomSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      KoomSkeleton(width: 120, height: 12),
+                      SizedBox(height: KoomSpacing.sm),
+                      KoomSkeleton(height: 12),
+                      SizedBox(height: KoomSpacing.sm),
+                      KoomSkeleton(width: 190, height: 12),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

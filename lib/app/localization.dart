@@ -380,6 +380,44 @@ class AppText {
   String get reject => isKy ? 'Четке кагуу' : 'Отклонить';
   String get approve => isKy ? 'Бекитүү' : 'Одобрить';
 
+  // --- Post card, voting, media and comments -------------------------------
+  String get unnamedUser => isKy ? 'Колдонуучу' : 'Пользователь';
+  String get voting => isKy ? 'Добуш берүү' : 'Голосование';
+  String get votesLabel => isKy ? 'Добуш' : 'Голосов';
+  String get voteSupport => isKy ? 'Колдойм' : 'Поддерживаю';
+  String get voteOppose => isKy ? 'Колдобойм' : 'Не поддерживаю';
+  String get voteToggleHint => isKy
+      ? 'Тандалган вариантты кайра бассаңыз, добуш өчүрүлөт.'
+      : 'Нажмите выбранный вариант ещё раз, чтобы убрать голос.';
+  String get justNow => isKy ? 'азыр эле' : 'только что';
+  String get minuteShort => isKy ? 'мүн' : 'мин';
+  String get hourShort => isKy ? 'саат' : 'ч';
+  String get dayShort => isKy ? 'күн' : 'дн';
+  String get moreActions => isKy ? 'Дагы' : 'Ещё';
+  String get deleteItem => isKy ? 'Өчүрүү' : 'Удалить';
+  String get sendComment => isKy ? 'Жөнөтүү' : 'Отправить';
+  String get beFirstToComment => isKy
+      ? 'Биринчи болуп пикириңизди жазыңыз.'
+      : 'Напишите первый комментарий.';
+  String get photosLabel => isKy ? 'Сүрөттөр' : 'Фото';
+  String get videosLabel => isKy ? 'Видеолор' : 'Видео';
+  String get mediaUnavailable =>
+      isKy ? 'Медиа жеткиликсиз' : 'Медиа недоступно';
+  String get photoTooLarge => isKy
+      ? 'Сүрөт өтө чоң. Башка сүрөт тандаңыз.'
+      : 'Фото слишком большое. Выберите другое фото.';
+  String get videoTooLarge => isKy
+      ? 'Видео өтө чоң. 12 MB чейин видео тандаңыз.'
+      : 'Видео слишком большое. Выберите видео до 12 MB.';
+  String get mediaLimitsHint => isKy
+      ? 'Эң көп 3 сүрөт. Видео 12 MB чейин.'
+      : 'Максимум 3 фото. Видео до 12 MB.';
+  String get addTextOrMedia => isKy
+      ? 'Текст, сүрөт же видео кошуңуз.'
+      : 'Добавьте текст, фото или видео.';
+  String get addVideo => isKy ? 'Видео кошуу' : 'Добавить видео';
+  String get videoAdded => isKy ? 'Видео кошулду' : 'Видео добавлено';
+  String get photoLabel => isKy ? 'Сүрөт' : 'Фото';
   // Root bottom navigation.
   String get notifications => isKy ? 'Билдирүүлөр' : 'Уведомления';
 
