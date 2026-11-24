@@ -94,6 +94,8 @@ jobs:
           shasum -a 256 build-artifacts/Koom-iOS-simulator-app.zip > build-artifacts/Koom-iOS-simulator-app.sha256.txt
           ls -lah build-artifacts
 
+      # 60 MB per run and only useful for hands-on debugging, so it is kept
+      # for the pull request that produced it and expires quickly.
       - name: Upload simulator app artifact
         uses: actions/upload-artifact@v7
         with:
@@ -102,7 +104,7 @@ jobs:
             build-artifacts/Koom-iOS-simulator-app.zip
             build-artifacts/Koom-iOS-simulator-app.sha256.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 2
 
   build-unsigned-ipa:
     name: Build unsigned iPhone IPA
@@ -191,7 +193,7 @@ jobs:
             build-artifacts/Koom-unsigned.ipa
             build-artifacts/Koom-unsigned.sha256.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 5
 
   build-signed-ipa:
     name: Build signed iPhone IPA
@@ -493,7 +495,7 @@ jobs:
             build-artifacts/Koom-signed.ipa
             build-artifacts/Koom-signed.sha256.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Install Fastlane
         run: gem install fastlane --no-document

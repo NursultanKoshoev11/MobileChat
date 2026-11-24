@@ -280,7 +280,7 @@ jobs:
             build-artifacts/Koom-release-v*.sha256.txt
             build-artifacts/Koom-release-v*.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Submit release to Google Play
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
