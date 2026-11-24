@@ -15,12 +15,17 @@ import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 import '../group_creation/admin_group_creation_requests_screen.dart';
 import '../group_creation/group_creation_requests_screen.dart';
-import '../invitations/invitations_screen.dart';
-import '../profile/profile_screen.dart';
+import '../notifications/notifications_controller.dart';
 import '../public_requests/public_requests_screen.dart';
 import 'group_qr_scan_screen.dart';
 import 'public_groups_sheet.dart';
 
+/// Groups destination of the root shell: the user's groups with a local search
+/// box and the quick actions for joining one.
+///
+/// Profile, sign-out and invitations used to live in the overflow sheet here;
+/// they are navigation destinations now, so this screen only keeps the actions
+/// that belong to groups.
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({
     super.key,
@@ -29,7 +34,12 @@ class GroupsScreen extends StatefulWidget {
     required this.onSessionChanged,
     required this.onLogout,
     required this.onAccountDeleted,
+    required this.notifications,
     this.onLogoutAllDevices,
+    this.onShowGroupsTab,
+    this.onShowNotificationsTab,
+    this.userRealtime,
+    this.initialPushData,
   });
   final ApiClient api;
   final AppSession session;
@@ -38,15 +48,34 @@ class GroupsScreen extends StatefulWidget {
   final Future<void> Function() onAccountDeleted;
   final Future<void> Function()? onLogoutAllDevices;
 
+  /// Shared store behind the notifications tab and its badge. This screen owns
+  /// the group list, so it pushes every change into it.
+  final KoomNotificationsController notifications;
+
+  /// Asks the shell to show this tab, so a tapped notification is not applied
+  /// behind another destination.
+  final VoidCallback? onShowGroupsTab;
+
+  /// Asks the shell to show the notifications tab (invitation notifications).
+  final VoidCallback? onShowNotificationsTab;
+
+  /// Test seam: replaces the user websocket.
+  final UserRealtimeService? userRealtime;
+
+  /// Test seam: stands in for the notification the app was opened from.
+  final Map<String, String>? initialPushData;
+
   @override
-  State<GroupsScreen> createState() => _GroupsScreenState();
+  State<GroupsScreen> createState() => GroupsScreenState();
 }
 
-class _GroupsScreenState extends State<GroupsScreen> {
+class GroupsScreenState extends State<GroupsScreen> {
   late Future<List<ChatGroup>> groupsFuture;
   late Future<int> adminRequestsCountFuture;
-  late Future<int> invitationsCountFuture;
-  late final UserRealtimeService userRealtime;
+  late final UserRealtimeService userRealtime =
+      widget.userRealtime ?? UserRealtimeService(api: widget.api);
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   List<ChatGroup> currentGroups = const <ChatGroup>[];
   final Set<String> seenPublicRequestEvents = <String>{};
   StreamSubscription<Map<String, String>>? _foregroundPushSubscription;
@@ -64,15 +93,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
     super.initState();
     groupsFuture = loadGroups();
     adminRequestsCountFuture = loadAdminRequestsCount();
-    invitationsCountFuture = loadInvitationsCount();
-    userRealtime = UserRealtimeService(api: widget.api);
+    // A pull-to-refresh on the notifications tab also refreshes the group list
+    // the "new posts" entries are built from.
+    widget.notifications.groupsRefresher = () => refresh(silent: true);
     userRealtime.connect(onEvent: _handleUserRealtimeEvent);
     _foregroundPushSubscription = PushNotificationService.foregroundDataStream
         .listen(_handleForegroundPushData);
     _openedPushSubscription = PushNotificationService.openedDataStream.listen(
       _handleOpenedPushData,
     );
-    final pendingOpenedData = PushNotificationService.takePendingOpenedData();
+    final pendingOpenedData =
+        widget.initialPushData ?? PushNotificationService.takePendingOpenedData();
     if (pendingOpenedData != null) {
       scheduleMicrotask(() => _handleOpenedPushData(pendingOpenedData));
     }
@@ -84,6 +115,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
     _openedPushSubscription?.cancel();
     _invitationsCountDebounce?.cancel();
     _adminCountDebounce?.cancel();
+    _searchController.dispose();
+    widget.notifications.groupsRefresher = null;
     userRealtime.close();
     super.dispose();
   }
@@ -148,6 +181,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void _handleOpenedPushData(Map<String, String> data) {
     if (!mounted) return;
     _handleForegroundPushData(data);
+    final type = data['type'] ?? '';
+    final groupId = data['group_id']?.trim() ?? '';
+    if (groupId.isNotEmpty) {
+      // Group targets open a group screen from this tab, so show it first.
+      widget.onShowGroupsTab?.call();
+    } else if (type == 'invite.created' || type == 'invite.reviewed') {
+      // An invitation has no screen of its own: it lives on the notifications
+      // tab, where it can be accepted or declined.
+      widget.onShowNotificationsTab?.call();
+      return;
+    }
     _pendingOpenedPushData = Map<String, String>.from(data);
     unawaited(_openPendingNotificationTarget());
   }
@@ -244,6 +288,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void setGroups(List<ChatGroup> groups) {
     if (!mounted) return;
     currentGroups = groups;
+    widget.notifications.setGroups(groups);
     setState(() {
       groupsFuture = Future.value(groups);
     });
@@ -252,7 +297,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   void _scheduleInvitationsCountRefresh() {
     _invitationsCountDebounce?.cancel();
     _invitationsCountDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) unawaited(_refreshInvitationsCount());
+      if (mounted) unawaited(widget.notifications.load(silent: true));
     });
   }
 
@@ -261,14 +306,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
     _adminCountDebounce?.cancel();
     _adminCountDebounce = Timer(const Duration(milliseconds: 250), () {
       if (mounted) unawaited(_refreshAdminCount());
-    });
-  }
-
-  Future<void> _refreshInvitationsCount() async {
-    final count = await loadInvitationsCount();
-    if (!mounted) return;
-    setState(() {
-      invitationsCountFuture = Future.value(count);
     });
   }
 
@@ -305,7 +342,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   Future<List<ChatGroup>> loadGroups() async {
     final groups = await widget.api.fetchGroups();
     currentGroups = groups;
+    widget.notifications.setGroups(groups);
     return groups;
+  }
+
+  /// Groups whose title matches the search box, in the server's order.
+  List<ChatGroup> visibleGroups(List<ChatGroup> groups) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return groups;
+    return groups
+        .where((group) => group.title.toLowerCase().contains(query))
+        .toList(growable: false);
   }
 
   Future<int> loadAdminRequestsCount() async {
@@ -319,27 +366,18 @@ class _GroupsScreenState extends State<GroupsScreen> {
     }
   }
 
-  Future<int> loadInvitationsCount() async {
-    try {
-      return (await widget.api.fetchInvitations()).length;
-    } catch (_) {
-      return 0;
-    }
-  }
-
   Future<void> refresh({bool silent = false}) async {
     final nextGroups = loadGroups();
     final nextAdminCount = loadAdminRequestsCount();
-    final nextInvitationsCount = loadInvitationsCount();
+    final nextInvitations = widget.notifications.load(silent: true);
     if (silent) {
       final groups = await nextGroups;
       final adminCount = await nextAdminCount;
-      final invitationsCount = await nextInvitationsCount;
+      await nextInvitations;
       if (mounted) {
         setState(() {
           groupsFuture = Future.value(groups);
           adminRequestsCountFuture = Future.value(adminCount);
-          invitationsCountFuture = Future.value(invitationsCount);
         });
       }
       return;
@@ -348,10 +386,9 @@ class _GroupsScreenState extends State<GroupsScreen> {
       setState(() {
         groupsFuture = nextGroups;
         adminRequestsCountFuture = nextAdminCount;
-        invitationsCountFuture = nextInvitationsCount;
       });
     }
-    await Future.wait([nextGroups, nextAdminCount, nextInvitationsCount]);
+    await Future.wait([nextGroups, nextAdminCount, nextInvitations]);
   }
 
   Future<void> createGroup() async {
@@ -387,22 +424,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => AdminGroupCreationRequestsScreen(api: widget.api),
-      ),
-    );
-  }
-
-  Future<void> openProfile() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ProfileScreen(
-          api: widget.api,
-          user: widget.session.user,
-          onUserChanged: (updatedUser) => widget.onSessionChanged(
-            widget.session.copyWith(user: updatedUser),
-          ),
-          onAccountDeleted: widget.onAccountDeleted,
-          onLogoutAllDevices: widget.onLogoutAllDevices,
-        ),
       ),
     );
   }
@@ -466,12 +487,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
         showAppSnack(context, localizedMessage(context, error.toString()));
       }
     }
-  }
-
-  Future<void> openInvitations() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => InvitationsScreen(api: widget.api)),
-    );
   }
 
   Future<void> openGroup(ChatGroup group, {String? initialRequestId}) async {
@@ -583,10 +598,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> showMainMenu() async {
-    final counts = await Future.wait([
-      adminRequestsCountFuture,
-      invitationsCountFuture,
-    ]);
+    final adminRequestsCount = await adminRequestsCountFuture;
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -594,15 +606,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Theme.of(context).cardColor,
       builder: (_) => MainGroupsMenuSheet(
         canReviewGroupCreationRequests: canReviewGroupCreationRequests,
-        adminRequestsCount: counts[0],
-        invitationsCount: counts[1],
-        onProfile: openProfile,
+        adminRequestsCount: adminRequestsCount,
         onJoinByCode: joinByCode,
         onScanQr: scanGroupQr,
-        onInvitations: openInvitations,
         onMyRequests: openGroupRequests,
         onAdminRequests: openAdminRequests,
-        onLogout: widget.onLogout,
       ),
     );
   }
@@ -615,13 +623,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
         title: const KoomBrandTitle(compact: true),
         actions: [
           const AppSettingsButton(),
-          const SizedBox(width: 4),
+          const SizedBox(width: KoomSpacing.xs),
           IconButton(
             onPressed: showMainMenu,
             icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: text.isKy ? 'Меню' : 'Меню',
+            tooltip: 'Меню',
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: KoomSpacing.md),
         ],
       ),
       floatingActionButton: KoomAdaptiveFab(
@@ -639,87 +647,90 @@ class _GroupsScreenState extends State<GroupsScreen> {
             future: groupsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
-                  children: const [
-                    SizedBox(height: 180),
-                    Center(child: CircularProgressIndicator()),
-                  ],
-                );
+                return const _GroupsLoadingSkeleton();
               }
               if (snapshot.hasError) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
                   children: [
-                    _GroupsOverview(
-                      userName: widget.session.user.displayName,
-                      userAvatarBytes: widget.session.user.avatarBytes,
-                      groupCount: currentGroups.length,
-                      canReviewGroupCreationRequests:
-                          canReviewGroupCreationRequests,
-                      adminRequestsCountFuture: adminRequestsCountFuture,
-                      invitationsCountFuture: invitationsCountFuture,
-                      onJoinByCode: joinByCode,
-                      onDiscoverPublicGroups: discoverPublicGroups,
-                      onScanQr: scanGroupQr,
-                      onInvitations: openInvitations,
-                      onRequests: canReviewGroupCreationRequests
-                          ? openAdminRequests
-                          : openGroupRequests,
+                    _overview(currentGroups.length),
+                    const SizedBox(height: KoomSpacing.lg),
+                    ErrorBanner(
+                      message: localizedMessage(
+                        context,
+                        snapshot.error.toString(),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    ErrorBanner(message: snapshot.error.toString()),
                   ],
                 );
               }
               final groups = snapshot.data ?? const <ChatGroup>[];
+              final visible = visibleGroups(groups);
+              final searching = _searchQuery.trim().isNotEmpty;
               return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                itemCount: groups.length + (groups.isEmpty ? 3 : 2),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.sm,
+                  KoomSpacing.lg,
+                  108,
+                ),
+                itemCount: 2 + (visible.isEmpty ? 1 : visible.length),
                 itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _GroupsOverview(
-                      userName: widget.session.user.displayName,
-                      userAvatarBytes: widget.session.user.avatarBytes,
-                      groupCount: groups.length,
-                      canReviewGroupCreationRequests:
-                          canReviewGroupCreationRequests,
-                      adminRequestsCountFuture: adminRequestsCountFuture,
-                      invitationsCountFuture: invitationsCountFuture,
-                      onJoinByCode: joinByCode,
-                      onDiscoverPublicGroups: discoverPublicGroups,
-                      onScanQr: scanGroupQr,
-                      onInvitations: openInvitations,
-                      onRequests: canReviewGroupCreationRequests
-                          ? openAdminRequests
-                          : openGroupRequests,
-                    );
-                  }
+                  if (index == 0) return _overview(groups.length);
                   if (index == 1) {
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 22, 2, 12),
-                      child: KoomSectionTitle(
-                        title: text.groups,
-                            subtitle: groups.isEmpty
-                                ? (text.isKy
-                                      ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт'
-                                      : 'Ваши сообщества появятся здесь')
-                                : (text.isKy
-                                      ? '${groups.length} коомчулук'
-                                      : '${groups.length} сообществ'),
+                      padding: const EdgeInsets.fromLTRB(
+                        KoomSpacing.xs,
+                        KoomSpacing.xl,
+                        KoomSpacing.xs,
+                        KoomSpacing.md,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (groups.isNotEmpty) ...[
+                            KoomSearchField(
+                              key: const ValueKey('groups_search_field'),
+                              controller: _searchController,
+                              hintText: text.searchGroupsHint,
+                              clearTooltip: text.clearSearch,
+                              onChanged: (value) =>
+                                  setState(() => _searchQuery = value),
+                            ),
+                            const SizedBox(height: KoomSpacing.lg),
+                          ],
+                          KoomSectionTitle(
+                            title: text.groups,
+                            subtitle: _groupsSubtitle(
+                              text,
+                              total: groups.length,
+                              visible: visible.length,
+                              searching: searching,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
-                  if (groups.isEmpty) {
+                  if (visible.isEmpty) {
+                    if (searching) {
+                      return KoomCard(
+                        showShadow: false,
+                        child: KoomEmptyState(
+                          icon: Icons.search_off_rounded,
+                          title: text.groupsSearchEmptyTitle,
+                          message: text.groupsSearchEmptyMessage,
+                        ),
+                      );
+                    }
                     return _EmptyGroups(
                       canReviewGroupCreationRequests: canManageAllGroups,
                       onCreate: createGroup,
                     );
                   }
-                  final group = groups[index - 2];
+                  final group = visible[index - 2];
                   return GroupTile(
                     group: group,
                     onTap: () => openGroup(group),
@@ -735,6 +746,62 @@ class _GroupsScreenState extends State<GroupsScreen> {
       ),
     );
   }
+
+  Widget _overview(int groupCount) => _GroupsOverview(
+        userName: widget.session.user.displayName,
+        userAvatarBytes: widget.session.user.avatarBytes,
+        groupCount: groupCount,
+        canReviewGroupCreationRequests: canReviewGroupCreationRequests,
+        adminRequestsCountFuture: adminRequestsCountFuture,
+        onJoinByCode: joinByCode,
+        onDiscoverPublicGroups: discoverPublicGroups,
+        onScanQr: scanGroupQr,
+        onRequests: canReviewGroupCreationRequests
+            ? openAdminRequests
+            : openGroupRequests,
+      );
+
+  String _groupsSubtitle(
+    AppText text, {
+    required int total,
+    required int visible,
+    required bool searching,
+  }) {
+    if (total == 0) {
+      return text.isKy ? 'Сиз кошулган коомчулуктар ушул жерде көрүнөт' : 'Ваши сообщества появятся здесь';
+    }
+    if (searching) {
+      return text.isKy ? '$visible / $total коомчулук' : '$visible из $total';
+    }
+    return text.isKy ? '$total коомчулук' : '$total сообществ';
+  }
+}
+
+/// Placeholder blocks while the group list loads, instead of a bare spinner.
+class _GroupsLoadingSkeleton extends StatelessWidget {
+  const _GroupsLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        KoomSpacing.lg,
+        KoomSpacing.lg,
+        KoomSpacing.lg,
+        108,
+      ),
+      children: const [
+        KoomSkeleton(height: 108, radius: KoomRadii.lg),
+        SizedBox(height: KoomSpacing.md),
+        KoomSkeleton(height: 84, radius: KoomRadii.lg),
+        SizedBox(height: KoomSpacing.xl),
+        KoomSkeleton(height: 48, radius: KoomRadii.pill),
+        SizedBox(height: KoomSpacing.lg),
+        KoomSkeletonList(itemCount: 4, itemHeight: 112, radius: KoomRadii.lg),
+      ],
+    );
+  }
 }
 
 class _GroupsOverview extends StatelessWidget {
@@ -744,11 +811,9 @@ class _GroupsOverview extends StatelessWidget {
     required this.groupCount,
     required this.canReviewGroupCreationRequests,
     required this.adminRequestsCountFuture,
-    required this.invitationsCountFuture,
     required this.onJoinByCode,
     required this.onDiscoverPublicGroups,
     required this.onScanQr,
-    required this.onInvitations,
     required this.onRequests,
   });
 
@@ -757,11 +822,9 @@ class _GroupsOverview extends StatelessWidget {
   final int groupCount;
   final bool canReviewGroupCreationRequests;
   final Future<int> adminRequestsCountFuture;
-  final Future<int> invitationsCountFuture;
   final VoidCallback onJoinByCode;
   final VoidCallback onDiscoverPublicGroups;
   final VoidCallback onScanQr;
-  final VoidCallback onInvitations;
   final VoidCallback onRequests;
 
   @override
@@ -865,16 +928,6 @@ class _GroupsOverview extends StatelessWidget {
                 onTap: onScanQr,
               ),
               FutureBuilder<int>(
-                future: invitationsCountFuture,
-                builder: (context, snapshot) => KoomIconTile(
-                  compact: true,
-                  icon: Icons.mark_email_unread_outlined,
-                  label: text.invitations,
-                  badge: snapshot.data ?? 0,
-                  onTap: onInvitations,
-                ),
-              ),
-              FutureBuilder<int>(
                 future: adminRequestsCountFuture,
                 builder: (context, snapshot) => KoomIconTile(
                   compact: true,
@@ -900,31 +953,25 @@ class _GroupsOverview extends StatelessWidget {
   }
 }
 
+/// Overflow sheet of the groups tab. Profile, sign-out and invitations moved
+/// to the bottom navigation, so only the rarely used group actions are left.
 class MainGroupsMenuSheet extends StatelessWidget {
   const MainGroupsMenuSheet({
     super.key,
     required this.canReviewGroupCreationRequests,
     required this.adminRequestsCount,
-    required this.invitationsCount,
-    required this.onProfile,
     required this.onJoinByCode,
     required this.onScanQr,
-    required this.onInvitations,
     required this.onMyRequests,
     required this.onAdminRequests,
-    required this.onLogout,
   });
 
   final bool canReviewGroupCreationRequests;
   final int adminRequestsCount;
-  final int invitationsCount;
-  final VoidCallback onProfile;
   final VoidCallback onJoinByCode;
   final VoidCallback onScanQr;
-  final VoidCallback onInvitations;
   final VoidCallback onMyRequests;
   final VoidCallback onAdminRequests;
-  final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -946,12 +993,6 @@ class MainGroupsMenuSheet extends StatelessWidget {
             onTap: onMyRequests,
           ),
           _MenuItem(
-            icon: Icons.mark_email_unread_outlined,
-            title: text.invitations,
-            count: invitationsCount,
-            onTap: onInvitations,
-          ),
-          _MenuItem(
             icon: Icons.qr_code_rounded,
             title: text.joinByCode,
             onTap: onJoinByCode,
@@ -960,21 +1001,6 @@ class MainGroupsMenuSheet extends StatelessWidget {
             icon: Icons.qr_code_scanner_rounded,
             title: text.scanQr,
             onTap: onScanQr,
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(),
-          ),
-          _MenuItem(
-            icon: Icons.person_outline_rounded,
-            title: text.profile,
-            onTap: onProfile,
-          ),
-          _MenuItem(
-            icon: Icons.logout_rounded,
-            title: text.logout,
-            destructive: true,
-            onTap: onLogout,
           ),
         ],
       ),
@@ -988,27 +1014,21 @@ class _MenuItem extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.count,
-    this.destructive = false,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onTap;
   final int? count;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final foreground = destructive
-        ? Theme.of(context).colorScheme.error
-        : colors.textStrong;
+    final foreground = colors.textStrong;
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Material(
-        color: destructive
-            ? Theme.of(context).colorScheme.error.withValues(alpha: 0.07)
-            : colors.surfaceSoft,
+        color: colors.surfaceSoft,
         borderRadius: BorderRadius.circular(18),
         child: ListTile(
           leading: Container(

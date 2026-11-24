@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/appearance.dart';
 import '../../app/localization.dart';
 import '../../app/theme.dart';
 import '../../data/group_statistics.dart';
@@ -9,18 +8,19 @@ import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
-class GroupStatisticsScreen extends StatefulWidget {
-  const GroupStatisticsScreen(
+/// Group statistics, embedded as the statistics tab of a group.
+class GroupStatisticsView extends StatefulWidget {
+  const GroupStatisticsView(
       {super.key, required this.api, required this.group});
 
   final PublicRequestsApi api;
   final ChatGroup group;
 
   @override
-  State<GroupStatisticsScreen> createState() => _GroupStatisticsScreenState();
+  State<GroupStatisticsView> createState() => _GroupStatisticsViewState();
 }
 
-class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
+class _GroupStatisticsViewState extends State<GroupStatisticsView> {
   String period = 'month';
   String granularity = 'day';
   late Future<GroupStatistics> future;
@@ -55,14 +55,9 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Scaffold(
-      key: const ValueKey('group_statistics_screen'),
-      appBar: AppBar(
-        title: Text(text.isKy ? 'Статистика' : 'Статистика'),
-        actions: const [AppSettingsButton()],
-      ),
-      body: KoomPageBackground(
-        child: RefreshIndicator(
+    return KoomPageBackground(
+      key: const ValueKey('group_statistics_view'),
+      child: RefreshIndicator(
           onRefresh: refresh,
           child: FutureBuilder<GroupStatistics>(
             future: future,
@@ -70,17 +65,33 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.xl,
+                  ),
                   children: const [
-                    SizedBox(height: 210),
-                    Center(child: CircularProgressIndicator()),
+                    KoomSkeletonList(
+                      itemCount: 4,
+                      itemHeight: 132,
+                      radius: KoomRadii.lg,
+                    ),
                   ],
                 );
               }
               if (snapshot.hasError) {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  children: [ErrorBanner(message: snapshot.error.toString())],
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
+                  children: [
+                    ErrorBanner(
+                      message: localizedMessage(
+                        context,
+                        snapshot.error.toString(),
+                      ),
+                    ),
+                  ],
                 );
               }
               final stats = snapshot.data!;
@@ -161,7 +172,6 @@ class _GroupStatisticsScreenState extends State<GroupStatisticsScreen> {
               );
             },
           ),
-        ),
       ),
     );
   }

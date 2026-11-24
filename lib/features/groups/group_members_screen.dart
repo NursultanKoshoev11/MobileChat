@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../app/localization.dart';
+import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../data/public_requests_api.dart';
 import '../../shared/koom_ui.dart';
 import '../../shared/ui_helpers.dart';
 
-/// Group members list. The owner and admins can remove the members the
-/// server allows them to remove (see [canRemoveGroupMember]).
-class GroupMembersScreen extends StatefulWidget {
-  const GroupMembersScreen({
+/// Group members list, embedded as the members tab of a group. The owner and
+/// admins can remove the members the server allows them to remove (see
+/// [canRemoveGroupMember]).
+class GroupMembersView extends StatefulWidget {
+  const GroupMembersView({
     super.key,
     required this.api,
     required this.group,
@@ -21,10 +23,10 @@ class GroupMembersScreen extends StatefulWidget {
   final String currentUserId;
 
   @override
-  State<GroupMembersScreen> createState() => _GroupMembersScreenState();
+  State<GroupMembersView> createState() => _GroupMembersViewState();
 }
 
-class _GroupMembersScreenState extends State<GroupMembersScreen> {
+class _GroupMembersViewState extends State<GroupMembersView> {
   late Future<List<GroupMember>> membersFuture;
   final Set<String> _removing = <String>{};
 
@@ -102,20 +104,30 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   @override
   Widget build(BuildContext context) {
     final text = AppLanguageScope.textOf(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(text.groupMembers)),
-      body: KoomPageBackground(
-        child: RefreshIndicator(
-          onRefresh: _reload,
-          child: FutureBuilder<List<GroupMember>>(
+    return KoomPageBackground(
+      child: RefreshIndicator(
+        onRefresh: _reload,
+        child: FutureBuilder<List<GroupMember>>(
             future: membersFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.lg,
+                    KoomSpacing.xl,
+                  ),
+                  children: const [
+                    KoomSkeletonList(itemCount: 6, itemHeight: 64),
+                  ],
+                );
               }
               if (snapshot.hasError) {
                 return ListView(
-                  padding: const EdgeInsets.all(16),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
                   children: [
                     ErrorBanner(
                       message: localizedMessage(
@@ -127,8 +139,32 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 );
               }
               final members = snapshot.data ?? const <GroupMember>[];
+              if (members.isEmpty) {
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(KoomSpacing.lg),
+                  children: [
+                    KoomCard(
+                      showShadow: false,
+                      child: KoomEmptyState(
+                        icon: Icons.people_outline_rounded,
+                        title: text.groupMembers,
+                        message: text.isKy
+                            ? 'Катышуучулардын тизмеси бош.'
+                            : 'Список участников пуст.',
+                      ),
+                    ),
+                  ],
+                );
+              }
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  KoomSpacing.lg,
+                  KoomSpacing.sm,
+                  KoomSpacing.lg,
+                  KoomSpacing.xl,
+                ),
                 itemCount: members.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
@@ -192,8 +228,36 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 },
               );
             },
-          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Standalone screen wrapper around [GroupMembersView], kept so the members
+/// list can also be pushed as its own route.
+class GroupMembersScreen extends StatelessWidget {
+  const GroupMembersScreen({
+    super.key,
+    required this.api,
+    required this.group,
+    required this.currentUserId,
+  });
+
+  final PublicRequestsApi api;
+  final ChatGroup group;
+  final String currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(AppLanguageScope.textOf(context).groupMembers),
+      ),
+      body: GroupMembersView(
+        api: api,
+        group: group,
+        currentUserId: currentUserId,
       ),
     );
   }

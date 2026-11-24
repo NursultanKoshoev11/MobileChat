@@ -22,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
     required this.user,
     required this.onAccountDeleted,
     this.onUserChanged,
+    this.onLogout,
     this.onLogoutAllDevices,
   });
 
@@ -29,6 +30,10 @@ class ProfileScreen extends StatefulWidget {
   final UserProfile user;
   final Future<void> Function() onAccountDeleted;
   final Future<void> Function(UserProfile user)? onUserChanged;
+
+  /// Signs out on this device. Lives here now that the profile is a navigation
+  /// destination instead of a screen behind the groups overflow menu.
+  final Future<void> Function()? onLogout;
 
   /// Revokes every session on the server and signs out locally. Throws when
   /// the server call fails (the user stays signed in).
@@ -46,11 +51,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool updatingPhoto = false;
   bool deletingAccount = false;
   bool loggingOutEverywhere = false;
+  bool loggingOut = false;
 
   @override
   void initState() {
     super.initState();
     user = widget.user;
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The shell rebuilds this destination when the session changes.
+    if (oldWidget.user != widget.user) user = widget.user;
+  }
+
+  Future<void> logout() async {
+    final action = widget.onLogout;
+    if (action == null || loggingOut) return;
+    setState(() => loggingOut = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => loggingOut = false);
+    }
   }
 
   Uint8List? get avatarBytes {
@@ -421,6 +445,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            if (widget.onLogout != null) ...[
+              const SizedBox(height: KoomSpacing.xl),
+              FilledButton.icon(
+                key: const ValueKey('profile_logout'),
+                onPressed: loggingOut ? null : logout,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: KoomSpacing.md,
+                  ),
+                ),
+                icon: loggingOut
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout_rounded),
+                label: Text(loggingOut ? text.pleaseWait : text.logout),
+              ),
+            ],
             if (widget.onLogoutAllDevices != null) ...[
               const SizedBox(height: 20),
               KoomSectionTitle(
