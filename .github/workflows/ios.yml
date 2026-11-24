@@ -546,6 +546,10 @@ jobs:
           cat > "$RUNNER_TEMP/distribute.rb" <<'RUBY'
           require "spaceship"
 
+          # Unbuffered, so progress survives a crash of this script.
+          $stdout.sync = true
+          $stderr.sync = true
+
           bundle_id = "com.nursultankoshoev.mobilechat"
           version = ENV.fetch("BUILD_VERSION")
           number = ENV.fetch("BUILD_NUMBER")
@@ -567,9 +571,31 @@ jobs:
             sleep 30
           end
 
-          groups = app.get_beta_groups.select(&:is_internal_group)
-          abort("::error::No internal TestFlight groups exist for #{bundle_id}.") if groups.empty?
-          build.add_beta_groups(beta_groups: groups)
-          puts "Added build #{version} (#{number}) to internal groups: #{groups.map(&:name).join(', ')}"
+          # The binary is uploaded and VALID by this point. Adding it to the
+          # tester groups is a separate App Store Connect call that has failed
+          # transiently before, so it retries and, if it still will not go
+          # through, warns instead of failing a build that is already on Apple's
+          # servers and can be shared from the TestFlight page by hand.
+          begin
+            all_groups = app.get_beta_groups
+            puts "TestFlight groups: " + all_groups.map { |g| "#{g.name}(internal=#{g.is_internal_group})" }.join(", ")
+            groups = all_groups.select(&:is_internal_group)
+            raise "no internal TestFlight group exists for #{bundle_id}" if groups.empty?
+
+            attempts = 0
+            begin
+              attempts += 1
+              build.add_beta_groups(beta_groups: groups)
+            rescue StandardError => e
+              raise if attempts >= 3
+              puts "Adding the build to its groups failed (#{e.class}: #{e.message}); retry #{attempts} of 2 in 20s."
+              sleep 20
+              retry
+            end
+            puts "Added build #{version} (#{number}) to internal groups: #{groups.map(&:name).join(', ')}"
+          rescue StandardError => e
+            puts "::warning::Build #{version} (#{number}) is uploaded and VALID but was not added to a tester group: #{e.class}: #{e.message}. Add it in App Store Connect under TestFlight."
+            puts e.backtrace.first(5) if e.backtrace
+          end
           RUBY
           ruby "$RUNNER_TEMP/distribute.rb"
