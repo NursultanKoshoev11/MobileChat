@@ -16,6 +16,11 @@ enum AppDisplayScale {
   final double factor;
 }
 
+/// Display scale used until the user picks one themselves: the normal 100%
+/// size. Changing this only affects fresh installs; a stored preference always
+/// wins (see [AppAppearanceController.restore]).
+const AppDisplayScale kDefaultDisplayScale = AppDisplayScale.standard;
+
 class AppAppearanceController extends ChangeNotifier {
   AppAppearanceController({
     AppPreferencesStore store = const AppPreferencesStore(),
@@ -23,7 +28,10 @@ class AppAppearanceController extends ChangeNotifier {
 
   final AppPreferencesStore _store;
   ThemeMode _themeMode = ThemeMode.light;
-  AppDisplayScale _displayScale = AppDisplayScale.compact;
+
+  /// New installs start at 100% text size. [restore] overrides this with the
+  /// stored choice when the user has already picked a size.
+  AppDisplayScale _displayScale = kDefaultDisplayScale;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
@@ -37,12 +45,11 @@ class AppAppearanceController extends ChangeNotifier {
       'light' => ThemeMode.light,
       _ => null,
     };
-    final restoredScale = AppDisplayScale.values
-        .cast<AppDisplayScale?>()
-        .firstWhere(
-          (value) => value?.name == scaleValue,
-          orElse: () => null,
-        );
+    final restoredScale =
+        AppDisplayScale.values.cast<AppDisplayScale?>().firstWhere(
+              (value) => value?.name == scaleValue,
+              orElse: () => null,
+            );
     var changed = false;
     if (restoredTheme != null && restoredTheme != _themeMode) {
       _themeMode = restoredTheme;
@@ -169,7 +176,7 @@ class AppSettingsSheet extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: KoomRadii.lgAll,
           border: Border.all(color: colors.border),
           boxShadow: [
             BoxShadow(
@@ -195,7 +202,7 @@ class AppSettingsSheet extends StatelessWidget {
                     height: 5,
                     decoration: BoxDecoration(
                       color: colors.textMuted.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: KoomRadii.pillAll,
                     ),
                   ),
                 ),
@@ -209,8 +216,9 @@ class AppSettingsSheet extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: colors.textStrong,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           fontSize: 24,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
@@ -279,7 +287,8 @@ class AppSettingsSheet extends StatelessWidget {
                     _SettingsOption(
                       label: text.isKy ? 'Чоң' : 'Больше',
                       icon: Icons.text_increase_rounded,
-                      selected: appearance.displayScale == AppDisplayScale.large,
+                      selected:
+                          appearance.displayScale == AppDisplayScale.large,
                       onTap: () =>
                           appearance.setDisplayScale(AppDisplayScale.large),
                     ),
@@ -329,7 +338,7 @@ class _SectionTitle extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
         color: context.appColors.textMuted,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -355,7 +364,7 @@ class _SettingsOption extends StatelessWidget {
     final foreground = selected ? Colors.white : colors.textStrong;
     final iconColor = selected ? Colors.white : colors.textMuted;
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: KoomRadii.mdAll,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -363,7 +372,7 @@ class _SettingsOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: KoomRadii.mdAll,
           border: Border.all(
             color: selected ? KoomTheme.primary : colors.border,
             width: 1.5,
@@ -383,7 +392,7 @@ class _SettingsOption extends StatelessWidget {
                   softWrap: false,
                   style: TextStyle(
                     color: foreground,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
                 ),

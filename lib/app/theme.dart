@@ -1,6 +1,87 @@
 import 'package:flutter/material.dart';
 
+/// Spacing scale for the whole app.
+///
+/// This is the single source of truth for gaps and paddings: new UI code must
+/// use these constants instead of raw numbers so the vertical rhythm stays
+/// consistent across screens.
+abstract final class KoomSpacing {
+  /// 4 - hairline gaps inside a single control.
+  static const double xs = 4;
+
+  /// 8 - gap between tightly related elements (icon + label).
+  static const double sm = 8;
+
+  /// 12 - gap between rows inside a card.
+  static const double md = 12;
+
+  /// 16 - default padding of cards, sheets and screen gutters.
+  static const double lg = 16;
+
+  /// 24 - gap between sections.
+  static const double xl = 24;
+
+  /// 32 - gap around large blocks (empty states, page headers).
+  static const double xxl = 32;
+}
+
+/// Corner radius scale for the whole app.
+///
+/// This is the single source of truth for rounded corners. `lib/` used to
+/// contain 15 different radii; everything new must pick one of these four.
+abstract final class KoomRadii {
+  /// 12 - inputs, small buttons, icon buttons, skeleton blocks.
+  static const double sm = 12;
+
+  /// 16 - buttons, list tiles, tiles and inner containers.
+  static const double md = 16;
+
+  /// 24 - cards, dialogs, sheets and other large surfaces.
+  static const double lg = 24;
+
+  /// 999 - fully rounded pills (chips, badges, drag handles).
+  static const double pill = 999;
+
+  static const BorderRadius smAll = BorderRadius.all(Radius.circular(sm));
+  static const BorderRadius mdAll = BorderRadius.all(Radius.circular(md));
+  static const BorderRadius lgAll = BorderRadius.all(Radius.circular(lg));
+  static const BorderRadius pillAll = BorderRadius.all(Radius.circular(pill));
+}
+
+/// The two elevation levels the app uses.
+///
+/// This is the single source of truth for depth: `low` for resting surfaces
+/// (cards, bars) and `high` for things floating above the page (dialogs,
+/// sheets, menus). Pass the theme's shadow color, or use
+/// [KoomColors.shadowLow] / [KoomColors.shadowHigh] which already do.
+abstract final class KoomElevation {
+  /// Material elevation value for resting surfaces.
+  static const double low = 2;
+
+  /// Material elevation value for floating surfaces.
+  static const double high = 12;
+
+  static List<BoxShadow> shadowLow(Color shadow) => <BoxShadow>[
+        BoxShadow(
+          color: shadow,
+          blurRadius: 14,
+          offset: const Offset(0, 4),
+        ),
+      ];
+
+  static List<BoxShadow> shadowHigh(Color shadow) => <BoxShadow>[
+        BoxShadow(
+          color: shadow,
+          blurRadius: 28,
+          offset: const Offset(0, 12),
+        ),
+      ];
+}
+
 class KoomTheme {
+  /// Local Inter asset bundled under `assets/fonts/` (see pubspec.yaml).
+  static const String fontFamily = 'Inter';
+
   static const Color primary = Color(0xFF0878F9);
   static const Color primaryDark = Color(0xFF0757D9);
   static const Color primarySoft = Color(0xFFEAF3FF);
@@ -11,14 +92,24 @@ class KoomTheme {
   static const Color lightSurfaceSoft = Color(0xFFF1F5FB);
   static const Color lightBorder = Color(0xFFDDE6F3);
   static const Color lightTextStrong = Color(0xFF0C1F46);
-  static const Color lightTextMuted = Color(0xFF6C7A96);
+
+  /// 5.2:1 on the light page, 5.6:1 on white (WCAG AA for body text).
+  static const Color lightTextMuted = Color(0xFF5A6880);
 
   static const Color darkPage = Color(0xFF07111F);
   static const Color darkSurface = Color(0xFF0F1C2E);
   static const Color darkSurfaceSoft = Color(0xFF16263B);
   static const Color darkBorder = Color(0xFF253A55);
   static const Color darkTextStrong = Color(0xFFF4F7FC);
+
+  /// 7.4:1 on the dark soft surface, 7.9:1 on the dark page.
   static const Color darkTextMuted = Color(0xFF9AA9BF);
+
+  /// The one destructive colour for the light theme (5.1:1 on the page).
+  static const Color destructiveLight = Color(0xFFC62F35);
+
+  /// The one destructive colour for the dark theme (6.8:1 on the page).
+  static const Color destructiveDark = Color(0xFFFF6B70);
 
   static const Color page = lightPage;
   static const Color textStrong = lightTextStrong;
@@ -39,7 +130,8 @@ class KoomTheme {
       brightness: Brightness.light,
       surface: lightSurface,
       onSurface: lightTextStrong,
-      error: const Color(0xFFE5484D),
+      error: destructiveLight,
+      onError: Colors.white,
     );
     return _buildTheme(
       scheme: scheme,
@@ -60,7 +152,8 @@ class KoomTheme {
       brightness: Brightness.dark,
       surface: darkSurface,
       onSurface: darkTextStrong,
-      error: const Color(0xFFFF6B70),
+      error: destructiveDark,
+      onError: darkPage,
     );
     return _buildTheme(
       scheme: scheme,
@@ -86,18 +179,21 @@ class KoomTheme {
     final shadow = dark
         ? Colors.black.withValues(alpha: 0.34)
         : const Color(0xFF174C8F).withValues(alpha: 0.10);
-    final baseTextTheme = ThemeData(brightness: scheme.brightness).textTheme;
-    final rounded16 = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    );
-    final rounded18 = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    );
+    final baseTextTheme =
+        ThemeData(brightness: scheme.brightness).textTheme.apply(
+              fontFamily: fontFamily,
+              bodyColor: textStrongColor,
+              displayColor: textStrongColor,
+            );
+    final roundedSm = RoundedRectangleBorder(borderRadius: KoomRadii.smAll);
+    final roundedMd = RoundedRectangleBorder(borderRadius: KoomRadii.mdAll);
+    final roundedLg = RoundedRectangleBorder(borderRadius: KoomRadii.lgAll);
 
     return ThemeData(
       useMaterial3: true,
       brightness: scheme.brightness,
       colorScheme: scheme,
+      fontFamily: fontFamily,
       scaffoldBackgroundColor: pageColor,
       canvasColor: pageColor,
       cardColor: surfaceColor,
@@ -105,45 +201,80 @@ class KoomTheme {
       splashColor: scheme.primary.withValues(alpha: 0.08),
       highlightColor: scheme.primary.withValues(alpha: 0.04),
       visualDensity: VisualDensity.standard,
-      textTheme: baseTextTheme
-          .apply(bodyColor: textStrongColor, displayColor: textStrongColor)
-          .copyWith(
-            headlineLarge: baseTextTheme.headlineLarge?.copyWith(
-              color: textStrongColor,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.8,
-            ),
-            headlineMedium: baseTextTheme.headlineMedium?.copyWith(
-              color: textStrongColor,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-            headlineSmall: baseTextTheme.headlineSmall?.copyWith(
-              color: textStrongColor,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.35,
-            ),
-            titleLarge: baseTextTheme.titleLarge?.copyWith(
-              color: textStrongColor,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.25,
-            ),
-            titleMedium: baseTextTheme.titleMedium?.copyWith(
-              color: textStrongColor,
-              fontWeight: FontWeight.w800,
-            ),
-            bodyLarge: baseTextTheme.bodyLarge?.copyWith(
-              color: textStrongColor,
-              height: 1.42,
-            ),
-            bodyMedium: baseTextTheme.bodyMedium?.copyWith(
-              color: textStrongColor,
-              height: 1.38,
-            ),
-            labelLarge: baseTextTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+      // Calm type scale: w700 for large headings, w600 for titles and
+      // labels, w400 for body copy with comfortable line height. A small
+      // negative tracking is kept only on the largest headings.
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: baseTextTheme.displayLarge?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+        displayMedium: baseTextTheme.displayMedium?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+        displaySmall: baseTextTheme.displaySmall?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+        headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+        headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.25,
+        ),
+        headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+        titleMedium: baseTextTheme.titleMedium?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+        titleSmall: baseTextTheme.titleSmall?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w400,
+          height: 1.5,
+        ),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+          color: textStrongColor,
+          fontWeight: FontWeight.w400,
+          height: 1.45,
+        ),
+        bodySmall: baseTextTheme.bodySmall?.copyWith(
+          color: textMutedColor,
+          fontWeight: FontWeight.w400,
+          height: 1.4,
+        ),
+        labelLarge: baseTextTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: baseTextTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        labelSmall: baseTextTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: pageColor,
         foregroundColor: textStrongColor,
@@ -151,13 +282,14 @@ class KoomTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        titleSpacing: 18,
+        titleSpacing: KoomSpacing.lg,
         toolbarHeight: 64,
         titleTextStyle: TextStyle(
           color: textStrongColor,
+          fontFamily: fontFamily,
           fontSize: 21,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.35,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.25,
         ),
         iconTheme: IconThemeData(color: textStrongColor),
       ),
@@ -168,7 +300,7 @@ class KoomTheme {
         margin: EdgeInsets.zero,
         shadowColor: shadow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: KoomRadii.lgAll,
           side: BorderSide(color: borderColor),
         ),
       ),
@@ -178,46 +310,51 @@ class KoomTheme {
           backgroundColor: surfaceSoftColor,
           disabledForegroundColor: textMutedColor.withValues(alpha: 0.55),
           disabledBackgroundColor: surfaceSoftColor.withValues(alpha: 0.55),
-          minimumSize: const Size(42, 42),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          // Material minimum touch target.
+          minimumSize: const Size(48, 48),
+          shape: roundedSm,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceSoftColor,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        labelStyle:
-            TextStyle(color: textMutedColor, fontWeight: FontWeight.w700),
-        floatingLabelStyle:
-            TextStyle(color: scheme.primary, fontWeight: FontWeight.w800),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: KoomSpacing.lg,
+          vertical: KoomSpacing.lg,
+        ),
+        labelStyle: TextStyle(
+          color: textMutedColor,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: scheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
         hintStyle: TextStyle(color: textMutedColor.withValues(alpha: 0.82)),
         prefixIconColor: textMutedColor,
         suffixIconColor: textMutedColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: borderColor),
         ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: borderColor.withValues(alpha: 0.65)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: scheme.primary, width: 1.7),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: scheme.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(17),
+          borderRadius: KoomRadii.smAll,
           borderSide: BorderSide(color: scheme.error, width: 1.7),
         ),
       ),
@@ -228,62 +365,94 @@ class KoomTheme {
           disabledBackgroundColor: scheme.primary.withValues(alpha: 0.32),
           disabledForegroundColor: Colors.white.withValues(alpha: 0.75),
           minimumSize: const Size(48, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          padding: const EdgeInsets.symmetric(
+            horizontal: KoomSpacing.xl,
+            vertical: KoomSpacing.md,
+          ),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
           elevation: 0,
-          shape: rounded16,
+          shape: roundedMd,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: scheme.primary,
-          minimumSize: const Size(44, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: KoomSpacing.lg,
+            vertical: KoomSpacing.md,
+          ),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontWeight: FontWeight.w600,
+          ),
           side: BorderSide(color: borderColor),
-          shape: rounded16,
+          shape: roundedMd,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: scheme.primary,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontWeight: FontWeight.w600,
+          ),
+          shape: roundedSm,
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: Colors.white,
-        elevation: 4,
-        focusElevation: 6,
-        highlightElevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: KoomElevation.low,
+        focusElevation: KoomElevation.low,
+        highlightElevation: KoomElevation.low,
+        shape: roundedMd,
       ),
       listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: KoomSpacing.lg,
+          vertical: KoomSpacing.xs,
+        ),
         iconColor: textMutedColor,
         textColor: textStrongColor,
         titleTextStyle: TextStyle(
           color: textStrongColor,
+          fontFamily: fontFamily,
           fontSize: 15,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
-        subtitleTextStyle: TextStyle(color: textMutedColor, height: 1.3),
-        shape: rounded18,
+        subtitleTextStyle: TextStyle(
+          color: textMutedColor,
+          fontFamily: fontFamily,
+          height: 1.4,
+        ),
+        shape: roundedMd,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: surfaceSoftColor,
         selectedColor: scheme.primary.withValues(alpha: dark ? 0.26 : 0.13),
         disabledColor: surfaceSoftColor.withValues(alpha: 0.5),
         side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        labelStyle:
-            TextStyle(color: textStrongColor, fontWeight: FontWeight.w800),
-        secondaryLabelStyle:
-            TextStyle(color: scheme.primary, fontWeight: FontWeight.w800),
+        shape: const RoundedRectangleBorder(borderRadius: KoomRadii.pillAll),
+        labelStyle: TextStyle(
+          color: textStrongColor,
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: TextStyle(
+          color: scheme.primary,
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+        ),
         showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        padding: const EdgeInsets.symmetric(
+          horizontal: KoomSpacing.sm,
+          vertical: KoomSpacing.sm,
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
@@ -297,59 +466,76 @@ class KoomTheme {
           }),
           side: WidgetStatePropertyAll(BorderSide(color: borderColor)),
           textStyle: const WidgetStatePropertyAll(
-            TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            TextStyle(
+              fontFamily: fontFamily,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
+          shape: WidgetStatePropertyAll(roundedSm),
           padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+            EdgeInsets.symmetric(
+              horizontal: KoomSpacing.md,
+              vertical: KoomSpacing.md,
+            ),
           ),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: surfaceColor,
         surfaceTintColor: Colors.transparent,
-        elevation: 12,
+        elevation: KoomElevation.high,
         shadowColor: shadow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: KoomRadii.mdAll,
           side: BorderSide(color: borderColor),
         ),
-        textStyle:
-            TextStyle(color: textStrongColor, fontWeight: FontWeight.w700),
+        textStyle: TextStyle(
+          color: textStrongColor,
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
-        elevation: 18,
+        elevation: KoomElevation.high,
         shadowColor: shadow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+        shape: roundedLg,
         titleTextStyle: TextStyle(
           color: textStrongColor,
+          fontFamily: fontFamily,
           fontSize: 21,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
         ),
-        contentTextStyle:
-            TextStyle(color: textMutedColor, fontSize: 15, height: 1.4),
+        contentTextStyle: TextStyle(
+          color: textMutedColor,
+          fontFamily: fontFamily,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          height: 1.45,
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surfaceColor,
         modalBackgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
-        modalElevation: 18,
-        elevation: 8,
+        modalElevation: KoomElevation.high,
+        elevation: KoomElevation.low,
         shadowColor: shadow,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(KoomRadii.lg),
+          ),
         ),
         dragHandleColor: textMutedColor.withValues(alpha: 0.36),
-        dragHandleSize: const Size(42, 5),
+        dragHandleSize: const Size(40, 4),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
-        elevation: 8,
+        elevation: KoomElevation.low,
         height: 72,
         indicatorColor: scheme.primary.withValues(alpha: dark ? 0.26 : 0.12),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -358,8 +544,9 @@ class KoomTheme {
             color: states.contains(WidgetState.selected)
                 ? scheme.primary
                 : textMutedColor,
+            fontFamily: fontFamily,
             fontSize: 11,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
@@ -376,8 +563,14 @@ class KoomTheme {
         indicatorColor: scheme.primary,
         labelColor: scheme.primary,
         unselectedLabelColor: textMutedColor,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800),
+        labelStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: scheme.primary,
@@ -389,16 +582,23 @@ class KoomTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: dark ? const Color(0xFF1A2B43) : lightTextStrong,
-        contentTextStyle:
-            const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        elevation: 10,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w500,
+        ),
+        elevation: KoomElevation.high,
+        shape: roundedSm,
       ),
       badgeTheme: BadgeThemeData(
         backgroundColor: scheme.primary,
         textColor: Colors.white,
         largeSize: 20,
-        textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+        textStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+        ),
       ),
       extensions: <ThemeExtension<dynamic>>[
         KoomColors(
@@ -411,6 +611,8 @@ class KoomTheme {
           chipBackground:
               dark ? const Color(0xFF193252) : const Color(0xFFEAF3FF),
           shadow: shadow,
+          danger: scheme.error,
+          onDanger: scheme.onError,
         ),
       ],
     );
@@ -427,6 +629,8 @@ class KoomColors extends ThemeExtension<KoomColors> {
     required this.textMuted,
     required this.chipBackground,
     required this.shadow,
+    required this.danger,
+    required this.onDanger,
   });
 
   final Color page;
@@ -438,6 +642,19 @@ class KoomColors extends ThemeExtension<KoomColors> {
   final Color chipBackground;
   final Color shadow;
 
+  /// The single destructive colour of the theme. Use this instead of
+  /// `Colors.red.*` for delete/block/report affordances.
+  final Color danger;
+
+  /// Readable foreground on top of [danger].
+  final Color onDanger;
+
+  /// Shadow for resting surfaces (cards, bars). See [KoomElevation].
+  List<BoxShadow> get shadowLow => KoomElevation.shadowLow(shadow);
+
+  /// Shadow for floating surfaces (dialogs, sheets). See [KoomElevation].
+  List<BoxShadow> get shadowHigh => KoomElevation.shadowHigh(shadow);
+
   @override
   KoomColors copyWith({
     Color? page,
@@ -448,6 +665,8 @@ class KoomColors extends ThemeExtension<KoomColors> {
     Color? textMuted,
     Color? chipBackground,
     Color? shadow,
+    Color? danger,
+    Color? onDanger,
   }) {
     return KoomColors(
       page: page ?? this.page,
@@ -458,6 +677,8 @@ class KoomColors extends ThemeExtension<KoomColors> {
       textMuted: textMuted ?? this.textMuted,
       chipBackground: chipBackground ?? this.chipBackground,
       shadow: shadow ?? this.shadow,
+      danger: danger ?? this.danger,
+      onDanger: onDanger ?? this.onDanger,
     );
   }
 
@@ -474,11 +695,12 @@ class KoomColors extends ThemeExtension<KoomColors> {
       chipBackground:
           Color.lerp(chipBackground, other.chipBackground, t) ?? chipBackground,
       shadow: Color.lerp(shadow, other.shadow, t) ?? shadow,
+      danger: Color.lerp(danger, other.danger, t) ?? danger,
+      onDanger: Color.lerp(onDanger, other.onDanger, t) ?? onDanger,
     );
   }
 }
 
 extension KoomThemeContext on BuildContext {
-  KoomColors get appColors =>
-      Theme.of(this).extension<KoomColors>()!;
+  KoomColors get appColors => Theme.of(this).extension<KoomColors>()!;
 }
