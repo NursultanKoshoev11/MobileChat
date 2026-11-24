@@ -20,7 +20,11 @@ class GroupStatisticsView extends StatefulWidget {
   State<GroupStatisticsView> createState() => _GroupStatisticsViewState();
 }
 
-class _GroupStatisticsViewState extends State<GroupStatisticsView> {
+class _GroupStatisticsViewState extends State<GroupStatisticsView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String period = 'month';
   String granularity = 'day';
   late Future<GroupStatistics> future;
@@ -54,6 +58,7 @@ class _GroupStatisticsViewState extends State<GroupStatisticsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final text = AppLanguageScope.textOf(context);
     return KoomPageBackground(
       key: const ValueKey('group_statistics_view'),

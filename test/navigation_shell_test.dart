@@ -253,4 +253,28 @@ void main() {
     expect(shellKey.currentState!.tab, KoomHomeTab.notifications);
     expect(find.text('Соседи'), findsOneWidget);
   });
+
+  testWidgets('an invitation carrying a group id still lands on notifications',
+      (tester) async {
+    final shellKey = GlobalKey<KoomHomeShellState>();
+    final api = _FakeHomeApi(
+      groups: [_group('G-1', 'Двор')],
+      invitations: [_invitation('I-1', 'Соседи')],
+    );
+
+    // The realtime envelope carries group_id for every event type, and for an
+    // invitation it names a group the user is not a member of yet.
+    await tester.pumpWidget(_harness(_shell(
+      shellKey: shellKey,
+      api: api,
+      initialPushData: const {
+        'type': 'invite.created',
+        'group_id': 'G-INVITED',
+      },
+    )));
+    await tester.pumpAndSettle();
+
+    expect(shellKey.currentState!.tab, KoomHomeTab.notifications);
+    expect(find.text('Соседи'), findsOneWidget);
+  });
 }

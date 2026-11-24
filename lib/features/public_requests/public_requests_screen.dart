@@ -63,8 +63,12 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
 
   late final PublicRequestsApi requestsApi;
   late final GroupRealtimeService realtime;
-  late final TabController _tabs;
+  TabController? _tabsController;
   int _tabIndex = 0;
+
+  /// Tab controller for the current tab set. Recreated when the user's rights
+  /// in this group change, because that adds or removes the moderation tab.
+  TabController get _tabs => _tabsController!;
   late ChatGroup currentGroup;
   final ImagePicker imagePicker = ImagePicker();
   final ScrollController _requestsScrollController = ScrollController();
@@ -94,9 +98,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
   void initState() {
     super.initState();
     currentGroup = widget.group;
-    _tabs = TabController(length: canModerate ? 4 : 3, vsync: this);
-    // The "new post" button belongs to the feed tab only.
-    _tabs.addListener(_handleTabChanged);
+    _syncTabController();
     _requestsScrollController.addListener(_handleRequestsScroll);
     requestsApi = widget.requestsApi ??
         PublicRequestsApi(
@@ -133,6 +135,43 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
     return false;
   }
 
+  /// Number of tabs for the current rights: feed, members, statistics and,
+  /// for users who may moderate, the moderation queue.
+  int get _tabCount => canModerate ? 4 : 3;
+
+  /// Creates the tab controller, or replaces it when [_tabCount] changed.
+  /// The replaced controller is still referenced by the TabBar and TabBarView
+  /// of the frame being built, so it is disposed after that frame.
+  void _syncTabController() {
+    final previous = _tabsController;
+    if (previous != null && previous.length == _tabCount) return;
+    final initialIndex =
+        previous == null ? 0 : previous.index.clamp(0, _tabCount - 1);
+    _tabsController = TabController(
+      length: _tabCount,
+      initialIndex: initialIndex,
+      vsync: this,
+    )..addListener(_handleTabChanged);
+    _tabIndex = initialIndex;
+    if (previous != null) {
+      previous.removeListener(_handleTabChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    }
+  }
+
+  /// Replaces the group this screen shows, keeping the tab set in step with
+  /// the rights the new payload reports.
+  void applyGroup(ChatGroup group) {
+    currentGroup = group;
+    _syncTabController();
+  }
+
+  @override
+  void didUpdateWidget(PublicRequestsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.group, widget.group)) applyGroup(widget.group);
+  }
+
   void _handleTabChanged() {
     // Only the selected tab matters here; a swipe also notifies on every
     // animation tick.
@@ -144,8 +183,8 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
   void dispose() {
     _refreshDebounce?.cancel();
     _markReadDebounce?.cancel();
-    _tabs.removeListener(_handleTabChanged);
-    _tabs.dispose();
+    _tabsController?.removeListener(_handleTabChanged);
+    _tabsController?.dispose();
     _requestsScrollController.removeListener(_handleRequestsScroll);
     _requestsScrollController.dispose();
     realtime.close();
@@ -169,7 +208,7 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
         if (payload is Map<String, dynamic>) {
           final avatarData = payload['avatar_data'] as String? ?? '';
           setState(() {
-            currentGroup = currentGroup.copyWith(avatarData: avatarData);
+            applyGroup(currentGroup.copyWith(avatarData: avatarData));
           });
         }
         break;
@@ -1005,10 +1044,18 @@ class _PublicRequestsScreenState extends State<PublicRequestsScreen>
       );
       if (!mounted) return;
       setState(() {
-        currentGroup = updated.copyWith(
+        applyGroup(updated.copyWith(
           unreadPublicRequestCount: currentGroup.unreadPublicRequestCount,
           qrPass: currentGroup.qrPass,
-        );
+          myRole: updated.myRole ?? currentGroup.myRole,
+          memberCount: updated.memberCount > 0
+              ? updated.memberCount
+              : currentGroup.memberCount,
+          inviteCode: updated.inviteCode ?? currentGroup.inviteCode,
+          ownerId: updated.ownerId.isEmpty
+              ? currentGroup.ownerId
+              : updated.ownerId,
+        ));
         updatingGroupPhoto = false;
       });
       showAppSnack(

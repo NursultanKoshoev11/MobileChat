@@ -19,7 +19,7 @@ UserProfile _user() => UserProfile(
       role: 'user',
     );
 
-ChatGroup _group(String myRole) => ChatGroup.fromJson({
+ChatGroup _group(String? myRole) => ChatGroup.fromJson({
       'id': 'G-1',
       'title': 'Двор',
       'visibility': 'private',
@@ -122,7 +122,7 @@ Widget _harness(Widget child) => AppAppearanceScope(
       ),
     );
 
-Widget _screen(String myRole, {int moderationCount = 0}) =>
+Widget _screen(String? myRole, {int moderationCount = 0}) =>
     PublicRequestsScreen(
       api: _FakeApi(),
       user: _user(),
@@ -169,6 +169,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Нурлан'), findsOneWidget);
+  });
+
+  testWidgets('a group update that drops my role shrinks the tab set',
+      (tester) async {
+    final api = _FakeApi();
+    final requestsApi = _FakeRequestsApi(moderationCount: 2);
+    final realtime = _NoopRealtime();
+
+    Widget screen(String? myRole) => _harness(PublicRequestsScreen(
+          api: api,
+          user: _user(),
+          group: _group(myRole),
+          requestsApi: requestsApi,
+          realtime: realtime,
+        ));
+
+    await tester.pumpWidget(screen('owner'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Tab), findsNWidgets(4));
+
+    // Select the last tab, so a shorter tab set has to move the selection too.
+    await tester.tap(find.text('Модерация'));
+    await tester.pumpAndSettle();
+
+    // A group payload without my_role (a partial response, or rights that
+    // were taken away) must not leave the controller and the tabs disagreeing.
+    await tester.pumpWidget(screen(null));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Tab), findsNWidgets(3));
+    expect(find.text('Модерация'), findsNothing);
+    expect(
+      tester.widget<TabBar>(find.byKey(const ValueKey('group_tab_bar'))).tabs,
+      hasLength(3),
+    );
   });
 
   testWidgets('the new-post button only belongs to the feed tab',

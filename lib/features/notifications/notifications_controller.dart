@@ -87,16 +87,20 @@ class KoomNotificationsController extends ChangeNotifier {
     }
   }
 
-  /// Pull-to-refresh: invitations and the group list behind the unread entries.
+  /// Pull-to-refresh: invitations and the group list behind the unread
+  /// entries. [groupsRefresher] reloads invitations as part of refreshing the
+  /// groups tab, so going through it keeps this to one request per endpoint.
   Future<void> refresh() async {
-    await Future.wait<void>([load(silent: true), _refreshGroups()]);
-  }
-
-  Future<void> _refreshGroups() async {
+    final refreshGroups = groupsRefresher;
+    if (refreshGroups == null) {
+      await load(silent: true);
+      return;
+    }
     try {
-      await groupsRefresher?.call();
+      await refreshGroups();
     } catch (_) {
-      // The invitations half of the refresh still shows its own result.
+      // Fall back to the invitations this tab can refresh on its own.
+      await load(silent: true);
     }
   }
 

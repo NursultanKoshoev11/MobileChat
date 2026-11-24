@@ -26,7 +26,11 @@ class GroupMembersView extends StatefulWidget {
   State<GroupMembersView> createState() => _GroupMembersViewState();
 }
 
-class _GroupMembersViewState extends State<GroupMembersView> {
+class _GroupMembersViewState extends State<GroupMembersView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late Future<List<GroupMember>> membersFuture;
   final Set<String> _removing = <String>{};
 
@@ -103,6 +107,7 @@ class _GroupMembersViewState extends State<GroupMembersView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final text = AppLanguageScope.textOf(context);
     return KoomPageBackground(
       child: RefreshIndicator(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/appearance.dart';
@@ -43,13 +45,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() {});
     final accepted =
         await acceptGroupInvitation(context, widget.api, invitation);
-    if (accepted) {
-      widget.controller.removeInvitation(invitation.id);
-      // Joining a group changes the group list behind the unread entries.
-      await widget.controller.refresh();
-    }
-    if (!mounted) return;
-    setState(() => _busyInvitations.remove(invitation.id));
+    // Stop the spinner as soon as the server answered: the group-list refresh
+    // below is a second round trip the button should not wait for.
+    if (!_release(invitation.id) || !accepted) return;
+    widget.controller.removeInvitation(invitation.id);
+    // Joining a group changes the group list behind the unread entries.
+    unawaited(widget.controller.refresh());
   }
 
   Future<void> _decline(GroupInvitation invitation) async {
@@ -57,9 +58,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() {});
     final declined =
         await declineGroupInvitation(context, widget.api, invitation);
-    if (declined) widget.controller.removeInvitation(invitation.id);
-    if (!mounted) return;
-    setState(() => _busyInvitations.remove(invitation.id));
+    if (!_release(invitation.id) || !declined) return;
+    widget.controller.removeInvitation(invitation.id);
+  }
+
+  /// Clears the pending state of one invitation. Returns false once this
+  /// screen is gone, so callers stop there.
+  bool _release(String invitationId) {
+    if (!mounted) {
+      _busyInvitations.remove(invitationId);
+      return false;
+    }
+    setState(() => _busyInvitations.remove(invitationId));
+    return true;
   }
 
   @override

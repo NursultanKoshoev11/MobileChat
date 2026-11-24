@@ -31,11 +31,7 @@ class GroupsScreen extends StatefulWidget {
     super.key,
     required this.api,
     required this.session,
-    required this.onSessionChanged,
-    required this.onLogout,
-    required this.onAccountDeleted,
     required this.notifications,
-    this.onLogoutAllDevices,
     this.onShowGroupsTab,
     this.onShowNotificationsTab,
     this.userRealtime,
@@ -43,10 +39,6 @@ class GroupsScreen extends StatefulWidget {
   });
   final ApiClient api;
   final AppSession session;
-  final Future<void> Function(AppSession session) onSessionChanged;
-  final Future<void> Function() onLogout;
-  final Future<void> Function() onAccountDeleted;
-  final Future<void> Function()? onLogoutAllDevices;
 
   /// Shared store behind the notifications tab and its badge. This screen owns
   /// the group list, so it pushes every change into it.
@@ -181,16 +173,19 @@ class GroupsScreenState extends State<GroupsScreen> {
   void _handleOpenedPushData(Map<String, String> data) {
     if (!mounted) return;
     _handleForegroundPushData(data);
+    // The type decides the destination: an invitation envelope also carries
+    // the group_id of the group it invites to, and that group is one the user
+    // is not a member of yet, so it has no screen to open.
     final type = data['type'] ?? '';
-    final groupId = data['group_id']?.trim() ?? '';
-    if (groupId.isNotEmpty) {
-      // Group targets open a group screen from this tab, so show it first.
-      widget.onShowGroupsTab?.call();
-    } else if (type == 'invite.created' || type == 'invite.reviewed') {
+    if (type == 'invite.created' || type == 'invite.reviewed') {
       // An invitation has no screen of its own: it lives on the notifications
       // tab, where it can be accepted or declined.
       widget.onShowNotificationsTab?.call();
       return;
+    }
+    if ((data['group_id']?.trim() ?? '').isNotEmpty) {
+      // Group targets open a group screen from this tab, so show it first.
+      widget.onShowGroupsTab?.call();
     }
     _pendingOpenedPushData = Map<String, String>.from(data);
     unawaited(_openPendingNotificationTarget());

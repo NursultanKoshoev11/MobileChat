@@ -83,19 +83,19 @@ env:
 
 # Tabs inside the group: members and statistics.
 - extendedWaitUntil:
-    visible: "Участники"
+    visible: "(?s).*Участники.*"
     timeout: 15000
-- tapOn: "Участники"
+- tapOn: "(?s).*Участники.*"
 - extendedWaitUntil:
     visible: "(?s).*${DISPLAY_NAME}.*"
     timeout: 20000
 - takeScreenshot: 09_group_members
-- tapOn: "Статистика"
+- tapOn: "(?s).*Статистика.*"
 - extendedWaitUntil:
-    visible: "Месяц"
+    visible: "(?s).*Месяц.*"
     timeout: 30000
 - takeScreenshot: 10_group_statistics
-- tapOn: "Лента"
+- tapOn: "(?s).*Лента.*"
 - extendedWaitUntil:
     visible: "Новая публикация"
     timeout: 15000
@@ -105,14 +105,14 @@ env:
 - extendedWaitUntil:
     visible: "(?s).*${GROUP_TITLE}.*"
     timeout: 15000
-- tapOn: "Уведомления"
+- tapOn: "(?s).*Уведомления.*"
 - extendedWaitUntil:
-    visible: "Приглашения"
+    visible: "(?s).*Приглашения.*"
     timeout: 20000
 - takeScreenshot: 11_notifications
 
 # Profile tab of the bottom navigation.
-- tapOn: "Профиль"
+- tapOn: "(?s).*Профиль.*"
 - extendedWaitUntil:
     visible: "(?s).*Аккаунт.*"
     timeout: 15000
@@ -120,7 +120,7 @@ env:
 - takeScreenshot: 12_profile
 
 # App settings, reached from the groups tab.
-- tapOn: "Группы"
+- tapOn: "(?s).*Группы.*"
 - extendedWaitUntil:
     visible: "(?s).*${GROUP_TITLE}.*"
     timeout: 15000
@@ -131,11 +131,18 @@ env:
 - takeScreenshot: 13_settings
 - tapOn: "Закрыть"
 
-# Sign out, now an action on the profile tab.
-- tapOn: "Профиль"
+# Sign out, now an action near the bottom of the profile tab. The exact text
+# matters here: the substring form would also match the button right below it,
+# "Выйти на всех устройствах".
+- tapOn: "(?s).*Профиль.*"
 - extendedWaitUntil:
-    visible: "Выйти"
+    visible: "(?s).*Аккаунт.*"
     timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Выйти"
+    direction: DOWN
+    timeout: 20000
 - tapOn: "Выйти"
 - extendedWaitUntil:
     visible:

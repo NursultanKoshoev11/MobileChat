@@ -26,7 +26,11 @@ class GroupModerationView extends StatefulWidget {
   State<GroupModerationView> createState() => _GroupModerationViewState();
 }
 
-class _GroupModerationViewState extends State<GroupModerationView> {
+class _GroupModerationViewState extends State<GroupModerationView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late Future<List<ContentModerationItem>> itemsFuture;
   final Set<String> busyItemIds = <String>{};
   List<ContentModerationItem> cachedItems = const <ContentModerationItem>[];
@@ -89,10 +93,31 @@ class _GroupModerationViewState extends State<GroupModerationView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final text = AppLanguageScope.textOf(context);
     return KoomPageBackground(
       key: const ValueKey('group_moderation_view'),
-      child: RefreshIndicator(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              KoomSpacing.lg,
+              KoomSpacing.md,
+              KoomSpacing.sm,
+              0,
+            ),
+            child: KoomSectionTitle(
+              title: text.moderationQueueTitle,
+              trailing: IconButton(
+                key: const ValueKey('moderation_refresh'),
+                onPressed: refresh,
+                tooltip: text.refresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
           onRefresh: refresh,
           child: FutureBuilder<List<ContentModerationItem>>(
             future: itemsFuture,
@@ -172,6 +197,9 @@ class _GroupModerationViewState extends State<GroupModerationView> {
               );
             },
           ),
+            ),
+          ),
+        ],
       ),
     );
   }

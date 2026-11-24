@@ -79,6 +79,9 @@ class KoomHomeShellState extends State<KoomHomeShell> {
   /// restores its scroll position and its already loaded data.
   void selectTab(KoomHomeTab tab) {
     if (!mounted || _tab == tab) return;
+    // Hidden destinations stay mounted, so a focused field (the groups search
+    // box) would otherwise keep the keyboard up over the new tab.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _tab = tab);
   }
 
@@ -161,10 +164,6 @@ class KoomHomeShellState extends State<KoomHomeShell> {
         key: _groupsKey,
         api: widget.api,
         session: widget.session,
-        onSessionChanged: widget.onSessionChanged,
-        onLogout: widget.onLogout,
-        onAccountDeleted: widget.onAccountDeleted,
-        onLogoutAllDevices: widget.onLogoutAllDevices,
         notifications: notifications,
         onShowGroupsTab: () => selectTab(KoomHomeTab.groups),
         onShowNotificationsTab: () => selectTab(KoomHomeTab.notifications),
