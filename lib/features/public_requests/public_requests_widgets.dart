@@ -320,7 +320,7 @@ Uint8List? _decodePostPhoto(String value) {
 
 String _photoLabel(BuildContext context) {
   final text = AppLanguageScope.textOf(context);
-  return text.isKy ? 'Фото' : 'Фото';
+  return text.isKy ? 'Сүрөт' : 'Фото';
 }
 
 class _PostPhotoPreview extends StatelessWidget {
