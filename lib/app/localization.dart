@@ -111,8 +111,9 @@ class LanguageMenuButton extends StatelessWidget {
           .toList(),
       child: compact
           ? SizedBox(
-              width: 44,
-              height: 44,
+              // Material minimum touch target.
+              width: 48,
+              height: 48,
               child: Center(
                 child: Icon(
                   Icons.language_rounded,
@@ -209,6 +210,11 @@ class AppText {
   String get verifyAndContinue => isKy ? 'Кодду текшерүү' : 'Проверить код';
   String get changeMobileNumber => isKy ? 'Номерди өзгөртүү' : 'Изменить номер';
   String get codeRequired => isKy ? 'Кодду жазыңыз' : 'Введите код';
+  String get resendCode =>
+      isKy ? 'Кодду кайра жөнөтүү' : 'Отправить код заново';
+  String resendCodeIn(int seconds) => isKy
+      ? 'Кодду $seconds сек. кийин кайра жөнөтө аласыз'
+      : 'Отправить код заново можно через $seconds сек.';
   String get displayNameRequiredForNewAccount => isKy
       ? 'Жаңы аккаунт үчүн аты-жөнүңүздү жазыңыз'
       : 'Для нового аккаунта нужно указать имя';

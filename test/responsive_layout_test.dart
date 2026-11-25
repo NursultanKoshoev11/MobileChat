@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koom/app/appearance.dart';
 import 'package:koom/app/localization.dart';
 import 'package:koom/app/theme.dart';
+import 'package:koom/data/api_client.dart';
 import 'package:koom/data/public_request.dart';
+import 'package:koom/data/session_store.dart';
+import 'package:koom/features/auth/phone_auth_screen.dart';
 import 'package:koom/features/public_requests/public_request_media_screens.dart';
 import 'package:koom/shared/koom_ui.dart';
+
+class _SilentAuthApi extends ApiClient {
+  _SilentAuthApi()
+      : super(
+          baseUrl: 'https://koom.example',
+          sessionStore: const SessionStore(),
+        );
+
+  @override
+  Future<RequestCodeResult> requestPhoneCode(String mobile) async =>
+      RequestCodeResult.fromJson({'status': 'code_sent'});
+}
 
 Future<void> pumpAtSize(
   WidgetTester tester,
@@ -229,6 +245,76 @@ void main() {
     final rect = tester.getRect(find.byType(KoomStatusPill));
     expect(rect.width, lessThanOrEqualTo(280));
     expect(tester.takeException(), isNull);
+  });
+
+  // The sign-in screen is the one screen every user sees, and the first one
+  // they see at their own text size. Kyrgyz labels run longer than the
+  // Russian, so both languages are checked on a 320dp phone at scale 1.35,
+  // on the phone step and on the code step.
+  group('sign-in screen fits a small phone at a large text size', () {
+    const size = Size(320, 568);
+
+    for (final language in AppLanguage.values) {
+      for (final onCodeStep in const [false, true]) {
+        final label = '${language.name} '
+            '${onCodeStep ? 'code step' : 'phone step'}';
+        testWidgets('$label stays inside the viewport', (tester) async {
+          FlutterSecureStorage.setMockInitialValues({});
+          final controller = AppLanguageController();
+          controller.setLanguage(language);
+          addTearDown(controller.dispose);
+
+          await pumpAtSize(
+            tester,
+            size,
+            AppAppearanceScope(
+              controller: AppAppearanceController(),
+              child: AppLanguageScope(
+                controller: controller,
+                child: PhoneAuthScreen(
+                  api: _SilentAuthApi(),
+                  onAuthenticated: (_) async {},
+                ),
+              ),
+            ),
+            textScale: 1.35,
+          );
+
+          if (onCodeStep) {
+            await tester.enterText(
+              find.byKey(const ValueKey('auth_mobile_field')),
+              '700123456',
+            );
+            await tester.pump();
+            final terms = find.byKey(const ValueKey('terms_accept_checkbox'));
+            await tester.ensureVisible(terms);
+            await tester.tap(terms);
+            await tester.pump();
+            final submit = find.byKey(const ValueKey('auth_submit_button'));
+            await tester.ensureVisible(submit);
+            await tester.tap(submit);
+            await tester.pumpAndSettle();
+            expect(find.byKey(const ValueKey('auth_code_field')),
+                findsOneWidget);
+          }
+
+          expect(tester.takeException(), isNull);
+          // Nothing may be laid out past either screen edge, which catches a
+          // RenderFlex that clipped silently instead of throwing.
+          for (final element in find.byType(Text).evaluate()) {
+            final rect = tester.getRect(find.byElementPredicate(
+              (candidate) => candidate == element,
+            ));
+            expect(
+              rect.right,
+              lessThanOrEqualTo(size.width + 0.5),
+              reason: 'overflow in ${(element.widget as Text).data}',
+            );
+            expect(rect.left, greaterThanOrEqualTo(-0.5));
+          }
+        });
+      }
+    }
   });
 
   // The post card footer carries the vote total next to the comment link. Both
