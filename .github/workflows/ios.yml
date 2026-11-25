@@ -73,6 +73,15 @@ jobs:
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
 
+      - name: Install canonical KOOM iOS icon
+        run: |
+          SOURCE_ICON_SET="assets/ios_app_icon/AppIcon.appiconset"
+          TARGET_ICON_SET="ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          test -f "$SOURCE_ICON_SET/Contents.json"
+          test -f "$SOURCE_ICON_SET/Icon-App-1024x1024@1x.png"
+          mkdir -p "$TARGET_ICON_SET"
+          cp -R "$SOURCE_ICON_SET/." "$TARGET_ICON_SET/"
+
       - name: Build unsigned iPhone app
         env:
           API_BASE_URL_INPUT: ${{ github.event.inputs.api_base_url }}
@@ -351,6 +360,16 @@ jobs:
       - name: Generate launcher icons
         if: steps.signing.outputs.ready == 'true'
         run: dart run flutter_launcher_icons
+
+      - name: Install canonical KOOM iOS icon
+        if: steps.signing.outputs.ready == 'true'
+        run: |
+          SOURCE_ICON_SET="assets/ios_app_icon/AppIcon.appiconset"
+          TARGET_ICON_SET="ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          test -f "$SOURCE_ICON_SET/Contents.json"
+          test -f "$SOURCE_ICON_SET/Icon-App-1024x1024@1x.png"
+          mkdir -p "$TARGET_ICON_SET"
+          cp -R "$SOURCE_ICON_SET/." "$TARGET_ICON_SET/"
 
       - name: Build signed IPA
         if: steps.signing.outputs.ready == 'true'
