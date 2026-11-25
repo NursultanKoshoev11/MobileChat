@@ -36,6 +36,8 @@ void main() {
         text.verifyAndContinue,
         text.changeMobileNumber,
         text.codeRequired,
+        text.resendCode,
+        text.resendCodeIn(45),
         text.displayNameRequiredForNewAccount,
         text.existingAccountHint,
         text.newAccountHint,
@@ -219,6 +221,8 @@ void main() {
         ky.groupsSearchEmptyMessage
       ],
       'allFilter': [ru.allFilter, ky.allFilter],
+      'resendCode': [ru.resendCode, ky.resendCode],
+      'resendCodeIn': [ru.resendCodeIn(45), ky.resendCodeIn(45)],
       'noNotificationsTitle': [
         ru.noNotificationsTitle,
         ky.noNotificationsTitle
