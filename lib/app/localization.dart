@@ -218,6 +218,15 @@ class AppText {
   String get displayNameRequiredForNewAccount => isKy
       ? 'Жаңы аккаунт үчүн аты-жөнүңүздү жазыңыз'
       : 'Для нового аккаунта нужно указать имя';
+  String get displayNameLengthInvalid => isKy
+      ? 'Аты-жөнү 2ден 40ка чейин тамга болушу керек'
+      : 'Имя должно содержать от 2 до 40 символов';
+  String get profileNameLabel => isKy ? 'Аты-жөнү' : 'Имя';
+  String get editProfileName => isKy ? 'Атын өзгөртүү' : 'Изменить имя';
+  String get saveChanges => isKy ? 'Сактоо' : 'Сохранить';
+  String get profileNameUpdated => isKy
+      ? 'Аты-жөнү жаңыртылды.'
+      : 'Имя профиля обновлено.';
   String get existingAccountHint => isKy
       ? 'Аккаунт табылды. Кодду гана жазыңыз.'
       : 'Аккаунт найден. Введите только код.';

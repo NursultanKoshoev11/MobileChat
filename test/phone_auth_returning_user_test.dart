@@ -96,6 +96,7 @@ void main() {
 
     expect(api.verifiedNames, ['']);
     expect(sessions, hasLength(1));
+    expect(find.byKey(const ValueKey('auth_display_name_field')), findsNothing);
     expect(find.text('Для нового аккаунта нужно указать имя'), findsNothing);
   });
 
@@ -109,19 +110,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sessions, isEmpty);
+    expect(find.byKey(const ValueKey('auth_display_name_field')), findsOneWidget);
     expect(find.text('Для нового аккаунта нужно указать имя'), findsOneWidget);
   });
 
   testWidgets('a one-letter name is still rejected locally', (tester) async {
     final api = _FakeAuthApi();
     final sessions = <AppSession>[];
-    await _enterCode(tester, api, '700123456', sessions);
+    await _enterCode(tester, api, '700123999', sessions);
+    await tester.tap(find.byKey(const ValueKey('auth_submit_button')));
+    await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const ValueKey('auth_display_name_field')), 'A');
     await tester.tap(find.byKey(const ValueKey('auth_submit_button')));
     await tester.pumpAndSettle();
 
-    expect(api.verifiedNames, isEmpty);
-    expect(find.text('Для нового аккаунта нужно указать имя'), findsOneWidget);
+    expect(api.verifiedNames, ['']);
+    expect(find.text('Имя должно содержать от 2 до 40 символов'), findsOneWidget);
   });
 }

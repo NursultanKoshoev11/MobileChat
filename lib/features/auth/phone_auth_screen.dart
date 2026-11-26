@@ -83,7 +83,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final displayNameController = TextEditingController();
 
   bool codeWasSent = false;
-  bool accountExists = false;
+  // Do not reveal whether the number is registered. Ask for a name only after
+  // verification confirms that this is a new account.
+  bool needsDisplayName = false;
   bool loading = false;
   bool termsAccepted = false;
   String? error;
@@ -196,17 +198,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     setState(() {
       loading = true;
       error = null;
-      if (!resend) accountExists = false;
+      if (!resend) needsDisplayName = false;
     });
     await _rememberTermsAcceptance();
     try {
-      final result = await widget.api.requestPhoneCode(number);
+      await widget.api.requestPhoneCode(number);
       if (!mounted) return;
       (_codeRequests[number] ??= <DateTime>[]).add(widget.clock());
       setState(() {
         codeWasSent = true;
-        accountExists = result.accountExists;
-        if (result.accountExists) displayNameController.clear();
         // The previous code stops working once a new one is out.
         if (resend) codeController.clear();
       });
@@ -237,14 +237,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       });
       return;
     }
-    // The server no longer reports whether the number already has an account
-    // (that would let anyone enumerate registered numbers), so accountExists
-    // stays false for returning users too. Only reject a name that is present
-    // but too short; an empty name is fine for returning users, and the
-    // server answers "display_name is required for new account" otherwise.
     final displayName = displayNameController.text.trim();
-    if (!accountExists && displayName.isNotEmpty && displayName.length < 2) {
-      setState(() => error = text.displayNameRequiredForNewAccount);
+    if (needsDisplayName &&
+        (displayName.runes.length < 2 || displayName.runes.length > 40)) {
+      setState(() => error = text.displayNameLengthInvalid);
       return;
     }
     setState(() {
@@ -255,17 +251,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       final session = await widget.api.verifyPhoneCode(
         mobile: _fullMobileNumber,
         code: code,
-        displayName: accountExists ? '' : displayNameController.text.trim(),
+        displayName: needsDisplayName ? displayName : '',
       );
       if (mounted) setState(_stopResendCountdown);
       await widget.onAuthenticated(session);
     } catch (e) {
       if (!mounted) return;
       final message = e.toString();
+      final requiresName =
+          message.contains('display_name is required for new account');
       setState(() {
-        error = message.contains('display_name is required')
+        if (requiresName) needsDisplayName = true;
+        error = requiresName
             ? text.displayNameRequiredForNewAccount
-            : message;
+            : localizedMessage(context, message);
       });
     } finally {
       if (mounted) setState(() => loading = false);
@@ -276,8 +275,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     setState(() {
       _stopResendCountdown();
       codeWasSent = false;
-      accountExists = false;
+      needsDisplayName = false;
       codeController.clear();
+      displayNameController.clear();
       error = null;
     });
   }
@@ -385,7 +385,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                             codeController: codeController,
                                             displayNameController:
                                                 displayNameController,
-                                            accountExists: accountExists,
+                                            needsDisplayName: needsDisplayName,
                                             loading: loading,
                                             resendSecondsLeft:
                                                 resendSecondsLeft,
@@ -564,7 +564,7 @@ class _CodeFields extends StatelessWidget {
     super.key,
     required this.codeController,
     required this.displayNameController,
-    required this.accountExists,
+    required this.needsDisplayName,
     required this.loading,
     required this.resendSecondsLeft,
     required this.onResend,
@@ -573,7 +573,7 @@ class _CodeFields extends StatelessWidget {
 
   final TextEditingController codeController;
   final TextEditingController displayNameController;
-  final bool accountExists;
+  final bool needsDisplayName;
   final bool loading;
   final int resendSecondsLeft;
   final VoidCallback onResend;
@@ -586,10 +586,7 @@ class _CodeFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InfoBanner(
-          message:
-              accountExists ? text.existingAccountHint : text.newAccountHint,
-        ),
+        InfoBanner(message: text.newAccountHint),
         const SizedBox(height: KoomSpacing.md),
         Semantics(
           identifier: 'auth_code_field',
@@ -621,7 +618,7 @@ class _CodeFields extends StatelessWidget {
           enabled: !loading,
           onResend: onResend,
         ),
-        if (!accountExists) ...[
+        if (needsDisplayName) ...[
           const SizedBox(height: KoomSpacing.md),
           Semantics(
             identifier: 'auth_display_name_field',
@@ -632,6 +629,7 @@ class _CodeFields extends StatelessWidget {
               enabled: !loading,
               textCapitalization: TextCapitalization.words,
               autofillHints: const [AutofillHints.name],
+              maxLength: 40,
               decoration: InputDecoration(
                 labelText: text.displayNameNewOnly,
                 prefixIcon: const Icon(Icons.person_outline_rounded),
