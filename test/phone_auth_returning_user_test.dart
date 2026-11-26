@@ -126,6 +126,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.verifiedNames, ['']);
-    expect(find.text('Для нового аккаунта нужно указать имя'), findsOneWidget);
+    expect(find.text('Имя должно содержать от 2 до 40 символов'), findsOneWidget);
   });
 }
