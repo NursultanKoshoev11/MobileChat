@@ -177,6 +177,15 @@ class ApiClient with SafetyEndpoints {
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
+  Future<UserProfile> updateMyDisplayName(String displayName) async {
+    final response = await _request(
+      'PUT',
+      '/api/me/profile',
+      body: {'display_name': displayName},
+    );
+    return UserProfile.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<void> registerPushToken({required String token, required String platform}) async {
     await _post('/api/push/register', {'token': token, 'platform': platform});
   }

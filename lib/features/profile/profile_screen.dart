@@ -49,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker imagePicker = ImagePicker();
   late UserProfile user;
   bool updatingPhoto = false;
+  bool updatingName = false;
   bool deletingAccount = false;
   bool loggingOutEverywhere = false;
   bool loggingOut = false;
@@ -137,6 +138,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => updatingPhoto = false);
       showAppSnack(context, localizedMessage(context, error.toString()));
+    }
+  }
+
+  Future<void> changeName() async {
+    if (updatingName) return;
+    final text = AppLanguageScope.textOf(context);
+    final controller = TextEditingController(text: user.displayName);
+    String? validationError;
+    final displayName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(text.editProfileName),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            maxLength: 40,
+            decoration: InputDecoration(
+              labelText: text.profileNameLabel,
+              errorText: validationError,
+            ),
+            onChanged: (_) {
+              if (validationError != null) {
+                setDialogState(() => validationError = null);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(text.cancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.runes.length < 2 || value.runes.length > 40) {
+                  setDialogState(
+                    () => validationError = text.displayNameLengthInvalid,
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, value);
+              },
+              child: Text(text.saveChanges),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (displayName == null || !mounted) return;
+    if (displayName == user.displayName.trim()) return;
+
+    setState(() => updatingName = true);
+    try {
+      final updated = await widget.api.updateMyDisplayName(displayName);
+      if (!mounted) return;
+      setState(() {
+        user = updated;
+        updatingName = false;
+      });
+      await widget.onUserChanged?.call(updated);
+      if (!mounted) return;
+      showAppSnack(context, text.profileNameUpdated);
+    } catch (error) {
+      if (!mounted) return;
+      showAppSnack(context, localizedMessage(context, error.toString()));
+    } finally {
+      if (mounted) setState(() => updatingName = false);
     }
   }
 
@@ -317,6 +388,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     label: Text(
                       text.isKy ? 'Сүрөттү өзгөртүү' : 'Изменить фото',
                     ),
+                  ),
+                  TextButton.icon(
+                    onPressed: updatingName ? null : changeName,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                    ),
+                    icon: updatingName
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(text.editProfileName),
                   ),
                 ],
               ),
